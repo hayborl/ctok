@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="common.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="examplarset.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="icp.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="kdtree.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="kdtreenode.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="abstracticp.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="emcip.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="kdtreenode.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="kdtree.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="icp.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="examplarset.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="abstracticp.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="emicp.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="head files">
+      <UniqueIdentifier>{9cd712fa-fb99-4c12-ae53-b5a193a7b0d9}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="src files">
+      <UniqueIdentifier>{b94a4aac-8f55-4162-8244-91a627762b06}</UniqueIdentifier>
+      <Extensions>cpp;c</Extensions>
+    </Filter>
+    <Filter Include="cuda files">
+      <UniqueIdentifier>{557e7c62-4894-4296-859e-3cf6a0e0a666}</UniqueIdentifier>
+      <Extensions>cu;cuh</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="icp.cu">
+      <Filter>cuda files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="common.cu">
+      <Filter>cuda files</Filter>
+    </CudaCompile>
+  </ItemGroup>
+</Project>

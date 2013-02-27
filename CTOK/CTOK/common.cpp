@@ -1,10 +1,7 @@
 #include "cuda_runtime.h"
 
-#include "opencv2/gpu/gpu.hpp"
 #include "opencv2/nonfree/nonfree.hpp"
 #include "common.h"
-
-using namespace gpu; 
 
 bool hasCuda = true;
 

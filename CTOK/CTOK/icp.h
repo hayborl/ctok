@@ -15,7 +15,8 @@ public:
 	ICP(const Mat &objSet, const Mat &modSet, 
 		int iterMax = 50, double epsilon = 1e-6);
 
-	void run(Mat* initObjSet = NULL);	// 运行ICP算法
+	void run(Mat* initObjSet = NULL);		// 运行ICP算法
+	void cuda_run(Mat* initObjSet = NULL);
 
 	// 获取对应点的方法
 	// BASIC：直接遍历；KDTREE：构建KDTree；POINT_TO_PLANE：点到面
@@ -32,11 +33,7 @@ private:
 	Mat getClosestPointsSet(const Mat &objSet, double &d,
 		Mat &lambda, Method method = KDTREE);					// 计算固定点云集中与目标点云最近的点云及其权重
 
-	void createKDTree();										// 创建KDTree
-
-	// computeTransformation的子步骤，用cuda加速
-	void cuda_computeTransformation(const Mat &closest, char* weights, 
-		Mat* ccMatrix, Mat* meanMatObj, Mat* meanMatMod);						
+	void createKDTree();										// 创建KDTree						
 };
 
 // 将存放点云数据的Mat转换成ExamplarSet供KDTree使用

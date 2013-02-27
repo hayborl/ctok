@@ -36,23 +36,78 @@ void EMICP::run(Mat* initObjSet)
 		Mat T(3, 1, CV_32FC1, tempT);
 
 		Mat A(rowsA, colsA, CV_32FC1);
-		updateA(A, objSet, R, T);
+		RUNANDTIME(global_timer, updateA(A, objSet, R, T),
+			OUTPUT && SUBOUTPUT, "update A Matrix");
 
 		Mat C = Mat::ones(rowsA, 1, CV_32FC1);
 		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
 		float alpha = expf(-m_d_02 / m_sigma_p2);
 		C = C * alpha + A * ones;
-		normalizeRows(A, C);
+		RUNANDTIME(global_timer, normalizeRows(A, C), 
+			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
 		Mat tmpM = A.clone();
 		sqrt(tmpM, A);
 
 		Mat lambda = A * ones;
 		Mat modSetPrime = A * modSet;
-		normalizeRows(modSetPrime, lambda);
+		RUNANDTIME(global_timer, normalizeRows(modSetPrime, lambda),
+			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
 
 		Mat tmpObjSet = convertMat(objSet);
-		tr = computeTransformation(tmpObjSet, modSetPrime, lambda);
-		objSet = transformPoint(tr).clone();
+		RUNANDTIME(global_timer, tr = 
+			computeTransformation(tmpObjSet, modSetPrime, lambda),
+			OUTPUT && SUBOUTPUT, "compute transformation");
+		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(),
+			OUTPUT && SUBOUTPUT, "transform points");
+
+		m_sigma_p2 *= m_sigma_factor;
+	}
+	m_tr = tr;
+	m_tr.t *= 1000.0f;
+}
+
+void EMICP::cuda_run(Mat* initObjSet)
+{
+	int rowsA = m_objSet.rows;
+	int colsA = m_modSet.rows;
+	Mat objSet = m_objSet.clone();
+	Mat modSet = convertMat(m_modSet);
+	Transformation tr;
+	tr.q = Vec4f(1, 0, 0, 0);
+	tr.t = Vec3f(0, 0, 0);
+
+	while (m_sigma_p2 > m_sigma_inf)
+	{
+		float tempR[9], tempT[3];
+		getRotateMatrix(tr.q, tempR);
+		Mat R(3, 3, CV_32FC1, tempR);
+		memcpy(tempT, m_tr.t.val, 3 * sizeof(float));
+		Mat T(3, 1, CV_32FC1, tempT);
+
+		Mat A(rowsA, colsA, CV_32FC1);
+		RUNANDTIME(global_timer, updateA(A, objSet, R, T),
+			OUTPUT && SUBOUTPUT, "update A Matrix");
+
+		Mat C = Mat::ones(rowsA, 1, CV_32FC1);
+		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
+		float alpha = expf(-m_d_02 / m_sigma_p2);
+		C = C * alpha + A * ones;
+		RUNANDTIME(global_timer, normalizeRows(A, C), 
+			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
+		Mat tmpM = A.clone();
+		sqrt(tmpM, A);
+
+		Mat lambda = A * ones;
+		Mat modSetPrime = A * modSet;
+		RUNANDTIME(global_timer, normalizeRows(modSetPrime, lambda),
+			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
+
+		Mat tmpObjSet = convertMat(objSet);
+		RUNANDTIME(global_timer, tr = 
+			cuda_computeTransformation(tmpObjSet, modSetPrime, lambda),
+			OUTPUT && SUBOUTPUT, "compute transformation");
+		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(),
+			OUTPUT && SUBOUTPUT, "transform points");
 
 		m_sigma_p2 *= m_sigma_factor;
 	}

@@ -1,7 +1,5 @@
 #include "icp.h"
 
-#define SUBOUTPUT false
-
 using namespace KDTree_R;
 
 KDTree_R::ExamplarSet convertMatToExmSet( const Mat &mat )
@@ -98,6 +96,44 @@ void ICP::run(Mat* initObjSet)
 /*	waitKey();*/
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
+}
+
+void ICP::cuda_run(Mat* initObjSet)
+{
+	assert(!m_objSet.empty() && !m_modSet.empty());
+
+	double d_pre = 100000, d_now = 100000;
+	int iterCnt = 0;
+
+	Mat objSet = initObjSet->clone();
+	Transformation tr;
+
+	/*	plotTwoPoint3DSet(objSet, m_modSet);*/
+
+	do 
+	{
+		d_pre = d_now;
+
+		Mat closestSet;
+		Mat lambda(objSet.rows, 1, CV_32FC1);
+		RUNANDTIME(global_timer, closestSet = 
+			getClosestPointsSet(objSet, d_now, lambda, KDTREE).clone(), 
+			OUTPUT && SUBOUTPUT, "compute closest points.");
+		Mat tmpObjSet = convertMat(m_objSet);
+		Mat tmpModSet = convertMat(closestSet);
+		RUNANDTIME(global_timer, tr = 
+			cuda_computeTransformation(tmpObjSet, tmpModSet, lambda), 
+			OUTPUT && SUBOUTPUT, "compute transformation");
+		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(), 
+			OUTPUT && SUBOUTPUT, "transform points.");
+
+		iterCnt++;
+	} while (fabs(d_now - d_pre) > m_epsilon && iterCnt <= m_iterMax);
+	m_tr = tr;
+
+	/*	waitKey();*/
+
+	/*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }
 
 Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,

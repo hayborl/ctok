@@ -1,6 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include "opencv2/gpu/gpu.hpp"
 #include "opencv2/opencv.hpp"
 #include "XnCppWrapper.h"
 #include <stdio.h>
@@ -12,6 +13,7 @@
 
 using namespace cv;
 using namespace std;
+using namespace gpu; 
 
 #define EXTERN_C extern "C"
 

@@ -3,14 +3,17 @@
 
 #include "common.h"
 
+#define SUBOUTPUT false
+
 class AbstractICP
 {
 public:
 	AbstractICP(){}
 	~AbstractICP(){}
 
-	Mat getTransformMat();							// 得到变换矩阵
-	virtual void run(Mat* initObjSet = NULL){};// 运行ICP算法
+	Mat getTransformMat();								// 得到变换矩阵
+	virtual void run(Mat* initObjSet = NULL){};		// 运行ICP算法
+	virtual void cuda_run(Mat* initObjSet = NULL){};	// 用cuda加速运行
 
 protected:
 	Mat m_objSet;				// 待配准的点云
@@ -20,6 +23,9 @@ protected:
 	Transformation computeTransformation(const Mat &objSet, 
 		const Mat &modSet, const Mat &lambda);						// 根据固定点云集与待配准的点云计算变换向量
 	Mat transformPoint(const Transformation &transformation);		// 将变换应用到配准点集上
+
+	Transformation cuda_computeTransformation(const Mat &objSet,
+		const Mat &modSet, const Mat &lambda);						// 使用cuda来计算变换矩阵
 };
 
 #endif

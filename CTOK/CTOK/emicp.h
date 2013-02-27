@@ -14,6 +14,7 @@ public:
 	~EMICP(){}
 
 	void run(Mat* initObjSet = NULL);		// ‘À––ICPÀ„∑®
+	void cuda_run(Mat* initObjSet = NULL);
 
 private:
 	float m_sigma_p2;			// square(sigma_p)

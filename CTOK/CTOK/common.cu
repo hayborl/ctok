@@ -168,6 +168,8 @@ void cuda_transform(const float* p, int count, const float* R,
 EXTERN_C void cuda_transformPointCloud(Mat input, 
 	Mat* output, Mat transformMat)
 {
+	*output = Mat(input.rows, input.cols, input.type());
+
 	int rows = input.rows;
 	int size = rows * 3;
 	float* p = new float[size];
@@ -186,3 +188,63 @@ EXTERN_C void cuda_transformPointCloud(Mat input,
 	delete[] p;
 	delete[] res;
 }
+
+// __global__ void kernelTransform(PtrStepSz<float> d_p, 
+// 	PtrStepSz<float> d_R, PtrStepSz<float> d_T, PtrStepSz<float> d_res)
+// {
+// 	int i = blockIdx.x * blockDim.x + threadIdx.x;
+// 
+// #define arrR(r, c) d_R.ptr(r)[c]
+// #define arrT(r) d_T.ptr(r)[0]
+// #define pt(r, c) d_p.ptr(r)[c]
+// #define rp(r, c) d_res.ptr(r)[c]
+// 
+// 	if (i < d_p.rows)
+// 	{
+// 		for (int j = 0; j < 3; j++)
+// 		{
+// 			rp(i, j) = arrR(j, 0) * pt(i, 0) 
+// 				+ arrR(j, 1) * pt(i, 1) 
+// 				+ arrR(j, 2) * pt(i, 2) + arrT(j);
+// 		}
+// 	}
+// }
+// 
+// EXTERN_C void cuda_transformPointCloud(Mat input, 
+// 	Mat* output, Mat transformMat)
+// {
+// 	*output = Mat(input.rows, input.cols, input.type());
+// 	Mat h_p = convertMat(input);
+// 	int rows = input.rows;
+// 
+// 	GpuMat d_p, d_res(rows, 3, CV_32FC1);
+// 	d_p.upload(input);
+// 
+// 	Mat h_R = transformMat(Rect(0, 0, 3, 3)).clone();
+// 	Mat h_T = transformMat(Rect(3, 0, 1, 3)).clone();
+// 	GpuMat d_R, d_T;
+// 	d_R.upload(h_R);
+// 	d_T.upload(h_T);
+// 
+// 	kernelTransform<<<rows / BLOCK_SIZE + 1, BLOCK_SIZE>>>
+// 		(d_p, d_R, d_T, d_res);
+// 
+// 	Mat h_res;
+// 	d_res.download(h_res);
+// 
+// 	Mat* subs = new Mat[output->channels()];
+// 
+// #pragma omp parallel for
+// 	for (int i = 0; i < output->channels(); i++)
+// 	{
+// 		Mat tmp = h_res(Rect(i, 0, 1, output->rows)).clone();
+// 		tmp.copyTo(subs[i]);
+// 	}
+// 
+// 	merge(subs, 3, *output);
+// 
+// 	d_p.release();
+// 	d_R.release();
+// 	d_T.release();
+// 	d_res.release();
+// }

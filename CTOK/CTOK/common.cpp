@@ -120,7 +120,8 @@ Mat convertMat( const Mat &mat )
 
 void transformPointCloud(Mat input, Mat* output, Mat transformMat)
 {
-	*output = input.clone();
+	*output = Mat(input.rows, input.cols, input.type());
+
 	Mat R = transformMat(Rect(0, 0, 3, 3));
 	Mat T = transformMat(Rect(3, 0, 1, 3));
 	Mat tmp = input.clone();

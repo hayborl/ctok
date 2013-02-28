@@ -110,7 +110,7 @@ Transformation AbstractICP::cuda_computeTransformation(
 	assert(objSet.rows == modSet.rows && objSet.rows == lambda.rows);
 	int rows = objSet.rows;
 
-	Mat ones = Mat::ones(rows, 3, CV_32FC1);
+	Mat ones = Mat::ones(3, 1, CV_32FC1);
 	Mat ones33 = Mat::ones(3, 3, CV_32FC1);
 	GpuMat gpuOnes, gpuOnes33;
 	gpuOnes.upload(ones);
@@ -138,7 +138,7 @@ Transformation AbstractICP::cuda_computeTransformation(
 		multiply(col, gpuLambda, col);
 	}
 	GpuMat tmpMat1, tmpMat2;
-	gemm(tmpObjSet, gpuMod, 1.0f, gpuOnes, 0, tmpMat1, GEMM_1_T);
+	gemm(tmpObjSet, gpuMod, 1.0f, gpuOnes33, 0, tmpMat1, GEMM_1_T);
 	gemm(gpuObjMatC, gpuModMatC, 1.0f, gpuOnes33, 0, tmpMat2, GEMM_2_T);
 	subtract(tmpMat1, tmpMat2, gpuCcMatrix);
 

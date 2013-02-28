@@ -572,8 +572,8 @@ int main(int argc, char** argv)
 
 // 			ICP i(pointCloudNow, pointCloudPre);
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
-			ICP i(objSetOrigin, modSet);
-/*			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);*/
+/*			ICP i(objSetOrigin, modSet);*/
+			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
 			if (hasCuda)
 			{
 				RUNANDTIME(global_timer, 

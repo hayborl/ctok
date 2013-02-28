@@ -17,9 +17,6 @@ using namespace gpu;
 
 #define EXTERN_C extern "C"
 
-#define BLOCK_SIZE 512
-#define GRID_SIZE 512
-
 #define DISTANCE_MAX 1000000000
 #define DISTANCE_RANGE 100
 #define DISTANCE_THRE 1500

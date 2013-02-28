@@ -3,7 +3,7 @@
 
 #include "abstracticp.h"
 
-class EMICP : public AbstractICP
+EXTERN_C class EMICP : public AbstractICP
 {
 public:
 	EMICP(){}
@@ -23,7 +23,10 @@ private:
 	float m_d_02;				// square(d_0)
 
 	void updateA(Mat &A, const Mat &objSet, const Mat &R, const Mat &T);	// 计算所需的矩阵A
-	void normalizeRows(Mat &mat, const Mat &alpha);							// row(A)[i] / alpha[i]								// 计算变换矩阵
+	void normalizeRows(Mat &mat, const Mat &alpha);						// row(A)[i] / alpha[i]
+
+	void cuda_updateA(Mat &A, const Mat &objSet, 
+		const Mat &modSet, float* h_R, float* h_T);
 };
 
 #endif

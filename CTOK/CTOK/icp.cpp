@@ -68,7 +68,6 @@ void ICP::run(Mat* initObjSet)
 	int iterCnt = 0;
 
 	Mat objSet = initObjSet->clone();
-	Transformation tr;
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 
@@ -83,15 +82,16 @@ void ICP::run(Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "compute closest points.");
 		Mat tmpObjSet = convertMat(m_objSet);
 		Mat tmpModSet = convertMat(closestSet);
-		RUNANDTIME(global_timer, tr = 
+		RUNANDTIME(global_timer, m_tr = 
 			computeTransformation(tmpObjSet, tmpModSet, lambda), 
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(), 
+		Mat transformMat = getTransformMat();
+		RUNANDTIME(global_timer, transformPointCloud(
+			m_objSet, &objSet, transformMat), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		iterCnt++;
 	} while (fabs(d_now - d_pre) > m_epsilon && iterCnt <= m_iterMax);
-	m_tr = tr;
 
 /*	waitKey();*/
 
@@ -106,7 +106,6 @@ void ICP::cuda_run(Mat* initObjSet)
 	int iterCnt = 0;
 
 	Mat objSet = initObjSet->clone();
-	Transformation tr;
 
 	/*	plotTwoPoint3DSet(objSet, m_modSet);*/
 
@@ -121,15 +120,16 @@ void ICP::cuda_run(Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "compute closest points.");
 		Mat tmpObjSet = convertMat(m_objSet);
 		Mat tmpModSet = convertMat(closestSet);
-		RUNANDTIME(global_timer, tr = 
+		RUNANDTIME(global_timer, m_tr = 
 			cuda_computeTransformation(tmpObjSet, tmpModSet, lambda), 
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(), 
+		Mat transformMat = getTransformMat();
+		RUNANDTIME(global_timer, cuda_transformPointCloud(
+			m_objSet, &objSet, transformMat), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		iterCnt++;
 	} while (fabs(d_now - d_pre) > m_epsilon && iterCnt <= m_iterMax);
-	m_tr = tr;
 
 	/*	waitKey();*/
 
@@ -250,8 +250,9 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
 
 void ICP::createKDTree()
 {
-	RUNANDTIME(global_timer, ExamplarSet exmSet = convertMatToExmSet(m_modSet),
-		OUTPUT, "Convert Mat to ExmSet");
-	RUNANDTIME(global_timer, m_kdTree.create(exmSet), OUTPUT, 
-		"Create KDTree");
+	RUNANDTIME(global_timer, ExamplarSet exmSet = 
+		convertMatToExmSet(m_modSet),
+		OUTPUT && SUBOUTPUT, "Convert Mat to ExmSet");
+	RUNANDTIME(global_timer, m_kdTree.create(exmSet), 
+		OUTPUT && SUBOUTPUT, "Create KDTree");
 }

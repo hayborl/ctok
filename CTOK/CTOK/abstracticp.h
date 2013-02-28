@@ -22,7 +22,6 @@ protected:
 
 	Transformation computeTransformation(const Mat &objSet, 
 		const Mat &modSet, const Mat &lambda);						// 根据固定点云集与待配准的点云计算变换向量
-	Mat transformPoint(const Transformation &transformation);		// 将变换应用到配准点集上
 
 	Transformation cuda_computeTransformation(const Mat &objSet,
 		const Mat &modSet, const Mat &lambda);						// 使用cuda来计算变换矩阵

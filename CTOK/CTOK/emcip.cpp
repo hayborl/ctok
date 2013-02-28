@@ -23,14 +23,11 @@ void EMICP::run(Mat* initObjSet)
 	int colsA = m_modSet.rows;
 	Mat objSet = m_objSet.clone();
 	Mat modSet = convertMat(m_modSet);
-	Transformation tr;
-	tr.q = Vec4f(1, 0, 0, 0);
-	tr.t = Vec3f(0, 0, 0);
 
 	while (m_sigma_p2 > m_sigma_inf)
 	{
 		float tempR[9], tempT[3];
-		getRotateMatrix(tr.q, tempR);
+		getRotateMatrix(m_tr.q, tempR);
 		Mat R(3, 3, CV_32FC1, tempR);
 		memcpy(tempT, m_tr.t.val, 3 * sizeof(float));
 		Mat T(3, 1, CV_32FC1, tempT);
@@ -54,15 +51,16 @@ void EMICP::run(Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
 
 		Mat tmpObjSet = convertMat(objSet);
-		RUNANDTIME(global_timer, tr = 
+		RUNANDTIME(global_timer, m_tr = 
 			computeTransformation(tmpObjSet, modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(),
-			OUTPUT && SUBOUTPUT, "transform points");
+		Mat transformMat = getTransformMat();
+		RUNANDTIME(global_timer, transformPointCloud(
+			m_objSet, &objSet, transformMat), 
+			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;
 	}
-	m_tr = tr;
 	m_tr.t *= 1000.0f;
 }
 
@@ -72,21 +70,19 @@ void EMICP::cuda_run(Mat* initObjSet)
 	int colsA = m_modSet.rows;
 	Mat objSet = m_objSet.clone();
 	Mat modSet = convertMat(m_modSet);
-	Transformation tr;
-	tr.q = Vec4f(1, 0, 0, 0);
-	tr.t = Vec3f(0, 0, 0);
 
 	while (m_sigma_p2 > m_sigma_inf)
 	{
+		Mat tmpObjSet = convertMat(objSet);
+
 		float tempR[9], tempT[3];
-		getRotateMatrix(tr.q, tempR);
-		Mat R(3, 3, CV_32FC1, tempR);
+		getRotateMatrix(m_tr.q, tempR);
 		memcpy(tempT, m_tr.t.val, 3 * sizeof(float));
-		Mat T(3, 1, CV_32FC1, tempT);
 
 		Mat A(rowsA, colsA, CV_32FC1);
-		RUNANDTIME(global_timer, updateA(A, objSet, R, T),
-			OUTPUT && SUBOUTPUT, "update A Matrix");
+		RUNANDTIME(global_timer, cuda_updateA(A, tmpObjSet, 
+			modSet, tempR, tempT), OUTPUT && SUBOUTPUT, 
+			"update A Matrix");
 
 		Mat C = Mat::ones(rowsA, 1, CV_32FC1);
 		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
@@ -102,16 +98,16 @@ void EMICP::cuda_run(Mat* initObjSet)
 		RUNANDTIME(global_timer, normalizeRows(modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
 
-		Mat tmpObjSet = convertMat(objSet);
-		RUNANDTIME(global_timer, tr = 
+		RUNANDTIME(global_timer, m_tr = 
 			cuda_computeTransformation(tmpObjSet, modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		RUNANDTIME(global_timer, objSet = transformPoint(tr).clone(),
-			OUTPUT && SUBOUTPUT, "transform points");
+		Mat transformMat = getTransformMat();
+		RUNANDTIME(global_timer, cuda_transformPointCloud(
+			m_objSet, &objSet, transformMat), 
+			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;
 	}
-	m_tr = tr;
 	m_tr.t *= 1000.0f;
 }
 

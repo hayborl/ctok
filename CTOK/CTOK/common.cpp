@@ -85,7 +85,7 @@ bool initCuda()
 		cudaDeviceProp prop; //设备属性
 		if (cudaGetDeviceProperties(&prop,i)==cudaSuccess) //取得设备数据，brief Returns information about the compute-device
 		{
-			if (prop.major>=2) //cuda计算能力
+			if (prop.major>=1) //cuda计算能力
 			{
 				break;
 			}
@@ -120,6 +120,7 @@ Mat convertMat( const Mat &mat )
 
 void transformPointCloud(Mat input, Mat* output, Mat transformMat)
 {
+	*output = input.clone();
 	Mat R = transformMat(Rect(0, 0, 3, 3));
 	Mat T = transformMat(Rect(3, 0, 1, 3));
 	Mat tmp = input.clone();

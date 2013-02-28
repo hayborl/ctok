@@ -83,26 +83,6 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 	return RT;
 }
 
-cv::Mat AbstractICP::transformPoint( const Transformation &transformation )
-{
-	float tempR[9], tempT[3];
-	getRotateMatrix(transformation.q, tempR);
-	Mat R(3, 3, CV_32FC1, tempR);
-	memcpy(tempT, transformation.t.val, 3 * sizeof(float));
-	Mat T(3, 1, CV_32FC1, tempT);
-
-	Mat transformMat(4, 4, CV_32FC1);
-	Mat roi = transformMat(Rect(0, 0, 3, 3));
-	R.copyTo(roi);
-	roi = transformMat(Rect(3, 0, 1, 3));
-	T.copyTo(roi);
-
-	Mat objSet = m_objSet.clone();
-	transformPointCloud(m_objSet, &objSet, transformMat);
-
-	return objSet.clone();
-}
-
 Transformation AbstractICP::cuda_computeTransformation( 
 	const Mat &objSet, const Mat &modSet, const Mat &lambda )
 {

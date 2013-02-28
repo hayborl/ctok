@@ -572,8 +572,8 @@ int main(int argc, char** argv)
 
 // 			ICP i(pointCloudNow, pointCloudPre);
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
-/*			ICP i(objSetOrigin, modSet);*/
-			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
+			ICP i(objSetOrigin, modSet);
+/*			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);*/
 			if (hasCuda)
 			{
 				RUNANDTIME(global_timer, 
@@ -592,12 +592,11 @@ int main(int argc, char** argv)
 				RUNANDTIME(global_timer, transformPointCloud(realPointCloud, 
 					&realPointCloud, tr), OUTPUT, "transform point cloud.");
 			}
-/*			cout << tr << endl;*/
+			cout << tr << endl;
 		}
 
 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
 			pointColors, true), OUTPUT, "load data");
-/*		waitKey();*/
 
 		char key = waitKey(1);
 		if (key == 27)

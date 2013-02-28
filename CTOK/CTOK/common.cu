@@ -3,6 +3,9 @@
 
 #include "common.h"
 
+#define BLOCK_SIZE 512
+#define GRID_SIZE 512
+
 __device__ int cntd[1];
 
 __global__ void cuda_findNeighbor(float* pSet, float3 p, 

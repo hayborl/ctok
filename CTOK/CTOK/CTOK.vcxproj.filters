@@ -67,5 +67,8 @@
     <CudaCompile Include="common.cu">
       <Filter>cuda files</Filter>
     </CudaCompile>
+    <CudaCompile Include="emicp.cu">
+      <Filter>cuda files</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

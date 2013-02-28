@@ -45,7 +45,4 @@ Vec3f computeNormal(vector<pair<KDTree_R::_Examplar, double>> points);
 // EXTERN_C void cuda_getClosestPoints(const Mat &objSet, const Mat &modSet,
 // 	vector<double> &diss, double &sum, Mat* resSet);
 
-EXTERN_C void cuda_transformPointCloud(Mat input, 
-	Mat* output, Mat transformMat);
-
 #endif

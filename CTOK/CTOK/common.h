@@ -77,6 +77,8 @@ typedef struct tag_Transformation
 Mat convertMat(const Mat &mat);
 
 void transformPointCloud(Mat input, Mat* output, Mat transformMat);
+EXTERN_C void cuda_transformPointCloud(Mat input, 
+	Mat* output, Mat transformMat);
 
 Mat getFeaturePointCloud(const Mat &colorImg, 
 	const Mat &pointCloud, const Mat &pointIndices);

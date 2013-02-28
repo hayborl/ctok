@@ -64,9 +64,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="icp.cu">
-      <Filter>cuda files</Filter>
-    </CudaCompile>
     <CudaCompile Include="common.cu">
       <Filter>cuda files</Filter>
     </CudaCompile>

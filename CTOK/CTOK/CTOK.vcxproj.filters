@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>src files</Filter>
-    </ClCompile>
     <ClCompile Include="common.cpp">
       <Filter>src files</Filter>
     </ClCompile>
@@ -23,6 +20,12 @@
       <Filter>src files</Filter>
     </ClCompile>
     <ClCompile Include="emcip.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="segment.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
       <Filter>src files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -46,6 +49,9 @@
       <Filter>head files</Filter>
     </ClInclude>
     <ClInclude Include="emicp.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="segment.h">
       <Filter>head files</Filter>
     </ClInclude>
   </ItemGroup>

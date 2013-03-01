@@ -166,6 +166,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="kdtree.cpp" />
     <ClCompile Include="kdtreenode.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="segment.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abstracticp.h" />
@@ -175,6 +176,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="icp.h" />
     <ClInclude Include="kdtree.h" />
     <ClInclude Include="kdtreenode.h" />
+    <ClInclude Include="segment.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

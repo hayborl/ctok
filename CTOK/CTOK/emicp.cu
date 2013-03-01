@@ -151,8 +151,8 @@ __global__ void kernelUpdateA(PtrStepSz<float> d_mod, PtrStepSz<float> d_obj,
 	PtrStepSz<float> d_R, PtrStepSz<float> d_T, 
 	PtrStepSz<float> d_A, float sigma_p2)
 {
-	int c = blockIdx.x * blockDim.x + threadIdx.x;
-	int r = blockIdx.y * blockDim.y + threadIdx.y;
+	int r = blockIdx.x * blockDim.x + threadIdx.x;
+	int c = blockIdx.y * blockDim.y + threadIdx.y;
 
 #define arrR(r, c) d_R.ptr(r)[c]
 #define arrT(r) d_T.ptr(r)[0]
@@ -187,22 +187,26 @@ void EMICP::cuda_updateA(Mat &h_A, const Mat &objSet,
 	int rowsA = objSet.rows;
 	int colsA = modSet.rows;
 	GpuMat d_obj, d_mod, d_R, d_T;
-	GpuMat d_A(rowsA, colsA, CV_32FC1);
 	d_obj.upload(objSet);
 	d_mod.upload(modSet);
 	d_R.upload(h_R);
 	d_T.upload(h_T);
 
-	dim3 dimBlockForA(BLOCK_SIZE, BLOCK_SIZE);
-	dim3 dimGridForA(colsA / BLOCK_SIZE + 1, rowsA / BLOCK_SIZE + 1);
+	int rowsA1 = rowsA - 1;
+	int colsA1 = colsA - 1;
+	dim3 dimBlockForA(rowsA1 % BLOCK_SIZE, colsA1 % BLOCK_SIZE);
+	dim3 dimGridForA(rowsA1 / dimBlockForA.x + 1, colsA1 / dimBlockForA.y + 1);
 
+	GpuMat d_A(rowsA, colsA, CV_32FC1);
 	kernelUpdateA<<<dimGridForA, dimBlockForA>>>
 		(d_mod, d_obj, d_R, d_T, d_A, m_sigma_p2);
 
 	d_A.download(h_A);
+	cout << h_A << endl;waitKey();
 
 	d_obj.release();
 	d_mod.release();
 	d_R.release();
 	d_T.release();
+	d_A.release();
 }

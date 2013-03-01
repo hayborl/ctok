@@ -5,6 +5,7 @@
 
 #include "icp.h"
 #include "emicp.h"
+#include "segment.h"
 
 using namespace std;
 using namespace cv;
@@ -575,3 +576,23 @@ int main(int argc, char** argv)
 	glutMainLoop();
 	return 0;
 }
+
+
+//int main()
+//{
+//	segment myseg;
+//	Mat ldimage = imread("./images/8.jpg",0);
+//	if(! ldimage.data) {
+//		cout<<"load image failed\n";
+//		system("pause");
+//		return 0;
+//	}
+//	myseg.setDepthImage(ldimage);
+//	RUNANDTIME(global_timer, myseg.oversegMyImage((uchar)10),
+//		OUTPUT && SUBOUTPUT, "seg time");
+//	//cout<<cos(1.57079632679489661923);
+//	cout<<"good bye";
+//
+//	system("pause");
+//	return 0;
+//}

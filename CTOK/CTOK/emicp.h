@@ -25,8 +25,10 @@ private:
 	void updateA(Mat &A, const Mat &objSet, const Mat &R, const Mat &T);	// 计算所需的矩阵A
 	void normalizeRows(Mat &mat, const Mat &alpha);						// row(A)[i] / alpha[i]
 
+// 	void cuda_updateA(Mat &A, const Mat &objSet, 
+// 		const Mat &modSet, float* h_R, float* h_T);
 	void cuda_updateA(Mat &A, const Mat &objSet, 
-		const Mat &modSet, float* h_R, float* h_T);
+		const Mat &modSet, const Mat &R, const Mat &T);
 };
 
 #endif

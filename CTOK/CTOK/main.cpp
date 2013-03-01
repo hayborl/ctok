@@ -27,8 +27,7 @@ void checkOpenNIError(XnStatus result, string status)
 //---OpenGL 全局变量
 // float xyzdata[480][640][3];
 // float texture[480][640][3];
-vector<_Examplar> kPointCloudData;
-vector<Vec3f> cPointCloudData;
+vector<_Examplar> pointCloudData;
 vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 int glWinWidth = 640, glWinHeight = 480;
@@ -125,66 +124,36 @@ void loadPointCloudAndTexture(Mat pointCloud,
 	assert(pointCloud.cols == 1);
 	if (clear)
 	{
-		cPointCloudData.clear();
-		kPointCloudData.clear();
+		pointCloudData.clear();
 		pointColorData.clear();
 		pointNumber = 0;
 	}
 
-	if (hasCuda)
+	kdTree.destroy();
+	vector<_Examplar> pointCloudCopy(pointCloudData);
+	ExamplarSet exmSet(pointCloudCopy, (int)pointCloudCopy.size(), ICP_DIMS);
+	kdTree.create(exmSet);
+
+	Point3f p;
+	Vec3b color;
+	_Examplar exm(3);
+	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
 	{
-		float* pSet = NULL;
-		if (!cPointCloudData.empty())
+		p = pointCloud.at<Point3f>(i, 0);
+		if (p != Point3f(0, 0, 0))
 		{
-			size_t size = cPointCloudData.size() * 3;
-			pSet = new float[size];
-			memcpy(pSet, &cPointCloudData[0], size * sizeof(float));
+			exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;
+// 			if (kdTree.findNearest(exm).second > DISTANCE_RANGE)
+// 			{
+				pointCloudData.push_back(exm);
+				color = pointColor.at<Vec3b>(i, 0);
+				pointColorData.push_back(
+					Vec3b(color[2], color[1], color[0]));
+/*			}*/
 		}
-		float* oSet = new float[pointCloud.rows * 3];
-		memcpy(oSet, (float*)pointCloud.data, 
-			pointCloud.rows * 3 * sizeof(float));
-
-		cuda_pushBackPoint(pSet, oSet, cPointCloudData.size(), 
-			pointCloud.rows, pointColor, 
-			cPointCloudData, pointColorData);
-
-		if (pSet != NULL)
-		{
-			delete[] pSet;
-			pSet = NULL;
-		}
-		delete[] oSet;
-
-		pointNumber = cPointCloudData.size();
 	}
-	else
-	{
-		kdTree.destroy();
-		vector<_Examplar> pointCloudCopy(kPointCloudData);
-		ExamplarSet exmSet(pointCloudCopy, (int)pointCloudCopy.size(), ICP_DIMS);
-		kdTree.create(exmSet);
 
-		Point3f p;
-		Vec3b color;
-		_Examplar exm(3);
-		for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
-		{
-			p = pointCloud.at<Point3f>(i, 0);
-			if (p != Point3f(0, 0, 0))
-			{
-				exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;
-				if (kdTree.findNearest(exm).second > DISTANCE_RANGE)
-				{
-					kPointCloudData.push_back(exm);
-					color = pointColor.at<Vec3b>(i, 0);
-					pointColorData.push_back(
-						Vec3b(color[2], color[1], color[0]));
-				}
-			}
-		}
-
-		pointNumber = kPointCloudData.size();
-	}
+	pointNumber = pointCloudData.size();
 
 	cout << pointNumber << " OK" << endl;
 }
@@ -196,37 +165,18 @@ void drawPoints()
 	// 绘制图像点云
 	glPointSize(1.0);
 	glBegin(GL_POINTS);
-	if (hasCuda)
+	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
 	{
-		for (int i = 0; i < cPointCloudData.size(); i++/*+= (int)radius / 10*/)
-		{
 // 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
 // 			{
 // 				continue;
 // 			}
-			glColor3d(pointColorData[i][0] / 255.0, 
-				pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-			x = cPointCloudData[i][0];
-			y = cPointCloudData[i][1];
-			z = cPointCloudData[i][2];
-			glVertex3f(x, y, z);
-		}
-	}
-	else
-	{
-		for (int i = 0; i < kPointCloudData.size(); i++/*+= (int)radius / 10*/)
-		{
-// 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
-// 			{
-// 				continue;
-// 			}
-			glColor3d(pointColorData[i][0] / 255.0, 
-				pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-			x = (float)kPointCloudData[i][0];
-			y = (float)kPointCloudData[i][1];
-			z = (float)kPointCloudData[i][2];
-			glVertex3f(x, y, z);
-		}
+		glColor3d(pointColorData[i][0] / 255.0, 
+			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
+		x = (float)pointCloudData[i][0];
+		y = (float)pointCloudData[i][1];
+		z = (float)pointCloudData[i][2];
+		glVertex3f(x, y, z);
 	}
 	glEnd(); 
 }
@@ -573,7 +523,7 @@ int main(int argc, char** argv)
 // 			ICP i(pointCloudNow, pointCloudPre);
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
 			ICP i(objSetOrigin, modSet);
-/*			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);*/
+			/*EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);*/
 			if (hasCuda)
 			{
 				RUNANDTIME(global_timer, 

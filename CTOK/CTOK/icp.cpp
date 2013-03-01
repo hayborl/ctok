@@ -57,7 +57,8 @@ ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 	m_tr.q = Vec4f(1, 0, 0, 0);
 	m_tr.t = Vec3f(0, 0, 0);
 
-	createKDTree();
+	RUNANDTIME(global_timer, createKDTree(),
+		OUTPUT && SUBOUTPUT, "create kdTree");
 }
 
 void ICP::run(Mat* initObjSet)
@@ -121,10 +122,10 @@ void ICP::cuda_run(Mat* initObjSet)
 		Mat tmpObjSet = convertMat(m_objSet);
 		Mat tmpModSet = convertMat(closestSet);
 		RUNANDTIME(global_timer, m_tr = 
-			cuda_computeTransformation(tmpObjSet, tmpModSet, lambda), 
+			computeTransformation(tmpObjSet, tmpModSet, lambda), 
 			OUTPUT && SUBOUTPUT, "compute transformation");
 		Mat transformMat = getTransformMat();
-		RUNANDTIME(global_timer, cuda_transformPointCloud(
+		RUNANDTIME(global_timer, transformPointCloud(
 			m_objSet, &objSet, transformMat), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
@@ -173,54 +174,56 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
 	default:
 		for (int i = 0; i < rows; i++)
 		{
-			Vec3f oPoint = Vec3f(objSet.at<Point3f>(i, 0));
-			_Examplar exm(ICP_DIMS);
-			for (int j = 0; j < ICP_DIMS; j++)
-			{
-				exm[j] = oPoint[j];
-			}
-			pair<_Examplar, double> res = m_kdTree.findNearest(exm);
-			closestSet.at<Point3f>(i, 0) = Point3f((float)res.first[0], 
-				(float)res.first[1], (float)res.first[2]);
-			dists[i] = res.second;
-			threshold += res.second;
+			Vec3f oPoint = objSet.at<Vec3f>(i, 0);
+			ANNpoint qp = annAllocPt(ICP_DIMS);
+			qp[0] = oPoint[0]; 
+			qp[1] = oPoint[1];
+			qp[2] = oPoint[2];
+			ANNidx idx[1];
+			ANNdist dist[1];
+			m_kdTree->annkSearch(qp, 1, idx, dist);
+			closestSet.at<Point3f>(i, 0) = Point3f(
+				(float)m_modPts[idx[0]][0], (float)m_modPts[idx[0]][1], 
+				(float)m_modPts[idx[0]][2]);
+			dists[i] = dist[0];
+			threshold += dist[0];
 			cnt++;
 		}
 		break;
 	case POINT_TO_PLANE:
 		{
-			int cnt = 0;
-			for (int i = 0; i < rows; i++)
-			{
-				Vec3f oPoint = Vec3f(objSet.at<Point3f>(i, 0));
-				_Examplar exm(ICP_DIMS);
-				for (int j = 0; j < ICP_DIMS; j++)
-				{
-					exm[j] = oPoint[j];
-				}
-				vector<pair<_Examplar, double>> results;
-				if (m_kdTree.findNearest(exm, DISTANCE_RANGE, results) < 3)
-				{
-					closestSet.at<Point3f>(i, 0) = Point3f(0, 0, 0);
-					dists[i] = -1;
-				}
-				else
-				{
-					ExamplarPairCompare epc;
-					sort(results.begin(), results.end(), epc);
-					Vec3f normal = computeNormal(results);
-					_Examplar mExm = results[0].first;
-					Vec3f v((float)mExm[0], (float)mExm[1], (float)mExm[2]);
-					v = v - oPoint;
-					float dotProd = v.dot(normal);
-					float distance = fabs(dotProd);
-					Vec3f mPoint = oPoint - dotProd * normal;
-					closestSet.at<Point3f>(i, 0) = Point3f(mPoint);
-					dists[i] = (double)distance;
-					threshold += distance;
-					cnt++;
-				}
-			}
+// 			int cnt = 0;
+// 			for (int i = 0; i < rows; i++)
+// 			{
+// 				Vec3f oPoint = Vec3f(objSet.at<Point3f>(i, 0));
+// 				_Examplar exm(ICP_DIMS);
+// 				for (int j = 0; j < ICP_DIMS; j++)
+// 				{
+// 					exm[j] = oPoint[j];
+// 				}
+// 				vector<pair<_Examplar, double>> results;
+// 				if (m_kdTree.findNearest(exm, DISTANCE_RANGE, results) < 3)
+// 				{
+// 					closestSet.at<Point3f>(i, 0) = Point3f(0, 0, 0);
+// 					dists[i] = -1;
+// 				}
+// 				else
+// 				{
+// 					ExamplarPairCompare epc;
+// 					sort(results.begin(), results.end(), epc);
+// 					Vec3f normal = computeNormal(results);
+// 					_Examplar mExm = results[0].first;
+// 					Vec3f v((float)mExm[0], (float)mExm[1], (float)mExm[2]);
+// 					v = v - oPoint;
+// 					float dotProd = v.dot(normal);
+// 					float distance = fabs(dotProd);
+// 					Vec3f mPoint = oPoint - dotProd * normal;
+// 					closestSet.at<Point3f>(i, 0) = Point3f(mPoint);
+// 					dists[i] = (double)distance;
+// 					threshold += distance;
+// 					cnt++;
+// 				}
+// 			}
 		}
 		break;
 	case CUDA:
@@ -250,9 +253,14 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
 
 void ICP::createKDTree()
 {
-	RUNANDTIME(global_timer, ExamplarSet exmSet = 
-		convertMatToExmSet(m_modSet),
-		OUTPUT && SUBOUTPUT, "Convert Mat to ExmSet");
-	RUNANDTIME(global_timer, m_kdTree.create(exmSet), 
-		OUTPUT && SUBOUTPUT, "Create KDTree");
+	m_modPts = annAllocPts(m_modSet.rows, ICP_DIMS);
+#pragma omp parallel for
+	for (int r = 0; r < m_modSet.rows; r++)
+	{
+		Vec3f p = m_modSet.at<Vec3f>(r, 0);
+		m_modPts[r][0] = p[0];
+		m_modPts[r][1] = p[1]; 
+		m_modPts[r][2] = p[2];	
+	}
+	m_kdTree = new ANNkd_tree(m_modPts, m_modSet.rows, ICP_DIMS);
 }

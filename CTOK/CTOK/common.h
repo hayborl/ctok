@@ -10,6 +10,9 @@
 #include <iostream>
 #include <assert.h>
 
+#include "ANN/ANN.h"
+#pragma comment(lib, "ANN.lib")
+
 using namespace cv;
 using namespace std;
 using namespace gpu; 

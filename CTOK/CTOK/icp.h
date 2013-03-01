@@ -26,7 +26,8 @@ private:
 	vector<Vec3f> m_modNormal;	// 固定点云的法向量
 	int m_iterMax;				// 最大迭代次数
 	double m_epsilon;			// 迭代容差精度
-	KDTree_R::KDTree m_kdTree;	// modSet 的KDTree
+	ANNkd_tree* m_kdTree;		// modSet 的KDTree
+	ANNpointArray m_modPts;		// for kdTree
 
 	int m_cnt;					// 实际起作用的点的数目
 

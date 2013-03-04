@@ -156,11 +156,12 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   <ItemGroup>
     <CudaCompile Include="common.cu" />
     <CudaCompile Include="emicp.cu" />
+    <CudaCompile Include="segment.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="abstracticp.cpp" />
     <ClCompile Include="common.cpp" />
-    <ClCompile Include="emcip.cpp" />
+    <ClCompile Include="emicp.cpp" />
     <ClCompile Include="examplarset.cpp" />
     <ClCompile Include="icp.cpp" />
     <ClCompile Include="kdtree.cpp" />

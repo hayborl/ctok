@@ -10,6 +10,11 @@
 #include <iostream>
 #include <assert.h>
 
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/transform.h>
+#include <thrust/iterator/constant_iterator.h>
+
 #include "ANN/ANN.h"
 #pragma comment(lib, "ANN.lib")
 
@@ -58,10 +63,6 @@ void saveData(const char* filename, const Mat& mat, int flag = 0);
 
 bool initCuda();
 
-EXTERN_C void cuda_pushBackPoint(float* pSet1, float* pSet2,  
-	const size_t size1, const size_t size2, Mat pointColor,
-	vector<Vec3f>& v, vector<Vec3b>& c);
-
 extern bool hasCuda;
 
 static My_Timer global_timer;
@@ -75,8 +76,9 @@ typedef struct tag_Transformation
 // 将m*n k通道转换为m*(n*k) 单通道
 Mat convertMat(const Mat &mat);
 
-void transformPointCloud(Mat input, Mat* output, Mat transformMat);
-EXTERN_C void cuda_transformPointCloud(Mat input, 
+void transformPointCloud(Mat input, Mat* output, 
+	Mat transformMat, bool withCuda = false);
+void cuda_transformPointCloud(Mat input, 
 	Mat* output, Mat transformMat);
 
 Mat getFeaturePointCloud(const Mat &colorImg, 

@@ -6,85 +6,6 @@
 #define BLOCK_SIZE 512
 #define GRID_SIZE 512
 
-__device__ int cntd[1];
-
-__global__ void cuda_findNeighbor(float* pSet, float3 p, 
-	const size_t size)
-{
-	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-	if (idx < size && cntd[0] == 0)
-	{
-		int offset = idx * 3;
-		float sum = 0;
-		float tmp = p.x - pSet[offset];
-		sum += tmp * tmp;
-		tmp = p.y - pSet[offset + 1];
-		sum += tmp * tmp;
-		tmp = p.z - pSet[offset + 2];
-		sum += tmp * tmp;
-		if (sum < DISTANCE_RANGE)
-		{
-			cntd[0]++;
-		}
-	}
-}
-
-EXTERN_C void cuda_pushBackPoint(float* pSet1, float* pSet2,  
-	const size_t size1, const size_t size2, Mat pointColor,
-	vector<Vec3f>& v, vector<Vec3b>& c)
-{
-	float* pSet1d;
-	size_t copySize = size1 * 3 * sizeof(float);
-	if (size1 > 0)
-	{
-		cudaMalloc((void**)&pSet1d, copySize);
-		cudaMemcpy(pSet1d, pSet1, copySize, cudaMemcpyHostToDevice);
-	}
-
-	Point3f p;
-	Vec3b color;
-	Vec3f vp;
-	for (size_t i = 0; i < size2; i ++/*= SAMPLE_INTERVAL*/)
-	{
-		size_t off = i * 3;
-		p = Point3f(pSet2[off], pSet2[off + 1], pSet2[off + 2]);
-		if (p != Point3f(0, 0, 0))
-		{
-			vp = Vec3f(p);
-			vp[2] = -vp[2];
-			bool flag = false;
-
-			if (size1 > 0)
-			{
-				float3 pd;
-				pd.x = vp[0];
-				pd.y = vp[1];
-				pd.z = vp[2];
-
-				int cnt = 0;
-// 				cudaMemcpyToSymbol(cntd, &cnt, sizeof(int));
-// 				cuda_findNeighbor<<<size1 / BLOCK_SIZE + 1, 
-// 					BLOCK_SIZE>>>(pSet1d, pd, size1);
-// 				cudaMemcpyFromSymbol(&cnt, cntd, sizeof(int));
-				
-				flag = (cnt > 0);
-			}
-			if (!flag)
-			{
-				v.push_back(vp);
-				color = pointColor.at<Vec3b>((int)i, 0);
-				c.push_back(Vec3b(color[2], color[1], color[0]));
-			}
-		}
-	}
-
-	if (size1 > 0)
-	{
-		cudaFree(pSet1d);
-	}
-}
-
 char* fileName = "common.cu";
 
 inline void __checkCudaErrors(cudaError err, 
@@ -189,6 +110,24 @@ inline void __checkCudaErrors(cudaError err,
 //	delete[] res;
 //}
 
+struct transform_functor
+{
+	float R[9], T[3];
+	transform_functor(const Mat& m_R, const Mat& m_T)
+	{
+		memcpy(R, (float*)m_R.data, 9 * sizeof(float));
+		memcpy(T, (float*)m_T.data, 3 * sizeof(float));
+	}
+	__host__ __device__ float3 operator()(const float3& pt) const
+	{
+		float3 tmp;
+		tmp.x = R[0] * pt.x + R[1] * pt.y + R[2] * pt.z + T[0];
+		tmp.y = R[3] * pt.x + R[4] * pt.y + R[5] * pt.z + T[1];
+		tmp.z = R[6] * pt.x + R[7] * pt.y + R[8] * pt.z + T[2];
+		return tmp;
+	}
+};
+
 __global__ void kernelTransform(PtrStepSz<float> d_p, 
 	PtrStepSz<float> d_R, PtrStepSz<float> d_T, PtrStepSz<float> d_res)
 {
@@ -210,41 +149,113 @@ __global__ void kernelTransform(PtrStepSz<float> d_p,
 	}
 }
 
-EXTERN_C void cuda_transformPointCloud(Mat input, 
-	Mat* output, Mat transformMat)
+void transformPointCloud(Mat input, Mat* output, 
+	Mat transformMat, bool withCuda)
 {
-	*output = Mat(input.rows, input.cols, input.type());
-	Mat h_p = convertMat(input);
-	int rows = input.rows;
+	Mat m_R = transformMat(Rect(0, 0, 3, 3)).clone();
+	Mat m_T = transformMat(Rect(3, 0, 1, 3)).clone();
 
-	GpuMat d_p, d_res(rows, 3, CV_32FC1);
-	d_p.upload(input);
+	int num = input.rows;
+	float3* arr_in = new float3[num];
+	memcpy(arr_in, (float3*)input.data, num * sizeof(float3));
 
-	Mat h_R = transformMat(Rect(0, 0, 3, 3)).clone();
-	Mat h_T = transformMat(Rect(3, 0, 1, 3)).clone();
-	GpuMat d_R, d_T;
-	d_R.upload(h_R);
-	d_T.upload(h_T);
-
-	kernelTransform<<<rows / BLOCK_SIZE + 1, BLOCK_SIZE>>>
-		(d_p, d_R, d_T, d_res);
-
-	Mat h_res;
-	d_res.download(h_res);
-
-	Mat* subs = new Mat[output->channels()];
-
-#pragma omp parallel for
-	for (int i = 0; i < output->channels(); i++)
+	try
 	{
-		Mat tmp = h_res(Rect(i, 0, 1, output->rows)).clone();
-		tmp.copyTo(subs[i]);
+		thrust::host_vector<float3> h_out(num);
+		if (withCuda)
+		{
+			thrust::device_vector<float3> d_in(arr_in, arr_in + num);
+			thrust::device_vector<float3> d_out(num);
+
+			thrust::transform(d_in.begin(), d_in.end(), 
+				d_out.begin(), transform_functor(m_R, m_T));
+
+			h_out = d_out;
+		}
+		else
+		{
+			thrust::host_vector<float3> h_in(arr_in, arr_in + num);
+
+			thrust::transform(h_in.begin(), h_in.end(), 
+				h_out.begin(), transform_functor(m_R, m_T));
+		}
+
+		float3* h_out_ptr = thrust::raw_pointer_cast(&h_out[0]);
+
+		*output = Mat(input.rows, input.cols, input.type());
+		memcpy((float3*)output->data, h_out_ptr, num * sizeof(float3));
+	}
+	catch (thrust::system_error e)
+	{
+		cout << "System Error: " << e.what() << endl;
 	}
 
-	merge(subs, 3, *output);
+	delete[] arr_in;
+}
 
-	d_p.release();
-	d_R.release();
-	d_T.release();
-	d_res.release();
+void cuda_transformPointCloud(Mat input, Mat* output, Mat transformMat)
+{
+	Mat m_R = transformMat(Rect(0, 0, 3, 3)).clone();
+	Mat m_T = transformMat(Rect(3, 0, 1, 3)).clone();
+
+	int num = input.rows;
+	float3* h_in = new float3[num];
+	memcpy(h_in, (float3*)input.data, num * sizeof(float3));
+
+	try
+	{
+		thrust::device_vector<float3> d_in(h_in, h_in + num);
+		thrust::device_vector<float3> d_out(num);
+
+		thrust::transform(d_in.begin(), d_in.end(), 
+			d_out.begin(), transform_functor(m_R, m_T));
+
+		float3* d_out_ptr = thrust::raw_pointer_cast(&d_out[0]);
+		cudaMemcpy(h_in, d_out_ptr, 
+			num * sizeof(float3), cudaMemcpyDeviceToHost);
+
+		*output = Mat(input.rows, input.cols, input.type());
+		memcpy((float3*)output->data, h_in, num * sizeof(float3));
+
+		delete[] h_in;
+	}
+	catch (thrust::system_error e)
+	{
+		cout << "System Error: " << e.what() << endl;
+	}
+
+// 	*output = Mat(input.rows, input.cols, input.type());
+// 	Mat h_p = convertMat(input);
+// 	int rows = input.rows;
+// 
+// 	GpuMat d_p, d_res(rows, 3, CV_32FC1);
+// 	d_p.upload(input);
+// 
+// 	Mat h_R = transformMat(Rect(0, 0, 3, 3)).clone();
+// 	Mat h_T = transformMat(Rect(3, 0, 1, 3)).clone();
+// 	GpuMat d_R, d_T;
+// 	d_R.upload(h_R);
+// 	d_T.upload(h_T);
+// 
+// 	kernelTransform<<<rows / BLOCK_SIZE + 1, BLOCK_SIZE>>>
+// 		(d_p, d_R, d_T, d_res);
+// 
+// 	Mat h_res;
+// 	d_res.download(h_res);
+// 
+// 	Mat* subs = new Mat[output->channels()];
+// 
+// #pragma omp parallel for
+// 	for (int i = 0; i < output->channels(); i++)
+// 	{
+// 		Mat tmp = h_res(Rect(i, 0, 1, output->rows)).clone();
+// 		tmp.copyTo(subs[i]);
+// 	}
+// 
+// 	merge(subs, 3, *output);
+// 
+// 	d_p.release();
+// 	d_R.release();
+// 	d_T.release();
+// 	d_res.release();
 }

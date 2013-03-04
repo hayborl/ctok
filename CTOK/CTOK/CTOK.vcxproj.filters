@@ -19,13 +19,13 @@
     <ClCompile Include="abstracticp.cpp">
       <Filter>src files</Filter>
     </ClCompile>
-    <ClCompile Include="emcip.cpp">
-      <Filter>src files</Filter>
-    </ClCompile>
     <ClCompile Include="segment.cpp">
       <Filter>src files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="emicp.cpp">
       <Filter>src files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -74,6 +74,9 @@
       <Filter>cuda files</Filter>
     </CudaCompile>
     <CudaCompile Include="emicp.cu">
+      <Filter>cuda files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="segment.cu">
       <Filter>cuda files</Filter>
     </CudaCompile>
   </ItemGroup>

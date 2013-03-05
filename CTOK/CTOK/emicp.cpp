@@ -24,6 +24,8 @@ void EMICP::run(Mat* initObjSet)
 	Mat objSet = m_objSet.clone();
 	Mat modSet = convertMat(m_modSet);
 
+	int iter = 0;
+
 	while (m_sigma_p2 > m_sigma_inf)
 	{
 		float tempR[9], tempT[3];
@@ -40,7 +42,7 @@ void EMICP::run(Mat* initObjSet)
 		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
 		float alpha = expf(-m_d_02 / m_sigma_p2);
 		C = C * alpha + A * ones;
-		RUNANDTIME(global_timer, normalizeRows(A, C), 
+		RUNANDTIME(global_timer, normalizeRows2(A, C), 
 			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
 		Mat tmpM = A.clone();
 		sqrt(tmpM, A);
@@ -77,11 +79,13 @@ void EMICP::cuda_run(Mat* initObjSet)
 
 		float tempR[9], tempT[3];
 		getRotateMatrix(m_tr.q, tempR);
+		Mat R(3, 3, CV_32FC1, tempR);
 		memcpy(tempT, m_tr.t.val, 3 * sizeof(float));
+		Mat T(3, 1, CV_32FC1, tempT);
 
 		Mat A(rowsA, colsA, CV_32FC1);
 		RUNANDTIME(global_timer, cuda_updateA(A, tmpObjSet, 
-			modSet, tempR, tempT), OUTPUT && SUBOUTPUT, 
+			modSet, R, T), OUTPUT && SUBOUTPUT, 
 			"update A Matrix");
 
 		Mat C = Mat::ones(rowsA, 1, CV_32FC1);
@@ -99,37 +103,59 @@ void EMICP::cuda_run(Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
 
 		RUNANDTIME(global_timer, m_tr = 
-			cuda_computeTransformation(tmpObjSet, modSetPrime, lambda),
+			computeTransformation(tmpObjSet, modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "compute transformation");
 		Mat transformMat = getTransformMat();
-		RUNANDTIME(global_timer, cuda_transformPointCloud(
+		RUNANDTIME(global_timer, transformPointCloud(
 			m_objSet, &objSet, transformMat), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;
+		waitKey();
 	}
 	m_tr.t *= 1000.0f;
 }
 
-void EMICP::updateA( Mat &A, const Mat &objSet, 
-	const Mat &R, const Mat &T )
-{
-#pragma omp parallel for
-	for (int c = 0; c < A.cols; c++)
-	{
-		Mat mp = Mat(m_modSet.at<Point3f>(c, 0));
-		for (int r = 0; r < A.rows; r++)
-		{
-			Mat op = Mat(objSet.at<Point3f>(r, 0));
-			Mat tmp = mp - (R * op + T);
-			double d = tmp.dot(tmp) / m_sigma_p2;
-			d = exp(-d);
-			A.at<float>(r, c) = (float)d;
-		}
-	}
-}
+// void EMICP::updateA( Mat &A, const Mat &objSet, 
+// 	const Mat &R, const Mat &T, bool withCuda )
+// {
+// #pragma omp parallel for
+// 	for (int c = 0; c < A.cols; c++)
+// 	{
+// 		Mat mp = Mat(m_modSet.at<Point3f>(c, 0));
+// 		for (int r = 0; r < A.rows; r++)
+// 		{
+// 			Mat op = Mat(objSet.at<Point3f>(r, 0));
+// 			Mat tmp = mp - (R * op + T);
+// 			double d = tmp.dot(tmp) / m_sigma_p2;
+// 			d = exp(-d);
+// 			A.at<float>(r, c) = (float)d;
+// 		}
+// 	}
+// }
 
-void EMICP::normalizeRows( Mat &A, const Mat &C )
+// void EMICP::normalizeRows( Mat &A, const Mat &C, bool withCuda )
+// {
+// 	int rowsA = A.rows;
+// 	int colsA = A.cols;
+// #pragma omp parallel for
+// 	for (int r = 0; r < rowsA; r++)
+// 	{
+// 		Mat row = A(Rect(0, r, colsA, 1));
+// 		float c = C.at<float>(r, 0);
+// 		if (c > 10e-7f)
+// 		{
+// 			row = row / c;
+// 		}
+// 		else
+// 		{
+// 			float tmp = 1.0f / colsA;
+// 			Mat(rowsA, colsA, CV_32FC1, Scalar::all(tmp)).copyTo(row);
+// 		}
+// 	}
+// }
+
+void EMICP::normalizeRows2( Mat &A, const Mat &C )
 {
 	int rowsA = A.rows;
 	int colsA = A.cols;

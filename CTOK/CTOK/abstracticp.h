@@ -11,9 +11,8 @@ public:
 	AbstractICP(){}
 	~AbstractICP(){}
 
-	Mat getTransformMat();								// 得到变换矩阵
-	virtual void run(Mat* initObjSet = NULL){};		// 运行ICP算法
-	virtual void cuda_run(Mat* initObjSet = NULL){};	// 用cuda加速运行
+	Mat getTransformMat();												// 得到变换矩阵
+	virtual void run(bool withCuda, Mat* initObjSet = NULL){};		// 运行ICP算法
 
 protected:
 	Mat m_objSet;				// 待配准的点云

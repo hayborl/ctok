@@ -10,7 +10,6 @@
 using namespace std;
 using namespace cv;
 using namespace xn;
-using namespace KDTree_R;
 
 void checkOpenNIError(XnStatus result, string status)  
 {   
@@ -28,7 +27,7 @@ void checkOpenNIError(XnStatus result, string status)
 //---OpenGL 全局变量
 // float xyzdata[480][640][3];
 // float texture[480][640][3];
-vector<_Examplar> pointCloudData;
+vector<Vec3f> pointCloudData;
 vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 int glWinWidth = 640, glWinHeight = 480;
@@ -40,8 +39,6 @@ int mx, my;											// 鼠标按键时在 OpenGL 窗口的坐标
 int ry = 90, rx = 90;								// 摄像机相对注视点的观察角度
 double mindepth, maxdepth;							// 深度数据的极值
 double radius = 6000.0;								// 摄像机与注视点的距离
-
-KDTree_R::KDTree kdTree;
 
 XnDouble baseline;
 XnUInt64 focalLengthInPixel;
@@ -130,23 +127,24 @@ void loadPointCloudAndTexture(Mat pointCloud,
 		pointNumber = 0;
 	}
 
-	kdTree.destroy();
-	vector<_Examplar> pointCloudCopy(pointCloudData);
-	ExamplarSet exmSet(pointCloudCopy, (int)pointCloudCopy.size(), ICP_DIMS);
-	kdTree.create(exmSet);
+// 	kdTree.destroy();
+// 	vector<_Examplar> pointCloudCopy(pointCloudData);
+// 	ExamplarSet exmSet(pointCloudCopy, (int)pointCloudCopy.size(), ICP_DIMS);
+// 	kdTree.create(exmSet);
 
-	Point3f p;
+	Vec3f p;
 	Vec3b color;
-	_Examplar exm(3);
+/*	_Examplar exm(3);*/
 	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
 	{
-		p = pointCloud.at<Point3f>(i, 0);
-		if (p != Point3f(0, 0, 0))
+		p = pointCloud.at<Vec3f>(i, 0);
+		if (p != Vec3f(0, 0, 0))
 		{
-			exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;
+			p[2] = -p[2];
+/*			exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;*/
 // 			if (kdTree.findNearest(exm).second > DISTANCE_RANGE)
 // 			{
-				pointCloudData.push_back(exm);
+				pointCloudData.push_back(p);
 				color = pointColor.at<Vec3b>(i, 0);
 				pointColorData.push_back(
 					Vec3b(color[2], color[1], color[0]));
@@ -418,9 +416,6 @@ int main(int argc, char** argv)
 	checkOpenNIError(rc, "Create Depth Generator"); 
 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);
 
-	// 	unsigned int frameNum;
-	// 	player.GetNumFrames(depthGenerator.GetName(), frameNum);
-
 	// 获得像素大小
 	XnDouble pixelSize = 0;
 	rc = depthGenerator.GetRealProperty("ZPPS", pixelSize);
@@ -460,9 +455,6 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		// 		char xyzName[20];
-		// 		sprintf(xyzName, "xyz%d.xyz", frameCnt);
-
 		Mat colorImg, realPointCloud, pointColors, pointIndices;
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			&colorImg, &realPointCloud, &pointColors, &pointIndices), 
@@ -481,39 +473,8 @@ int main(int argc, char** argv)
 		pointIndicesPre = pointIndicesNow.clone();
 		pointIndicesNow = pointIndices.clone();
 
-// 		pointCloudPre = pointCloudNow.clone();
-// 		RUNANDTIME(global_timer, 
-// 			pointCloudNow = getFeaturePointCloud(colorImg, 
-// 			realPointCloud, pointIndices).clone(), 
-// 			OUTPUT, "get feature points.");
-// 		pointCloudPre = pointCloudNow.clone();
-// 		pointCloudNow = realPointCloud.clone();
-
 		if (frameCnt != 1)
 		{
-// 			if (frameCnt % 2 == 1)
-// 			{
-// 				pointCloudPre = pointCloudNow.clone();
-// 				RUNANDTIME(global_timer, pointCloudNow = getFeaturePointCloud(colorImg, 
-// 					realPointCloud, pointIndices).clone(), 
-// 					OUTPUT, "get feature points.");
-// 
-// 				if (frameCnt / 2 != 0)
-// 				{
-// 					ICP i(pointCloudNow, pointCloudPre);
-// 					RUNANDTIME(timer, i.run(), OUTPUT, "run ICP.");
-// 
-// 					tr = i.getTransformMat().clone() * tr;
-// // 					RUNANDTIME(global_timer, transformPointCloud(&realPointCloud, tr), 
-// // 						OUTPUT, "transform point cloud.");
-// // 					saveData("point3.txt", realPointCloud, 3);
-// 					RUNANDTIME(global_timer, transformPCUsingCUDA(&realPointCloud, tr), 
-// 						OUTPUT, "transform point cloud.");
-// 					waitKey();
-// 				}
-// 
-// 				loadPointCloudAndTexture(realPointCloud, pointColors, false);
-// 			}
 			Mat objSetOrigin, objSet, modSet;
 			RUNANDTIME(global_timer, getSurfPointsSet(colorImgNow, 
 				pointCloudNow, pointIndicesNow, colorImgPre, 
@@ -525,24 +486,15 @@ int main(int argc, char** argv)
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
 			/*ICP i(objSetOrigin, modSet);*/
 			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
-			if (hasCuda)
-			{
-				RUNANDTIME(global_timer, 
-					i.run(&objSet), OUTPUT, "run ICP.");
-				tr = i.getTransformMat().clone() * tr;
 
-				RUNANDTIME(global_timer, 
-					transformPointCloud(realPointCloud, 
-					&realPointCloud, tr, hasCuda), OUTPUT, "transform point cloud.");
-			}
-			else
-			{
-				RUNANDTIME(global_timer, i.run(&objSet), OUTPUT, "run ICP.");
-				tr = i.getTransformMat().clone() * tr;
+			RUNANDTIME(global_timer, 
+				i.run(hasCuda, &objSet), OUTPUT, "run ICP.");
+			tr = i.getTransformMat().clone() * tr;
 
-				RUNANDTIME(global_timer, transformPointCloud(realPointCloud, 
-					&realPointCloud, tr, hasCuda), OUTPUT, "transform point cloud.");
-			}
+			RUNANDTIME(global_timer, 
+				transformPointCloud(realPointCloud, 
+				&realPointCloud, tr, hasCuda), OUTPUT, "transform point cloud.");
+
 			cout << tr << endl;
 		}
 

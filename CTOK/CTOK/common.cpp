@@ -118,26 +118,6 @@ Mat convertMat( const Mat &mat )
 	return tmp.clone();
 }
 
-// void transformPointCloud(Mat input, Mat* output, Mat transformMat)
-// {
-// 	*output = Mat(input.rows, input.cols, input.type());
-// 
-// 	Mat R = transformMat(Rect(0, 0, 3, 3));
-// 	Mat T = transformMat(Rect(3, 0, 1, 3));
-// 	Mat tmp = input.clone();
-// #pragma omp parallel for
-// 	for (int i = 0; i < tmp.rows; i++)
-// 	{
-// 		for (int j = 0; j < tmp.cols; j++)
-// 		{
-// 			Point3f p = tmp.at<Point3f>(i, j);
-// 			Mat point(p);
-// 			point = R * point + T;
-// 			output->at<Point3f>(i, j) = Point3f(point);
-// 		}
-// 	}
-// }
-
 Mat getFeaturePointCloud( const Mat &colorImg, 
 	const Mat &pointCloud, const Mat &pointIndices )
 {

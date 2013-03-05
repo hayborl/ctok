@@ -13,8 +13,7 @@ public:
 		float sigma_factor = 0.8f, float d_02 = 0.01f);
 	~EMICP(){}
 
-	void run(Mat* initObjSet = NULL);		// 运行ICP算法
-	void cuda_run(Mat* initObjSet = NULL);
+	void run(bool withCuda, Mat* initObjSet = NULL);		// 运行ICP算法
 
 private:
 	float m_sigma_p2;			// square(sigma_p)

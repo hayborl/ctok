@@ -1,49 +1,28 @@
 #include "icp.h"
 
-using namespace KDTree_R;
-
-KDTree_R::ExamplarSet convertMatToExmSet( const Mat &mat )
-{
-	assert(mat.cols == 1 && mat.type() == DataType<Point3f>::type);
-
-	ExamplarSet exmSet;
-	int channels = mat.channels();
-	exmSet.create(mat.rows, channels);
-	for (int i = 0; i < mat.rows; i++)
-	{
-		Vec3f v = Vec3f(mat.at<Point3f>(i, 0));
-		for (int j = 0; j < channels; j++)
-		{
-			exmSet[i][j] = v[j];
-		}
-	}
-
-	return exmSet;
-}
-
-Vec3f computeNormal( vector<pair<_Examplar, double>> points )
-{
-	Mat M = Mat::zeros(3, 3, CV_64FC1);
-	Mat mean = Mat::zeros(3, 1, CV_64FC1);
-	for (int i = 0; i < points.size(); i++)
-	{
-		Mat pMat(points[i].first.data(), true);
-		M += pMat * pMat.t();
-		mean += pMat;
-	}
-	M /= (double)points.size();
-	mean /= (double)points.size();
-	M -= mean * mean.t();
-
-	Mat eigenValues(3, 1, CV_32FC1);
-	Mat eigenVector(3, 3, CV_32FC1);
-	eigen(M, eigenValues, eigenVector);
-
-	int minEigenIndex = 0;
-	minMaxIdx(eigenValues, NULL, NULL, &minEigenIndex, NULL);
-
-	return normalize(Vec3f(eigenVector.row(minEigenIndex)));
-}
+// Vec3f computeNormal( vector<pair<_Examplar, double>> points )
+// {
+// 	Mat M = Mat::zeros(3, 3, CV_64FC1);
+// 	Mat mean = Mat::zeros(3, 1, CV_64FC1);
+// 	for (int i = 0; i < points.size(); i++)
+// 	{
+// 		Mat pMat(points[i].first.data(), true);
+// 		M += pMat * pMat.t();
+// 		mean += pMat;
+// 	}
+// 	M /= (double)points.size();
+// 	mean /= (double)points.size();
+// 	M -= mean * mean.t();
+// 
+// 	Mat eigenValues(3, 1, CV_32FC1);
+// 	Mat eigenVector(3, 3, CV_32FC1);
+// 	eigen(M, eigenValues, eigenVector);
+// 
+// 	int minEigenIndex = 0;
+// 	minMaxIdx(eigenValues, NULL, NULL, &minEigenIndex, NULL);
+// 
+// 	return normalize(Vec3f(eigenVector.row(minEigenIndex)));
+// }
 
 ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 {
@@ -61,7 +40,7 @@ ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 		OUTPUT && SUBOUTPUT, "create kdTree");
 }
 
-void ICP::run(Mat* initObjSet)
+void ICP::run(bool withCuda, Mat* initObjSet)
 {
 	assert(!m_objSet.empty() && !m_modSet.empty());
 
@@ -97,44 +76,6 @@ void ICP::run(Mat* initObjSet)
 /*	waitKey();*/
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
-}
-
-void ICP::cuda_run(Mat* initObjSet)
-{
-	assert(!m_objSet.empty() && !m_modSet.empty());
-
-	double d_pre = 100000, d_now = 100000;
-	int iterCnt = 0;
-
-	Mat objSet = initObjSet->clone();
-
-	/*	plotTwoPoint3DSet(objSet, m_modSet);*/
-
-	do 
-	{
-		d_pre = d_now;
-
-		Mat closestSet;
-		Mat lambda(objSet.rows, 1, CV_32FC1);
-		RUNANDTIME(global_timer, closestSet = 
-			getClosestPointsSet(objSet, d_now, lambda, KDTREE).clone(), 
-			OUTPUT && SUBOUTPUT, "compute closest points.");
-		Mat tmpObjSet = convertMat(m_objSet);
-		Mat tmpModSet = convertMat(closestSet);
-		RUNANDTIME(global_timer, m_tr = 
-			computeTransformation(tmpObjSet, tmpModSet, lambda), 
-			OUTPUT && SUBOUTPUT, "compute transformation");
-		Mat transformMat = getTransformMat();
-		RUNANDTIME(global_timer, transformPointCloud(
-			m_objSet, &objSet, transformMat), 
-			OUTPUT && SUBOUTPUT, "transform points.");
-
-		iterCnt++;
-	} while (fabs(d_now - d_pre) > m_epsilon && iterCnt <= m_iterMax);
-
-	/*	waitKey();*/
-
-	/*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }
 
 Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,

@@ -4,16 +4,7 @@
     <ClCompile Include="common.cpp">
       <Filter>src files</Filter>
     </ClCompile>
-    <ClCompile Include="examplarset.cpp">
-      <Filter>src files</Filter>
-    </ClCompile>
     <ClCompile Include="icp.cpp">
-      <Filter>src files</Filter>
-    </ClCompile>
-    <ClCompile Include="kdtree.cpp">
-      <Filter>src files</Filter>
-    </ClCompile>
-    <ClCompile Include="kdtreenode.cpp">
       <Filter>src files</Filter>
     </ClCompile>
     <ClCompile Include="abstracticp.cpp">
@@ -30,16 +21,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="kdtreenode.h">
-      <Filter>head files</Filter>
-    </ClInclude>
-    <ClInclude Include="kdtree.h">
-      <Filter>head files</Filter>
-    </ClInclude>
     <ClInclude Include="icp.h">
-      <Filter>head files</Filter>
-    </ClInclude>
-    <ClInclude Include="examplarset.h">
       <Filter>head files</Filter>
     </ClInclude>
     <ClInclude Include="common.h">

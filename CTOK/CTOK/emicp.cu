@@ -87,14 +87,7 @@ struct normalizeRow_functor
 	normalizeRow_functor(const int& _cols) : cols(_cols){}
 	__host__ __device__ float operator()(const float& x, const float& lambda)
 	{
-		if (lambda > 10e-7f)
-		{
-			return x / lambda;
-		}
-		else
-		{
-			return 1.0f / cols;
-		}
+		return x / (lambda + 1e-8);
 	}
 };
 

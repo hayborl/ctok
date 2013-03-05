@@ -13,7 +13,9 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/transform.h>
+#include <thrust/copy.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 
 #include "ANN/ANN.h"
 #pragma comment(lib, "ANN.lib")

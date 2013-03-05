@@ -19,12 +19,14 @@ EMICP::EMICP(const Mat &objSet, const Mat &modSet,
 
 void EMICP::run(bool withCuda, Mat* initObjSet)
 {
-	int rowsA = m_objSet.rows;
-	int colsA = m_modSet.rows;
 	Mat objSet = m_objSet.clone();
 	Mat modSet = convertMat(m_modSet);
+	int rowsA = objSet.rows;
+	int colsA = modSet.rows;
 
 	int iter = 0;
+
+	Mat A(rowsA, colsA, CV_32FC1);
 
 	while (m_sigma_p2 > m_sigma_inf)
 	{
@@ -34,7 +36,6 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 		memcpy(tempT, m_tr.t.val, 3 * sizeof(float));
 		Mat T(3, 1, CV_32FC1, tempT);
 
-		Mat A(rowsA, colsA, CV_32FC1);
 		RUNANDTIME(global_timer, updateA(A, objSet, R, T),
 			OUTPUT && SUBOUTPUT, "update A Matrix");
 
@@ -42,7 +43,7 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
 		float alpha = expf(-m_d_02 / m_sigma_p2);
 		C = C * alpha + A * ones;
-		RUNANDTIME(global_timer, normalizeRows2(A, C), 
+		RUNANDTIME(global_timer, normalizeRows(A, C), 
 			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
 		Mat tmpM = A.clone();
 		sqrt(tmpM, A);

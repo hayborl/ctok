@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-#define SUBOUTPUT false
+#define SUBOUTPUT true
 
 class AbstractICP
 {

@@ -21,11 +21,14 @@ private:
 	float m_sigma_factor;		// sigma变换因子
 	float m_d_02;				// square(d_0)
 
-	void updateA(Mat& A, const Mat& objSet, bool withCuda = false);				// 计算所需的矩阵A
+	void updateA(Mat& A, const Mat& objSet,
+		const Mat& modSet, bool withCuda = false);				// 计算所需的矩阵A
 	void normalizeRows(Mat& mat, const Mat& alpha, 
-		bool withCuda = false, bool withSqrt = false);							// rows(A)[i] / alpha[i]
+		bool withCuda = false, bool withSqrt = false);			// rows(A)[i] / alpha[i]
 
 	void cuda_updateA(Mat &A, const Mat &objSet, const Mat &modSet);
+	void cuda_normalizeRows(Mat& mat, 
+		const Mat& alpha, bool withSqrt = false);
 };
 
 #endif

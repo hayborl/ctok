@@ -104,8 +104,11 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 #pragma omp parallel for
 	for (int i = 0; i < index; i++)
 	{
-		pointCloud_XYZ.at<Point3f>(i, 0) = Point3f(
-			real[i].X, real[i].Y, real[i].Z);
+// 		if ((float)rand() / (float)RAND_MAX < 0.7)
+// 		{
+			pointCloud_XYZ.at<Point3f>(i, 0) = Point3f(
+				real[i].X, real[i].Y, real[i].Z);
+/*		}*/
 	}
 	*realPointCloud = pointCloud_XYZ.clone();
 	*colorImg = colorImageShow.clone();
@@ -138,7 +141,7 @@ void loadPointCloudAndTexture(Mat pointCloud,
 	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
 	{
 		p = pointCloud.at<Vec3f>(i, 0);
-		if (p != Vec3f(0, 0, 0))
+		if (p != Vec3f(0, 0, 0) && (double)rand() / (double)RAND_MAX < 0.3)
 		{
 			p[2] = -p[2];
 /*			exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;*/
@@ -494,10 +497,12 @@ int main(int argc, char** argv)
 			RUNANDTIME(global_timer, 
 				transformPointCloud(realPointCloud, 
 				&realPointCloud, tr, hasCuda), OUTPUT, "transform point cloud.");
+
+			waitKey();
 		}
 
 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
-			pointColors, true), OUTPUT, "load data");
+			pointColors, false), OUTPUT, "load data");
 
 		char key = waitKey(1);
 		if (key == 27)

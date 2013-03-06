@@ -35,7 +35,7 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 	{
 		preTransformMat = nowTransformMat;
 
-		RUNANDTIME(global_timer, updateA(A, objSet, withCuda),
+		RUNANDTIME(global_timer, updateA(A, objSet, m_modSet, withCuda),
 			OUTPUT && SUBOUTPUT, "update A Matrix");
 
 		Mat C = Mat::ones(rowsA, 1, CV_32FC1);
@@ -50,7 +50,7 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 		Mat lambda = A * ones;
 		Mat modSetPrime = A * modSet;
 		RUNANDTIME(global_timer, 
-			normalizeRows(modSetPrime, lambda, withCuda),
+			normalizeRows(modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
 
 		Mat tmpObjSet = convertMat(m_objSet);

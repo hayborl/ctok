@@ -80,15 +80,21 @@ void EMICP::updateA( Mat& A, const Mat& objSet, bool withCuda )
 
 struct normalizeRow_functor
 {
-	int cols;
-	normalizeRow_functor(const int& _cols) : cols(_cols){}
 	__host__ __device__ float operator()(const float& x, const float& lambda)
 	{
 		return x / (lambda + 1e-8);
 	}
 };
 
-void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda)
+struct sqrt_functor
+{
+	__host__ __device__ float operator()(const float& x)
+	{
+		return sqrtf(x);
+	}
+};
+
+void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda, bool withSqrt)
 {
 	int rows = mat.rows;
 	int cols = mat.cols;
@@ -112,7 +118,13 @@ void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda)
 				thrust::device_vector<float>::iterator 
 					begin = d_mat.begin() + i * cols;
 				thrust::transform(begin, begin + cols, 
-					tmp, begin, normalizeRow_functor(cols));
+					tmp, begin, normalizeRow_functor());
+			}
+
+			if (withSqrt)
+			{
+				thrust::transform(d_mat.begin(), d_mat.end(), 
+					d_mat.begin(), sqrt_functor());
 			}
 
 			h_mat = d_mat;
@@ -128,7 +140,13 @@ void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda)
 				thrust::host_vector<float>::iterator 
 					begin = h_mat.begin() + i * cols;
 				thrust::transform(begin, begin + cols, 
-					tmp, begin, normalizeRow_functor(cols));
+					tmp, begin, normalizeRow_functor());
+			}
+
+			if (withSqrt)
+			{
+				thrust::transform(h_mat.begin(), h_mat.end(), 
+					h_mat.begin(), sqrt_functor());
 			}
 		}
 
@@ -147,26 +165,17 @@ void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda)
 #define BLOCK_SIZE 128
 
 __global__ void kernelUpdateA(PtrStepSz<float> d_mod, PtrStepSz<float> d_obj,
-	PtrStepSz<float> d_R, PtrStepSz<float> d_T, 
-	PtrStepSz<float> d_A, float sigma_p2)
+	PtrStep<float> d_A, float sigma_p2)
 {
-	int r = blockIdx.x * blockDim.x + threadIdx.x;
-	int c = blockIdx.y * blockDim.y + threadIdx.y;
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-#define arrR(r, c) d_R.ptr(r)[c]
-#define arrT(r) d_T.ptr(r)[0]
-#define mod(r, c) d_mod.ptr(r)[c]
-#define obj(r, c) d_obj.ptr(r)[c]
-#define A(r, c) d_A.ptr(r)[c]
-
-	if (r < d_obj.rows && c < d_mod.rows)
+	if (y < d_obj.rows && x < d_mod.rows)
 	{
 		float tmp[3];
 		for (int i = 0; i < 3; i++)
 		{
-			tmp[i] = mod(c, i) - (arrR(i, 0) * obj(r, 0) 
-				+ arrR(i, 1) * obj(r, 1) 
-				+ arrR(i, 2) * obj(r, 2) + arrT(i));
+			tmp[i] = d_mod(x, i) - d_obj(y, i);
 			tmp[i] *= tmp[i];
 		}
 		tmp[0] += tmp[1];
@@ -174,38 +183,30 @@ __global__ void kernelUpdateA(PtrStepSz<float> d_mod, PtrStepSz<float> d_obj,
 		tmp[0] /= sigma_p2;
 		tmp[0] = expf(-tmp[0]);
 
-		A(r, c) = tmp[0];
+		d_A(y, x) = tmp[0];
 	}
 }
 
-void EMICP::cuda_updateA(Mat &h_A, const Mat &objSet, 
-	const Mat &modSet, const Mat &h_R, const Mat &h_T)
+void EMICP::cuda_updateA(Mat &h_A, const Mat &objSet, const Mat &modSet)
 {
 	assert(objSet.cols == 3 && modSet.cols == 3);
 
 	int rowsA = objSet.rows;
 	int colsA = modSet.rows;
-	GpuMat d_obj, d_mod, d_R, d_T;
+	GpuMat d_obj, d_mod;
 	d_obj.upload(objSet);
 	d_mod.upload(modSet);
-	d_R.upload(h_R);
-	d_T.upload(h_T);
 
-	int rowsA1 = rowsA - 1;
-	int colsA1 = colsA - 1;
-	dim3 dimBlockForA(rowsA1 % BLOCK_SIZE, colsA1 % BLOCK_SIZE);
-	dim3 dimGridForA(rowsA1 / dimBlockForA.x + 1, colsA1 / dimBlockForA.y + 1);
+	dim3 block(16, 16);
+	dim3 grid((colsA + block.x - 1) / block.x, (rowsA + block.y - 1) / block.y);
 
 	GpuMat d_A(rowsA, colsA, CV_32FC1);
-	kernelUpdateA<<<dimGridForA, dimBlockForA>>>
-		(d_mod, d_obj, d_R, d_T, d_A, m_sigma_p2);
+	kernelUpdateA<<<grid, block>>>(d_mod, d_obj, d_A, m_sigma_p2);
 
 	d_A.download(h_A);
 	cout << h_A << endl;waitKey();
 
 	d_obj.release();
 	d_mod.release();
-	d_R.release();
-	d_T.release();
 	d_A.release();
 }

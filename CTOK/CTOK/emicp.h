@@ -22,12 +22,10 @@ private:
 	float m_d_02;				// square(d_0)
 
 	void updateA(Mat& A, const Mat& objSet, bool withCuda = false);				// 计算所需的矩阵A
-	void normalizeRows(Mat& mat, const Mat& alpha, bool withCuda = false);		// rows(A)[i] / alpha[i]
+	void normalizeRows(Mat& mat, const Mat& alpha, 
+		bool withCuda = false, bool withSqrt = false);							// rows(A)[i] / alpha[i]
 
-// 	void cuda_updateA(Mat &A, const Mat &objSet, 
-// 		const Mat &modSet, float* h_R, float* h_T);
-	void cuda_updateA(Mat &A, const Mat &objSet, 
-		const Mat &modSet, const Mat &R, const Mat &T);
+	void cuda_updateA(Mat &A, const Mat &objSet, const Mat &modSet);
 };
 
 #endif

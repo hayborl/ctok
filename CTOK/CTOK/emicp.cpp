@@ -28,8 +28,13 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 
 	Mat A(rowsA, colsA, CV_32FC1);
 
-	while (m_sigma_p2 > m_sigma_inf)
+	Mat preTransformMat = Mat::zeros(4, 4, CV_32FC1);
+	Mat nowTransformMat = Mat::zeros(4, 4, CV_32FC1);
+
+	do
 	{
+		preTransformMat = nowTransformMat;
+
 		RUNANDTIME(global_timer, updateA(A, objSet, withCuda),
 			OUTPUT && SUBOUTPUT, "update A Matrix");
 
@@ -37,10 +42,10 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
 		float alpha = expf(-m_d_02 / m_sigma_p2);
 		C = C * alpha + A * ones;
-		RUNANDTIME(global_timer, normalizeRows(A, C, withCuda), 
+		RUNANDTIME(global_timer, normalizeRows(A, C, withCuda, true), 
 			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
-		Mat tmpM = A.clone();
-		sqrt(tmpM, A);
+// 		Mat tmpM = A.clone();
+// 		sqrt(tmpM, A);
 
 		Mat lambda = A * ones;
 		Mat modSetPrime = A * modSet;
@@ -52,13 +57,14 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 		RUNANDTIME(global_timer, tr = 
 			computeTransformation(tmpObjSet, modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		Mat transformMat = getTransformMat(tr);
+		nowTransformMat = getTransformMat(tr);
 		RUNANDTIME(global_timer, transformPointCloud(
-			m_objSet, &objSet, transformMat, withCuda), 
+			m_objSet, &objSet, nowTransformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;
-	}
+	}while (m_sigma_p2 > m_sigma_inf && 
+		abs(sum(nowTransformMat - preTransformMat)[0]) > 1e-5);
 	tr.t *= 1000.0f;
 	m_tr = getTransformMat(tr);
 }

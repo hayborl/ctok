@@ -76,19 +76,19 @@ typedef struct tag_Transformation
 } Transformation;
 
 // 将m*n k通道转换为m*(n*k) 单通道
-Mat convertMat(const Mat &mat);
+Mat convertMat(const Mat& mat);
 
 void transformPointCloud(Mat input, Mat* output, 
 	Mat transformMat, bool withCuda = false);
 void cuda_transformPointCloud(Mat input, 
 	Mat* output, Mat transformMat);
 
-Mat getFeaturePointCloud(const Mat &colorImg, 
-	const Mat &pointCloud, const Mat &pointIndices);
+Mat getFeaturePointCloud(const Mat& colorImg, 
+	const Mat& pointCloud, const Mat& pointIndices);
 
-void getSurfPointsSet(const Mat &objColorImg, const Mat &objPointCloud, 
-	const Mat &objPointIndex, const Mat &modColorImg, 
-	const Mat &modPointCloud, const Mat &modPointIndex, 
+void getSurfPointsSet(const Mat& objColorImg, const Mat& objPointCloud, 
+	const Mat& objPointIndex, const Mat& modColorImg, 
+	const Mat& modPointCloud, const Mat& modPointIndex, 
 	Mat* objSetOrigin, Mat* objSet, Mat* modSet, xn::DepthGenerator dg);
 
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);

@@ -8,7 +8,7 @@ class EMICP : public AbstractICP
 public:
 	EMICP(){}
 	// <Softassign and EM-ICP on GPU>
-	EMICP(const Mat &objSet, const Mat &modSet,
+	EMICP(const Mat& objSet, const Mat& modSet,
 		float sigma_p2 = 0.01f, float sigma_inf = 0.00001f, 
 		float sigma_factor = 0.8f, float d_02 = 0.01f);
 	~EMICP(){}
@@ -21,10 +21,8 @@ private:
 	float m_sigma_factor;		// sigma变换因子
 	float m_d_02;				// square(d_0)
 
-	void updateA(Mat &A, const Mat &objSet, const Mat &R, 
-		const Mat &T, bool withCuda = false);									// 计算所需的矩阵A
-	void normalizeRows(Mat &mat, const Mat &alpha, bool withCuda = false);		// rows(A)[i] / alpha[i]
-	void normalizeRows2(Mat &mat, const Mat &alpha);
+	void updateA(Mat& A, const Mat& objSet, bool withCuda = false);				// 计算所需的矩阵A
+	void normalizeRows(Mat& mat, const Mat& alpha, bool withCuda = false);		// rows(A)[i] / alpha[i]
 
 // 	void cuda_updateA(Mat &A, const Mat &objSet, 
 // 		const Mat &modSet, float* h_R, float* h_T);

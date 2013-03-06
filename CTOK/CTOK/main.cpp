@@ -489,13 +489,11 @@ int main(int argc, char** argv)
 
 			RUNANDTIME(global_timer, 
 				i.run(hasCuda, &objSet), OUTPUT, "run ICP.");
-			tr = i.getTransformMat().clone() * tr;
+			tr = i.getFinalTransformMat().clone() * tr;
 
 			RUNANDTIME(global_timer, 
 				transformPointCloud(realPointCloud, 
 				&realPointCloud, tr, hasCuda), OUTPUT, "transform point cloud.");
-
-			cout << tr << endl;
 		}
 
 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
@@ -541,7 +539,7 @@ int main(int argc, char** argv)
 //	}
 //	myseg.setDepthImage(ldimage);
 //	RUNANDTIME(global_timer, myseg.oversegMyImage((uchar)10),
-//		OUTPUT && SUBOUTPUT, "seg time");
+//		OUTPUT, "seg time");
 //	//cout<<cos(1.57079632679489661923);
 //	cout<<"good bye";
 //

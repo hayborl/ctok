@@ -102,7 +102,7 @@ bool initCuda()
 	return true;
 }
 
-Mat convertMat( const Mat &mat )
+Mat convertMat( const Mat& mat )
 {
 	Mat* subs = new Mat[mat.channels()];
 	split(mat, subs);
@@ -118,8 +118,8 @@ Mat convertMat( const Mat &mat )
 	return tmp.clone();
 }
 
-Mat getFeaturePointCloud( const Mat &colorImg, 
-	const Mat &pointCloud, const Mat &pointIndices )
+Mat getFeaturePointCloud( const Mat& colorImg, 
+	const Mat& pointCloud, const Mat& pointIndices )
 {
 	Mat keyPointsImg;
 	vector<KeyPoint> keyPoints;
@@ -148,9 +148,9 @@ Mat getFeaturePointCloud( const Mat &colorImg,
 	return Mat(tmpSet, true).clone();
 }
 
-void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud, 
-	const Mat &objPointIndex, const Mat &modColorImg, 
-	const Mat &modPointCloud, const Mat &modPointIndex, 
+void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud, 
+	const Mat& objPointIndex, const Mat& modColorImg, 
+	const Mat& modPointCloud, const Mat& modPointIndex, 
 	Mat* objSetOrigin, Mat* objSet, Mat* modSet, xn::DepthGenerator dg)
 {
 	Mat colorImgs[2], keyPointsImgs[2], descriptors[2];

@@ -24,7 +24,7 @@
 // 	return normalize(Vec3f(eigenVector.row(minEigenIndex)));
 // }
 
-ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
+ICP::ICP( const Mat& objSet, const Mat& modSet, int iterMax, double epsilon )
 {
 	assert(objSet.cols == 1 && modSet.cols == 1);
 	assert(!objSet.empty() && !modSet.empty());
@@ -33,8 +33,7 @@ ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 	m_modSet = modSet.clone();
 	m_iterMax = iterMax;
 	m_epsilon = epsilon;
-	m_tr.q = Vec4f(1, 0, 0, 0);
-	m_tr.t = Vec3f(0, 0, 0);
+	m_tr = Mat::eye(4, 4, CV_32FC1);
 
 	RUNANDTIME(global_timer, createKDTree(),
 		OUTPUT && SUBOUTPUT, "create kdTree");
@@ -48,6 +47,7 @@ void ICP::run(bool withCuda, Mat* initObjSet)
 	int iterCnt = 0;
 
 	Mat objSet = initObjSet->clone();
+	Transformation tr;
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 
@@ -62,24 +62,25 @@ void ICP::run(bool withCuda, Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "compute closest points.");
 		Mat tmpObjSet = convertMat(m_objSet);
 		Mat tmpModSet = convertMat(closestSet);
-		RUNANDTIME(global_timer, m_tr = 
+		RUNANDTIME(global_timer, tr = 
 			computeTransformation(tmpObjSet, tmpModSet, lambda), 
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		Mat transformMat = getTransformMat();
+		Mat transformMat = getTransformMat(tr);
 		RUNANDTIME(global_timer, transformPointCloud(
-			m_objSet, &objSet, transformMat), 
+			m_objSet, &objSet, transformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		iterCnt++;
 	} while (fabs(d_now - d_pre) > m_epsilon && iterCnt <= m_iterMax);
 
+	m_tr = getTransformMat(tr);
 /*	waitKey();*/
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }
 
-Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
-	Mat &lambda, Method method )
+Mat ICP::getClosestPointsSet( const Mat& objSet, double& d,
+	Mat& lambda, Method method )
 {
 	int rows = objSet.rows;
 	Mat closestSet(rows, 1, DataType<Point3f>::type);

@@ -1,11 +1,11 @@
 #include "abstracticp.h"
 
-cv::Mat AbstractICP::getTransformMat()
+cv::Mat AbstractICP::getTransformMat(const Transformation& tr)
 {
 	float tempR[9], tempT[3];
-	getRotateMatrix(m_tr.q, tempR);
+	getRotateMatrix(tr.q, tempR);
 	Mat R(3, 3, CV_32FC1, tempR);
-	memcpy(tempT, m_tr.t.val, 3 * sizeof(float));
+	memcpy(tempT, tr.t.val, 3 * sizeof(float));
 	Mat T(3, 1, CV_32FC1, tempT);
 
 	Mat mat = Mat::eye(4, 4, CV_32FC1);
@@ -17,8 +17,8 @@ cv::Mat AbstractICP::getTransformMat()
 	return mat.clone();
 }
 
-Transformation AbstractICP::computeTransformation( const Mat &objSet, 
-	const Mat &modSet, const Mat &lambda )
+Transformation AbstractICP::computeTransformation( const Mat& objSet, 
+	const Mat& modSet, const Mat& lambda )
 {
 	assert(objSet.cols == 3 && modSet.cols == 3);
 	assert(objSet.rows == modSet.rows && objSet.rows == lambda.rows);
@@ -84,7 +84,7 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 }
 
 Transformation AbstractICP::cuda_computeTransformation( 
-	const Mat &objSet, const Mat &modSet, const Mat &lambda )
+	const Mat& objSet, const Mat& modSet, const Mat& lambda )
 {
 	assert(objSet.cols == 3 && modSet.cols == 3);
 	assert(objSet.rows == modSet.rows && objSet.rows == lambda.rows);

@@ -5,27 +5,24 @@
 
 struct updateA_functor
 {
-	float R[9], T[3], sigma;
-	updateA_functor(const Mat& m_R, const Mat& m_T, float _sigma)
+	float sigma;
+	updateA_functor(float _sigma)
 	{
 		sigma = _sigma;
-		memcpy(R, (float*)m_R.data, 9 * sizeof(float));
-		memcpy(T, (float*)m_T.data, 3 * sizeof(float));
 	}
 	__host__ __device__ float operator()(const float3& p1, const float3& p2)
 	{
 		float tmp0, tmp1, tmp2;
-		tmp0 = p1.x - (R[0] * p2.x + R[1] * p2.y + R[2] * p2.z + T[0]);
-		tmp1 = p1.y - (R[3] * p2.x + R[4] * p2.y + R[5] * p2.z + T[1]);
-		tmp2 = p1.z - (R[6] * p2.x + R[7] * p2.y + R[8] * p2.z + T[2]);
+		tmp0 = p1.x - p2.x;
+		tmp1 = p1.y - p2.y;
+		tmp2 = p1.z - p2.z;
 		tmp0 = tmp0 * tmp0 + tmp1 * tmp1 + tmp2 * tmp2;
 		tmp0 /= sigma;
 		return expf(-tmp0);
 	}
 };
 
-void EMICP::updateA(Mat &A, const Mat &objSet, 
-	const Mat &R, const Mat &T, bool withCuda)
+void EMICP::updateA( Mat& A, const Mat& objSet, bool withCuda )
 {
 	int rowsA = objSet.rows;
 	int colsA = m_modSet.rows;
@@ -49,7 +46,7 @@ void EMICP::updateA(Mat &A, const Mat &objSet,
 			{
 				thrust::constant_iterator<float3> tmp(d_obj[i]);
 				thrust::transform(d_mod.begin(), d_mod.end(), tmp, 
-					d_A.begin() + i * colsA, updateA_functor(R, T, m_sigma_p2));
+					d_A.begin() + i * colsA, updateA_functor(m_sigma_p2));
 			}
 
 			h_A = d_A;
@@ -64,7 +61,7 @@ void EMICP::updateA(Mat &A, const Mat &objSet,
 			{
 				thrust::constant_iterator<float3> tmp(h_obj[i]);
 				thrust::transform(h_mod.begin(), h_mod.end(), tmp, 
-					h_A.begin() + i * colsA, updateA_functor(R, T, m_sigma_p2));
+					h_A.begin() + i * colsA, updateA_functor(m_sigma_p2));
 			}
 		}
 

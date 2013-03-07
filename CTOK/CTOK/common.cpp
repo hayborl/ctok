@@ -355,3 +355,18 @@ void getRotateMatrix( Vec4f q, float* R )
 	R[7] = 2 * (q2 * q3 + q0 * q1);
 	R[8] = q0 * q0 + q3 * q3 - q1 * q1 - q2 * q2;
 }
+
+double bhattacharyyaDistance(const Mat& mat1, const Mat& mat2)
+{
+	assert(mat1.channels() == 1 && mat2.channels() == 1);
+	Mat tmp = mat1.mul(mat2);
+	sqrt(tmp, tmp);
+	return -log(sum(tmp)[0]);
+}
+
+double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2)
+{
+	double dis1 = bhattacharyyaDistance(des1.first, des2.first);
+	double dis2 = bhattacharyyaDistance(des1.second, des2.second);
+	return (dis1 + dis2) * 0.5;
+}

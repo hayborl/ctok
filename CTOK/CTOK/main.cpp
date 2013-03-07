@@ -1,11 +1,9 @@
 #include <GL/freeglut.h>
-#include "XnCppWrapper.h"
-#include "opencv2/opencv.hpp"
-#include <iostream>
 
 #include "icp.h"
 #include "emicp.h"
 #include "segment.h"
+#include "features.h"
 
 using namespace std;
 using namespace cv;
@@ -43,16 +41,18 @@ double radius = 6000.0;								// 摄像机与注视点的距离
 XnDouble baseline;
 XnUInt64 focalLengthInPixel;
 
+Features features;
+#define SIMILARITY_THRESHOLD 0.001
+
 #define SAMPLE_INTERVAL 1
 
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
-	Mat* colorImg, Mat* realPointCloud, 
-	Mat* pointColors, Mat* pointIndices)
+	Mat& colorImg, Mat& depthImg)
 {
 	ImageMetaData imageMD;     //创建image节点元数据对象    
 	DepthMetaData depthMD;     //创建depth节点元数据对象
 	Mat depthImageShow, colorImageShow;
-	int cols, rows, index = 0;
+	int cols, rows;
 
 	//get meta data  
 	dg.GetMetaData(depthMD);   
@@ -70,11 +70,23 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 	// 	dilate(imgDepth16U, imgDepth16U, kernel, anchor, iter);	//膨胀
 	// 	erode(imgDepth16U, imgDepth16U, kernel, anchor, iter);	//腐蚀
 
-	imgDepth16U.convertTo(depthImageShow, CV_8UC1, 255 / 4096.0);
+	imgDepth16U.convertTo(depthImageShow, CV_8UC1, 255 / 5000.0);
 	Mat imgRGB(rows, cols, CV_8UC3, (void*)imageMD.Data());
 	cvtColor(imgRGB, colorImageShow, CV_RGB2BGR);
 	imshow("depth", depthImageShow);
 	imshow("image", colorImageShow);
+
+	colorImg = colorImageShow.clone();
+	depthImg = imgDepth16U.clone();
+}
+
+void read3DPoints(DepthGenerator dg, const Mat& depthImg, 
+	const Mat& colorImg, Mat& realPointCloud, 
+	Mat& pointColors, Mat& pointIndices)
+{
+	int cols, rows, index = 0;
+	cols = depthImg.cols;
+	rows = depthImg.rows;
 
 	Ptr<XnPoint3D> proj = new XnPoint3D[cols * rows];
 	Ptr<XnPoint3D> real = new XnPoint3D[cols * rows];
@@ -84,14 +96,14 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 	{
 		for (int x = 0; x < cols; x++)
 		{
-			ushort z = imgDepth16U.at<ushort>(y, x);
-			if (z != 0)
+			ushort z = depthImg.at<ushort>(y, x);
+			if (z != 0)			//微软建议使用该范围内的点
 			{
 				proj[index].X = (float)x;
 				proj[index].Y = (float)y;
 				proj[index].Z = (float)z;
 				pointIndex.at<int>(y, x) = index;
-				colors.push_back(colorImageShow.at<Vec3b>(y, x));
+				colors.push_back(colorImg.at<Vec3b>(y, x));
 
 				index++;
 			}
@@ -104,16 +116,13 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 #pragma omp parallel for
 	for (int i = 0; i < index; i++)
 	{
-// 		if ((float)rand() / (float)RAND_MAX < 0.7)
-// 		{
-			pointCloud_XYZ.at<Point3f>(i, 0) = Point3f(
-				real[i].X, real[i].Y, real[i].Z);
-/*		}*/
+		pointCloud_XYZ.at<Point3f>(i, 0) = Point3f(
+			real[i].X, real[i].Y, real[i].Z);
 	}
-	*realPointCloud = pointCloud_XYZ.clone();
-	*colorImg = colorImageShow.clone();
-	*pointColors = Mat(colors, true).clone();
-	*pointIndices = pointIndex.clone();
+
+	realPointCloud = pointCloud_XYZ.clone();
+	pointColors = Mat(colors, true).clone();
+	pointIndices = pointIndex.clone();
 }
 
 // 载入3D坐标数据及其颜色数据
@@ -141,7 +150,7 @@ void loadPointCloudAndTexture(Mat pointCloud,
 	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
 	{
 		p = pointCloud.at<Vec3f>(i, 0);
-		if (p != Vec3f(0, 0, 0) && (double)rand() / (double)RAND_MAX < 0.3)
+		if (p != Vec3f(0, 0, 0)/* && (double)rand() / (double)RAND_MAX < 0.3*/)
 		{
 			p[2] = -p[2];
 /*			exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;*/
@@ -371,12 +380,6 @@ void colorizeDisparity( const Mat& gray0, Mat& rgb, double maxDisp=-1.f, float S
 }
 
 /************************************************************************/
-/*                          saveData                                    */
-/*                      保存当前画面的数据                              */
-/************************************************************************/
-
-
-/************************************************************************/
 /*                         主程序                                       */
 /************************************************************************/
 int main(int argc, char** argv)
@@ -446,6 +449,7 @@ int main(int argc, char** argv)
 	Mat pointIndicesPre, pointIndicesNow;
 	Mat colorImgPre, colorImgNow;
 	Mat tr = Mat::eye(4, 4, CV_32FC1);
+	pair<Mat, Mat> desPre, desNow;
 
 	XnUInt32 frameCnt = 1;
 	while (1)   
@@ -453,24 +457,63 @@ int main(int argc, char** argv)
 		rc = context.WaitOneUpdateAll(depthGenerator);
 		rc = context.WaitOneUpdateAll(imageGenerator);
 
-		if (depthGenerator.GetFrameID() < frameCnt/* || frameCnt == 166*/)
+		if (depthGenerator.GetFrameID() < frameCnt)
 		{
 			break;
 		}
 
-		Mat colorImg, realPointCloud, pointColors, pointIndices;
+		Mat colorImg, depthImg, realPointCloud, pointColors, pointIndices;
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
-			&colorImg, &realPointCloud, &pointColors, &pointIndices), 
-			OUTPUT, "read one frame.");
+			colorImg, depthImg), OUTPUT, "read one frame.");
+		colorImgPre = colorImgNow.clone();
+		colorImgNow = colorImg.clone();
+
+		desPre = desNow;
+		features.getHSVColorHistDes(colorImgNow, desNow.first);
+		features.getGLCMDes(colorImgNow, desNow.second);
+
+		if (frameCnt != 1)
+		{
+			double distance = computeDistance(desPre, desNow);
+			if (distance < SIMILARITY_THRESHOLD)
+			{
+				colorImgNow = colorImgPre.clone();
+				desNow = desPre;
+
+				char key = waitKey(1);
+				if (key == 27)
+				{
+					break;
+				}
+				frameCnt++;
+
+				glutPostRedisplay();
+				glutMainLoopEvent();
+				continue;
+			}
+		}
+
+		RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
+			depthImg, colorImg, realPointCloud, pointColors, 
+			pointIndices), OUTPUT, "read 3D points");
 
 		if (realPointCloud.rows <= 0 || pointColors.rows <= 0 ||
 			pointIndices.rows <= 0)
 		{
+			char key = waitKey(1);
+			if (key == 27)
+			{
+				break;
+			}
+			frameCnt++;
+
+			glutPostRedisplay();				// 刷新画面
+
+			// OpenCV 处理键盘响应消息后，再显示 OpenGL 图像
+			glutMainLoopEvent();
 			continue;
 		}
 
-		colorImgPre = colorImgNow.clone();
-		colorImgNow = colorImg.clone();
 		pointCloudPre = pointCloudNow.clone();
 		pointCloudNow = realPointCloud.clone();
 		pointIndicesPre = pointIndicesNow.clone();
@@ -498,7 +541,7 @@ int main(int argc, char** argv)
 				transformPointCloud(realPointCloud, 
 				&realPointCloud, tr, hasCuda), OUTPUT, "transform point cloud.");
 
-			waitKey();
+/*			waitKey();*/
 		}
 
 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
@@ -510,11 +553,6 @@ int main(int argc, char** argv)
 			break;
 		}
 		frameCnt++;
-
-		//////////////////////////////////////////////////////////////////////////
-		// OpenGL显示
-		//         load3dDataToGL(pointCloud_XYZ);     // 载入环境三维点云
-		//         loadTextureToGL(imgBGR);			// 载入纹理数据
 
 		glutPostRedisplay();				// 刷新画面
 

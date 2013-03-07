@@ -74,7 +74,7 @@ struct normalizeRow_functor
 {
 	__host__ __device__ float operator()(const float& x, const float& lambda)
 	{
-		return x / (lambda + 1e-7);
+		return (float)(x / (lambda + 1e-7));
 	}
 };
 

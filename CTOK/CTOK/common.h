@@ -29,7 +29,7 @@ using namespace gpu;
 #define DISTANCE_MAX 100000000
 #define DISTANCE_RANGE 100
 #define DISTANCE_THRE 1500
-#define OUTPUT	true
+#define OUTPUT	false
 
 typedef unsigned int uint;
 
@@ -93,6 +93,9 @@ void getSurfPointsSet(const Mat& objColorImg, const Mat& objPointCloud,
 
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);
 
-void getRotateMatrix(Vec4f q, float* R);						// 将四元数转换为旋转矩阵
+void getRotateMatrix(Vec4f q, float* R);							// 将四元数转换为旋转矩阵
+
+double bhattacharyyaDistance(const Mat& mat1, const Mat& mat2);	// 计算巴氏距离
+double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2);	// 根据描述子计算相似度
 
 #endif

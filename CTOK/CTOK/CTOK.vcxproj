@@ -162,6 +162,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="abstracticp.cpp" />
     <ClCompile Include="common.cpp" />
     <ClCompile Include="emicp.cpp" />
+    <ClCompile Include="features.cpp" />
     <ClCompile Include="icp.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="segment.cpp" />
@@ -170,6 +171,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="abstracticp.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="emicp.h" />
+    <ClInclude Include="features.h" />
     <ClInclude Include="icp.h" />
     <ClInclude Include="segment.h" />
   </ItemGroup>

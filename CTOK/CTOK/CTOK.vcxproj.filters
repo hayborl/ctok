@@ -19,6 +19,9 @@
     <ClCompile Include="emicp.cpp">
       <Filter>src files</Filter>
     </ClCompile>
+    <ClCompile Include="features.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="icp.h">
@@ -34,6 +37,9 @@
       <Filter>head files</Filter>
     </ClInclude>
     <ClInclude Include="segment.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="features.h">
       <Filter>head files</Filter>
     </ClInclude>
   </ItemGroup>

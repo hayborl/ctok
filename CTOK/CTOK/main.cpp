@@ -4,6 +4,7 @@
 #include "emicp.h"
 #include "segment.h"
 #include "features.h"
+#include "camera.h"
 
 using namespace std;
 using namespace cv;
@@ -37,6 +38,7 @@ int mx, my;											// 鼠标按键时在 OpenGL 窗口的坐标
 int ry = 90, rx = 90;								// 摄像机相对注视点的观察角度
 double mindepth, maxdepth;							// 深度数据的极值
 double radius = 6000.0;								// 摄像机与注视点的距离
+Camera userCamera;
 
 XnDouble baseline;
 XnUInt64 focalLengthInPixel;
@@ -91,18 +93,18 @@ void read3DPoints(DepthGenerator dg, const Mat& depthImg,
 	Ptr<XnPoint3D> proj = new XnPoint3D[cols * rows];
 	Ptr<XnPoint3D> real = new XnPoint3D[cols * rows];
 	vector<Vec3b> colors;
-	Mat pointIndex(rows, cols, CV_32SC1, Scalar::all(-1));
+	pointIndices = Mat(rows, cols, CV_32SC1, Scalar::all(-1));
 	for (int y = 0; y < rows; y++)
 	{
 		for (int x = 0; x < cols; x++)
 		{
 			ushort z = depthImg.at<ushort>(y, x);
-			if (z != 0)			//微软建议使用该范围内的点
+			if (z != 0)
 			{
 				proj[index].X = (float)x;
 				proj[index].Y = (float)y;
 				proj[index].Z = (float)z;
-				pointIndex.at<int>(y, x) = index;
+				pointIndices.at<int>(y, x) = index;
 				colors.push_back(colorImg.at<Vec3b>(y, x));
 
 				index++;
@@ -112,17 +114,15 @@ void read3DPoints(DepthGenerator dg, const Mat& depthImg,
 
 	dg.ConvertProjectiveToRealWorld(index, proj, real);
 
-	Mat pointCloud_XYZ(index, 1, DataType<Point3f>::type, Scalar::all(0));
+	realPointCloud = Mat(index, 1, DataType<Point3f>::type, Scalar::all(0));
 #pragma omp parallel for
 	for (int i = 0; i < index; i++)
 	{
-		pointCloud_XYZ.at<Point3f>(i, 0) = Point3f(
+		realPointCloud.at<Point3f>(i, 0) = Point3f(
 			real[i].X, real[i].Y, real[i].Z);
 	}
 
-	realPointCloud = pointCloud_XYZ.clone();
 	pointColors = Mat(colors, true).clone();
-	pointIndices = pointIndex.clone();
 }
 
 // 载入3D坐标数据及其颜色数据
@@ -263,7 +263,42 @@ void keyboard(uchar key, int x, int y)
 	case 27:
 		exit(0);
 		break;
+	case 'D':
+	case 'd':
+		userCamera.strafeCamera(-MOVESPEEDLR);
+		glutPostRedisplay();
+		break;
+	case 'A':
+	case 'a':
+		userCamera.strafeCamera(MOVESPEEDLR);
+		glutPostRedisplay();
+		break;
+	case 'W':
+	case 'w':
+		userCamera.moveCamera(MOVESPEEDFB);
+		glutPostRedisplay();
+		break;
+	case 'S':
+	case 's':
+		userCamera.moveCamera(-MOVESPEEDFB);
+		glutPostRedisplay();
+		break;
 	default:
+		break;
+	}
+}
+
+void mouseEntry(int state)
+{
+	switch (state)
+	{
+	case GLUT_LEFT:
+		userCamera.setMouseState(false);
+		ShowCursor(TRUE);
+		break;
+	case GLUT_ENTERED:
+		userCamera.setMouseState(true);
+		ShowCursor(FALSE);
 		break;
 	}
 }
@@ -277,21 +312,28 @@ void renderScene(void)
 	// Reset the coordinate system before modifying
 	glLoadIdentity();   
 	// set the camera position
-	atx = 0.0f;
-	aty = 0.0f;
-	atz = ( mindepth - maxdepth ) / 2.0f;
-	eyex = atx + radius * sin( CV_PI * ry / 180.0f ) * cos( CV_PI * rx/ 180.0f );
-	eyey = aty + radius * cos( CV_PI * ry/ 180.0f );
-	eyez = atz + radius * sin( CV_PI * ry / 180.0f ) * sin( CV_PI * rx/ 180.0f );
-	eyex *= 0.5;
-	eyey *= 0.5;
-	eyez *= 0.5;
-	gluLookAt (eyex, eyey, eyez, atx, aty, atz, 0.0, 1.0, 0.0);
+// 	atx = 0.0f;
+// 	aty = 0.0f;
+// 	atz = ( mindepth - maxdepth ) / 2.0f;
+// 	eyex = atx + radius * sin( CV_PI * ry / 180.0f ) * cos( CV_PI * rx/ 180.0f );
+// 	eyey = aty + radius * cos( CV_PI * ry/ 180.0f );
+// 	eyez = atz + radius * sin( CV_PI * ry / 180.0f ) * sin( CV_PI * rx/ 180.0f );
+// 	eyex *= 0.5;
+// 	eyey *= 0.5;
+// 	eyez *= 0.5;
+// 	gluLookAt (eyex, eyey, eyez, atx, aty, atz, 0.0, 1.0, 0.0);
+	userCamera.look();
 
 	// 对点云数据进行三角化
 	// 参考自：http://www.codeproject.com/KB/openGL/OPENGLTG.aspx
 
 	drawPoints();
+
+	Vec3f vPos = userCamera.position();
+	Vec3f vView = userCamera.view();
+
+	// 设置camera的新位置
+	userCamera.positionCamera(vPos, vView, Vec3f(0.0f, 1.0f, 0.0f));
 
 	glFlush();
 	glutSwapBuffers();
@@ -385,17 +427,19 @@ void colorizeDisparity( const Mat& gray0, Mat& rgb, double maxDisp=-1.f, float S
 int main(int argc, char** argv)
 {
 	hasCuda = initCuda();
+	userCamera.positionCamera(0.0f, 1.8f, 100.0f, 0.0f, 1.8f, 0.0f, 0.0f, 1.0f, 0.0f);
 
 	// OpenGL Window
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowPosition(10, 320);
+	glutInitWindowPosition(30, 30);
 	glutInitWindowSize(glWinWidth, glWinHeight);
 	glutCreateWindow("3D image");
 
 	glutReshapeFunc (reshape);			// 窗口变化时重绘图像
 	glutDisplayFunc(renderScene);		// 显示三维图像       
 	glutMouseFunc(mouse);				// 鼠标按键响应
+	glutEntryFunc(mouseEntry);			// 设置鼠标进入窗口的处理函数
 	glutMotionFunc(motion);				// 鼠标移动响应
 	glutKeyboardFunc(keyboard);			// 键盘按键响应
 	glutIdleFunc(renderScene);			// 空闲时重绘图像
@@ -411,7 +455,7 @@ int main(int argc, char** argv)
 	checkOpenNIError(rc, "initialize context");
 
 	Player player;
-	rc = context.OpenFileRecording("test.oni", player);						//打开已有的oni文件
+	rc = context.OpenFileRecording("ttt.oni", player);						//打开已有的oni文件
 	checkOpenNIError(rc, "Open File Recording");
 
 	ImageGenerator imageGenerator;											//创建image generator
@@ -524,14 +568,14 @@ int main(int argc, char** argv)
 			Mat objSetOrigin, objSet, modSet;
 			RUNANDTIME(global_timer, getSurfPointsSet(colorImgNow, 
 				pointCloudNow, pointIndicesNow, colorImgPre, 
-				pointCloudPre, pointIndicesPre, &objSetOrigin, 
-				&objSet, &modSet, depthGenerator), 
+				pointCloudPre, pointIndicesPre, objSetOrigin, 
+				objSet, modSet, depthGenerator), 
 				OUTPUT, "get feature points.");
 
 // 			ICP i(pointCloudNow, pointCloudPre);
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
-			/*ICP i(objSetOrigin, modSet);*/
-			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
+			ICP i(objSetOrigin, modSet);
+			/*EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);*/
 
 			RUNANDTIME(global_timer, 
 				i.run(hasCuda, &objSet), OUTPUT, "run ICP.");

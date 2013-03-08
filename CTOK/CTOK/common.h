@@ -16,6 +16,7 @@
 #include <thrust/copy.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/set_operations.h>
 
 #include "ANN/ANN.h"
 #pragma comment(lib, "ANN.lib")
@@ -89,7 +90,7 @@ Mat getFeaturePointCloud(const Mat& colorImg,
 void getSurfPointsSet(const Mat& objColorImg, const Mat& objPointCloud, 
 	const Mat& objPointIndex, const Mat& modColorImg, 
 	const Mat& modPointCloud, const Mat& modPointIndex, 
-	Mat* objSetOrigin, Mat* objSet, Mat* modSet, xn::DepthGenerator dg);
+	Mat& objSetOrigin, Mat& objSet, Mat& modSet, xn::DepthGenerator dg);
 
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);
 

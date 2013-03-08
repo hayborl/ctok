@@ -148,10 +148,18 @@ Mat getFeaturePointCloud( const Mat& colorImg,
 	return Mat(tmpSet, true).clone();
 }
 
+struct compare_DMatch
+{
+	__host__ __device__ bool operator()(DMatch lhs, DMatch rhs)
+	{
+		return lhs.distance < rhs.distance;
+	}
+};
+
 void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud, 
 	const Mat& objPointIndex, const Mat& modColorImg, 
 	const Mat& modPointCloud, const Mat& modPointIndex, 
-	Mat* objSetOrigin, Mat* objSet, Mat* modSet, xn::DepthGenerator dg)
+	Mat& objSetOrigin, Mat& objSet, Mat& modSet, xn::DepthGenerator dg)
 {
 	Mat colorImgs[2], keyPointsImgs[2], descriptors[2];
 	vector<KeyPoint> keyPoints[2];
@@ -206,12 +214,12 @@ void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud,
 		matcher->match(descriptors[0], descriptors[1], matches);
 	}
 
-	// °ÑKeypoint×ª»»ÎªMat
 	int ptCount = (int)matches.size();
 	vector<Point2f> points0;
 	vector<Point2f> points1;
 	double minDist = 100000;
 	double maxDist = 0;
+
 	for (int i = 0; i < ptCount; i++)
 	{
 		double dist = matches[i].distance;
@@ -240,7 +248,7 @@ void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud,
 	KeyPoint::convert(keyPoints[0], tmpKeyPoints);
 	perspectiveTransform(tmpKeyPoints, transPoints, tmp);
 
-	vector<Point3f> objTmpSet, modTmpSet, objTmpSetOrign;
+	vector<Point3f> modTmpSet, objTmpSetOrign;
 	Ptr<XnPoint3D> proj = new XnPoint3D[objPointCloud.rows];
 	Ptr<XnPoint3D> real = new XnPoint3D[objPointCloud.rows];
 	int cnt = 0;
@@ -261,10 +269,14 @@ void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud,
 		}
 	}
 	dg.ConvertProjectiveToRealWorld(cnt, proj, real);
+
+	objSet = Mat(cnt, 1, DataType<Point3f>::type);
+#pragma omp parallel for
 	for (int i = 0; i < cnt; i++)
 	{
-		objTmpSet.push_back(Point3f(real[i].X, real[i].Y, real[i].Z));
+		objSet.at<Point3f>(i, 0) = Point3f(real[i].X, real[i].Y, real[i].Z);
 	}
+
 	for (int i = 0; i < keyPoints[1].size(); i++)
 	{
 		int x = (int)(keyPoints[1][i].pt.x);
@@ -276,9 +288,8 @@ void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud,
 		}
 	}
 
-	*objSetOrigin = Mat(objTmpSetOrign, true);
-	*objSet = Mat(objTmpSet, true);
-	*modSet = Mat(modTmpSet, true);
+	objSetOrigin = Mat(objTmpSetOrign, true);
+	modSet = Mat(modTmpSet, true);
 }
 
 void plotTwoPoint3DSet( Mat objSet, Mat modSet )

@@ -144,29 +144,58 @@ void loadPointCloudAndTexture(Mat pointCloud,
 // 	ExamplarSet exmSet(pointCloudCopy, (int)pointCloudCopy.size(), ICP_DIMS);
 // 	kdTree.create(exmSet);
 
+	ANNpointArray pts = NULL;
+	ANNkd_tree* kdTree;
+	if (pointCloudData.size() != 0)
+	{
+		pts = annAllocPts(pointCloudData.size(), 3);
+#pragma omp parallel for
+		for (int r = 0; r < pointCloudData.size(); r++)
+		{
+			Vec3f p = pointCloudData[r];
+			pts[r][0] = p[0];
+			pts[r][1] = p[1]; 
+			pts[r][2] = p[2];
+		}
+		kdTree = new ANNkd_tree(pts, pointCloudData.size(), 3);
+	}
+
 	Vec3f p;
 	Vec3b color;
-/*	_Examplar exm(3);*/
 	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
 	{
 		p = pointCloud.at<Vec3f>(i, 0);
-		if (p != Vec3f(0, 0, 0)/* && (double)rand() / (double)RAND_MAX < 0.3*/)
+		if (p != Vec3f(0, 0, 0)/* && (double)rand() / (double)RAND_MAX < 0.5*/)
 		{
 			p[2] = -p[2];
-/*			exm[0] = p.x; exm[1] = p.y; exm[2] = -p.z;*/
-// 			if (kdTree.findNearest(exm).second > DISTANCE_RANGE)
-// 			{
-				pointCloudData.push_back(p);
-				color = pointColor.at<Vec3b>(i, 0);
-				pointColorData.push_back(
-					Vec3b(color[2], color[1], color[0]));
-/*			}*/
+			if (pts != NULL)
+			{
+				ANNpoint pt = annAllocPt(3);
+				pt[0] = p[0];
+				pt[1] = p[1];
+				pt[2] = p[2];
+				if (kdTree->annkFRSearch(pt, DISTANCE_RANGE, 0) > 0)
+				{
+					annDeallocPt(pt);
+					continue;
+				}
+				annDeallocPt(pt);
+			}
+			pointCloudData.push_back(p);
+			color = pointColor.at<Vec3b>(i, 0);
+			pointColorData.push_back(
+				Vec3b(color[2], color[1], color[0]));
 		}
 	}
 
 	pointNumber = pointCloudData.size();
 
 	cout << pointNumber << " OK" << endl;
+
+	if (pts != NULL)
+	{
+		annDeallocPts(pts);
+	}
 }
 
 // »æÖÆµãÔÆ
@@ -265,12 +294,12 @@ void keyboard(uchar key, int x, int y)
 		break;
 	case 'D':
 	case 'd':
-		userCamera.strafeCamera(-MOVESPEEDLR);
+		userCamera.strafeCamera(MOVESPEEDFB);
 		glutPostRedisplay();
 		break;
 	case 'A':
 	case 'a':
-		userCamera.strafeCamera(MOVESPEEDLR);
+		userCamera.strafeCamera(-MOVESPEEDFB);
 		glutPostRedisplay();
 		break;
 	case 'W':
@@ -298,7 +327,7 @@ void mouseEntry(int state)
 		break;
 	case GLUT_ENTERED:
 		userCamera.setMouseState(true);
-		ShowCursor(FALSE);
+		ShowCursor(false);
 		break;
 	}
 }

@@ -148,14 +148,6 @@ Mat getFeaturePointCloud( const Mat& colorImg,
 	return Mat(tmpSet, true).clone();
 }
 
-struct compare_DMatch
-{
-	__host__ __device__ bool operator()(DMatch lhs, DMatch rhs)
-	{
-		return lhs.distance < rhs.distance;
-	}
-};
-
 void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud, 
 	const Mat& objPointIndex, const Mat& modColorImg, 
 	const Mat& modPointCloud, const Mat& modPointIndex, 

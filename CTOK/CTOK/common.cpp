@@ -66,6 +66,19 @@ void saveData(const char* filename, const Mat& mat, int flag)
 	fclose(fp);
 }
 
+void saveData(const char* filename, const vector<Vec3f> pts)
+{
+	FILE* fp;
+	fopen_s(&fp, filename, "wt");
+	fprintf(fp, "%d\n", pts.size());
+	for (int i = 0; i < pts.size(); i++)
+	{
+		Vec3f point = pts[i];
+		fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+	}
+	fclose(fp);
+}
+
 //CUDA³õÊ¼»¯
 bool initCuda()
 {
@@ -252,6 +265,10 @@ void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud,
 		if (index != -1)
 		{
 			Point3f p = objPointCloud.at<Point3f>(index, 0);
+			if (p == Point3f(0, 0, 0))
+			{
+				continue;
+			}
 			objTmpSetOrign.push_back(p);
 			Point2f p2d = transPoints[i];
 			proj[cnt].X = p2d.x;
@@ -372,4 +389,79 @@ double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2)
 	double dis1 = bhattacharyyaDistance(des1.first, des2.first);
 	double dis2 = bhattacharyyaDistance(des1.second, des2.second);
 	return (dis1 + dis2) * 0.5;
+}
+
+Vec3f computeNormal( ANNpointArray pts, ANNidxArray idxs, const int& k )
+{
+	Mat M = Mat::zeros(3, 3, CV_64FC1);
+	Mat mean = Mat::zeros(3, 1, CV_64FC1);
+	for (int i = 0; i < k + 1; i++)
+	{
+		Mat pMat(3, 1, CV_64FC1, pts[idxs[i]]);
+		M += pMat * pMat.t();
+		mean += pMat;
+	}
+	M /= (double)k;
+	mean /= (double)k;
+	M -= mean * mean.t();
+
+	Mat eigenValues(3, 1, CV_32FC1);
+	Mat eigenVector(3, 3, CV_32FC1);
+	eigen(M, eigenValues, eigenVector);
+
+	int minEigenIndex = 0;
+	minMaxIdx(eigenValues, NULL, NULL, &minEigenIndex, NULL);
+
+	return normalize(Vec3f(eigenVector.row(minEigenIndex)));
+}
+
+void simplifyPoints( Mat inPts, Mat& outPts, 
+	const int& k, const double& alpha )
+{
+	int num = inPts.rows;
+	assert(num > 0);
+
+	ANNpointArray pts = annAllocPts(num, 3);
+#pragma omp parallel for
+	for (int i = 0; i < num; i++)
+	{
+		Vec3f p = inPts.at<Vec3f>(i, 0);
+		pts[i][0] = p[0];
+		pts[i][1] = p[1];
+		pts[i][2] = p[2];
+	}
+	ANNkd_tree* kdTree = new ANNkd_tree(pts, num, 3);
+
+	ANNidxArray idxs = new ANNidx[k + 1];
+	ANNdistArray dists = new ANNdist[k + 1];
+
+	Mat sumdMat(num, 1, CV_64FC1);
+	for (int i = 0; i < num; i++)
+	{
+		ANNpoint q = pts[i];
+		kdTree->annkSearch(q, k + 1, idxs, dists);
+		Vec3f normalVector = computeNormal(pts, idxs, k);
+		double sumd = 0;
+		for (int j = 0; j < k; j++)
+		{
+			ANNpoint p = pts[idxs[j + 1]];
+			Vec3d v(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+			sumd += fabs(v.ddot(normalVector));
+		}
+		sumdMat.at<double>(i, 0) = sumd;
+	}
+
+	double thres = alpha * sum(sumdMat)[0] / (double)num;
+	outPts = inPts.clone();
+	int cnt = 0;
+#pragma omp parallel for
+	for (int i = 0; i < num; i++)
+	{
+		if (sumdMat.at<double>(i, 0) < thres)
+		{
+			outPts.at<Vec3f>(i, 0) = Vec3f(0, 0, 0);
+			cnt++;
+		}
+	}
+	cout << "pre:" << num << " now:" << num - cnt << endl;
 }

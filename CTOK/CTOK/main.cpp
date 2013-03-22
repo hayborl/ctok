@@ -40,9 +40,6 @@ double mindepth, maxdepth;							// 深度数据的极值
 double radius = 6000.0;								// 摄像机与注视点的距离
 Camera userCamera;
 
-XnDouble baseline;
-XnUInt64 focalLengthInPixel;
-
 Features features;
 #define SIMILARITY_THRESHOLD 0.001
 
@@ -65,12 +62,7 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 
 	//OpenCV output
 	Mat imgDepth16U(rows, cols, CV_16UC1, (void*)depthMD.Data());
-
-	// 	int size = 7, iter = 3;
-	// 	Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(size, size));
-	// 	Point anchor = Point(size / 2, size / 2);
-	// 	dilate(imgDepth16U, imgDepth16U, kernel, anchor, iter);	//膨胀
-	// 	erode(imgDepth16U, imgDepth16U, kernel, anchor, iter);	//腐蚀
+	medianBlur(imgDepth16U, imgDepth16U, 5);
 
 	imgDepth16U.convertTo(depthImageShow, CV_8UC1, 255 / 5000.0);
 	Mat imgRGB(rows, cols, CV_8UC3, (void*)imageMD.Data());
@@ -139,26 +131,21 @@ void loadPointCloudAndTexture(Mat pointCloud,
 		pointNumber = 0;
 	}
 
-// 	kdTree.destroy();
-// 	vector<_Examplar> pointCloudCopy(pointCloudData);
-// 	ExamplarSet exmSet(pointCloudCopy, (int)pointCloudCopy.size(), ICP_DIMS);
-// 	kdTree.create(exmSet);
-
 	ANNpointArray pts = NULL;
 	ANNkd_tree* kdTree;
-	if (pointCloudData.size() != 0)
-	{
-		pts = annAllocPts(pointCloudData.size(), 3);
-#pragma omp parallel for
-		for (int r = 0; r < pointCloudData.size(); r++)
-		{
-			Vec3f p = pointCloudData[r];
-			pts[r][0] = p[0];
-			pts[r][1] = p[1]; 
-			pts[r][2] = p[2];
-		}
-		kdTree = new ANNkd_tree(pts, pointCloudData.size(), 3);
-	}
+// 	if (pointCloudData.size() != 0)
+// 	{
+// 		pts = annAllocPts(pointCloudData.size(), 3);
+// #pragma omp parallel for
+// 		for (int r = 0; r < pointCloudData.size(); r++)
+// 		{
+// 			Vec3f p = pointCloudData[r];
+// 			pts[r][0] = p[0];
+// 			pts[r][1] = p[1]; 
+// 			pts[r][2] = p[2];
+// 		}
+// 		kdTree = new ANNkd_tree(pts, pointCloudData.size(), 3);
+// 	}
 
 	Vec3f p;
 	Vec3b color;
@@ -312,6 +299,11 @@ void keyboard(uchar key, int x, int y)
 		userCamera.moveCamera(-MOVESPEEDFB);
 		glutPostRedisplay();
 		break;
+	case 'p':
+	case 'P':
+		saveData("real.xyz", pointCloudData);
+		cout << "save points" << endl;
+		break;
 	default:
 		break;
 	}
@@ -382,75 +374,6 @@ void reshape (int w, int h)
 }
 
 /************************************************************************/
-/*                          colorizeDisparity                           */
-/*                      将视差图由灰度图转换为伪彩色图                  */
-/************************************************************************/
-void colorizeDisparity( const Mat& gray0, Mat& rgb, double maxDisp=-1.f, float S=1.f, float V=1.f )
-{
-	CV_Assert( !gray0.empty() );
-	Mat gray;
-	if (gray0.type() == CV_32FC1)
-	{
-		gray0.convertTo( gray, CV_8UC1 );
-	}
-	else if (gray0.type() == CV_8UC1)
-	{
-		gray0.copyTo(gray);
-	}
-	else
-	{
-		return;
-	}
-
-	if( maxDisp <= 0 )
-	{
-		maxDisp = 0;
-		minMaxLoc( gray, 0, &maxDisp );
-	}
-
-	rgb.create( gray.size(), CV_8UC3 );
-	rgb = Scalar::all(0);
-	if( maxDisp < 1 )
-		return;
-
-	for( int y = 0; y < gray.rows; y++ )
-	{
-		for( int x = 0; x < gray.cols; x++ )
-		{
-			uchar d = gray.at<uchar>(y,x);
-			unsigned int H = ((uchar)maxDisp - d) * 240 / (uchar)maxDisp;
-
-			unsigned int hi = (H/60) % 6;
-			float f = H/60.f - H/60;
-			float p = V * (1 - S);
-			float q = V * (1 - f * S);
-			float t = V * (1 - (1 - f) * S);
-
-			Point3f res;
-
-			if( hi == 0 ) //R = V,   G = t,   B = p
-				res = Point3f( p, t, V );
-			if( hi == 1 ) // R = q,   G = V,   B = p
-				res = Point3f( p, V, q );
-			if( hi == 2 ) // R = p,   G = V,   B = t
-				res = Point3f( t, V, p );
-			if( hi == 3 ) // R = p,   G = q,   B = V
-				res = Point3f( V, q, p );
-			if( hi == 4 ) // R = t,   G = p,   B = V
-				res = Point3f( V, p, t );
-			if( hi == 5 ) // R = V,   G = p,   B = q
-				res = Point3f( q, p, V );
-
-			uchar b = (uchar)(std::max(0.f, std::min (res.x, 1.f)) * 255.f);
-			uchar g = (uchar)(std::max(0.f, std::min (res.y, 1.f)) * 255.f);
-			uchar r = (uchar)(std::max(0.f, std::min (res.z, 1.f)) * 255.f);
-
-			rgb.at<Point3_<uchar> >(y,x) = Point3_<uchar>(b, g, r);     
-		}
-	}
-}
-
-/************************************************************************/
 /*                         主程序                                       */
 /************************************************************************/
 int main(int argc, char** argv)
@@ -494,25 +417,6 @@ int main(int argc, char** argv)
 	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		//获取oni文件中的depth节点
 	checkOpenNIError(rc, "Create Depth Generator"); 
 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);
-
-	// 获得像素大小
-	XnDouble pixelSize = 0;
-	rc = depthGenerator.GetRealProperty("ZPPS", pixelSize);
-	checkOpenNIError(rc, "ZPPS");
-	pixelSize *= 2.0;
-
-	// 获得焦距（mm）
-	XnUInt64 zeroPlanDistance;
-	rc = depthGenerator.GetIntProperty("ZPD", zeroPlanDistance);
-	checkOpenNIError(rc, "ZPD");
-
-	// 获得基线长度(mm)
-	rc = depthGenerator.GetRealProperty("LDDIS", baseline);
-	checkOpenNIError(rc, "LDDIS");
-	baseline *= 10;
-
-	// 获得焦距(pixel)
-	focalLengthInPixel = (XnUInt64)((double)zeroPlanDistance / (double)pixelSize);
 
 	// 开始获取并显示 Kinect 图像
 	rc = context.StartGeneratingAll();
@@ -570,6 +474,9 @@ int main(int argc, char** argv)
 			depthImg, colorImg, realPointCloud, pointColors, 
 			pointIndices), OUTPUT, "read 3D points");
 
+// 		RUNANDTIME(global_timer, simplifyPoints(realPointCloud, 
+// 			realPointCloud, 10, 0.9), OUTPUT, "simplify");
+
 		if (realPointCloud.rows <= 0 || pointColors.rows <= 0 ||
 			pointIndices.rows <= 0)
 		{
@@ -603,8 +510,8 @@ int main(int argc, char** argv)
 
 // 			ICP i(pointCloudNow, pointCloudPre);
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
-			ICP i(objSetOrigin, modSet);
-			/*EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);*/
+			//ICP i(objSetOrigin, modSet);
+			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
 
 			RUNANDTIME(global_timer, 
 				i.run(hasCuda, &objSet), OUTPUT, "run ICP.");
@@ -625,6 +532,7 @@ int main(int argc, char** argv)
 		{
 			break;
 		}
+
 		frameCnt++;
 
 		glutPostRedisplay();				// 刷新画面

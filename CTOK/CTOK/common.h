@@ -17,6 +17,7 @@
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/set_operations.h>
+#include <thrust/find.h>
 
 #include "ANN/ANN.h"
 #pragma comment(lib, "ANN.lib")
@@ -63,6 +64,7 @@ public:
 	if(output) cout << timer.stop() << "s " << s << endl;
 
 void saveData(const char* filename, const Mat& mat, int flag = 0);
+void saveData(const char* filename, const vector<Vec3f> pts);
 
 bool initCuda();
 
@@ -81,8 +83,6 @@ Mat convertMat(const Mat& mat);
 
 void transformPointCloud(Mat input, Mat* output, 
 	Mat transformMat, bool withCuda = false);
-void cuda_transformPointCloud(Mat input, 
-	Mat* output, Mat transformMat);
 
 Mat getFeaturePointCloud(const Mat& colorImg, 
 	const Mat& pointCloud, const Mat& pointIndices);
@@ -98,5 +98,11 @@ void getRotateMatrix(Vec4f q, float* R);							// 将四元数转换为旋转矩阵
 
 double bhattacharyyaDistance(const Mat& mat1, const Mat& mat2);	// 计算巴氏距离
 double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2);	// 根据描述子计算相似度
+
+// 根据已知点集估计出所有点拟合的平面的法向量
+Vec3f computeNormal(ANNpointArray pts, ANNidxArray idxs, const int& k);
+
+void simplifyPoints(Mat inPts, Mat& outPts, 
+	const int& k, const double& alpha);
 
 #endif

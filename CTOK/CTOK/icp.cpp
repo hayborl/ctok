@@ -1,29 +1,5 @@
 #include "icp.h"
 
-// Vec3f computeNormal( vector<pair<_Examplar, double>> points )
-// {
-// 	Mat M = Mat::zeros(3, 3, CV_64FC1);
-// 	Mat mean = Mat::zeros(3, 1, CV_64FC1);
-// 	for (int i = 0; i < points.size(); i++)
-// 	{
-// 		Mat pMat(points[i].first.data(), true);
-// 		M += pMat * pMat.t();
-// 		mean += pMat;
-// 	}
-// 	M /= (double)points.size();
-// 	mean /= (double)points.size();
-// 	M -= mean * mean.t();
-// 
-// 	Mat eigenValues(3, 1, CV_32FC1);
-// 	Mat eigenVector(3, 3, CV_32FC1);
-// 	eigen(M, eigenValues, eigenVector);
-// 
-// 	int minEigenIndex = 0;
-// 	minMaxIdx(eigenValues, NULL, NULL, &minEigenIndex, NULL);
-// 
-// 	return normalize(Vec3f(eigenVector.row(minEigenIndex)));
-// }
-
 ICP::ICP( const Mat& objSet, const Mat& modSet, int iterMax, double epsilon )
 {
 	assert(objSet.cols == 1 && modSet.cols == 1);

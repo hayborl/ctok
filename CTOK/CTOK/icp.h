@@ -35,7 +35,4 @@ private:
 	void createKDTree();										// 创建KDTree						
 };
 
-// // 根据已知点集估计出所有点拟合的平面的法向量
-// Vec3f computeNormal(vector<pair<KDTree_R::_Examplar, double>> points);
-
 #endif

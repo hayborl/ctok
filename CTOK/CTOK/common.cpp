@@ -395,7 +395,7 @@ Vec3f computeNormal( ANNpointArray pts, ANNidxArray idxs, const int& k )
 {
 	Mat M = Mat::zeros(3, 3, CV_64FC1);
 	Mat mean = Mat::zeros(3, 1, CV_64FC1);
-	for (int i = 0; i < k + 1; i++)
+	for (int i = 0; i < k; i++)
 	{
 		Mat pMat(3, 1, CV_64FC1, pts[idxs[i]]);
 		M += pMat * pMat.t();
@@ -432,14 +432,14 @@ void simplifyPoints( Mat inPts, Mat& outPts,
 	}
 	ANNkd_tree* kdTree = new ANNkd_tree(pts, num, 3);
 
-	ANNidxArray idxs = new ANNidx[k + 1];
-	ANNdistArray dists = new ANNdist[k + 1];
+	ANNidxArray idxs = new ANNidx[k];
+	ANNdistArray dists = new ANNdist[k];
 
 	Mat sumdMat(num, 1, CV_64FC1);
 	for (int i = 0; i < num; i++)
 	{
 		ANNpoint q = pts[i];
-		kdTree->annkSearch(q, k + 1, idxs, dists);
+		kdTree->annkSearch(q, k, idxs, dists);
 		Vec3f normalVector = computeNormal(pts, idxs, k);
 		double sumd = 0;
 		for (int j = 0; j < k; j++)

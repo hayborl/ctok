@@ -25,6 +25,9 @@
     <ClCompile Include="camera.cpp">
       <Filter>src files</Filter>
     </ClCompile>
+    <ClCompile Include="triangulation.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="icp.h">
@@ -46,6 +49,9 @@
       <Filter>head files</Filter>
     </ClInclude>
     <ClInclude Include="camera.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="triangulation.h">
       <Filter>head files</Filter>
     </ClInclude>
   </ItemGroup>

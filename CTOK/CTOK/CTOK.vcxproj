@@ -68,16 +68,16 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Program Files\OpenCV2.4.9-x64-VS10\include;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv2;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv;C:\Program Files\OpenNI\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
-    <LibraryPath>D:\Program Files\OpenCV2.4.9-x64-VS10\lib;C:\Program Files\OpenNI\Lib64;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64</LibraryPath>
+    <IncludePath>C:\Program Files\Boost\include;D:\Program Files\OpenCV2.4.9-x64-VS10\include;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv2;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv;C:\Program Files\OpenNI\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
+    <LibraryPath>C:\Program Files\Boost\lib;D:\Program Files\OpenCV2.4.9-x64-VS10\lib;C:\Program Files\OpenNI\Lib64;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Program Files\OpenCV2.4.9-x64-VS10\include;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv2;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv;C:\Program Files\OpenNI\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
-    <LibraryPath>D:\Program Files\OpenCV2.4.9-x64-VS10\lib;C:\Program Files\OpenNI\Lib64;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64</LibraryPath>
+    <IncludePath>C:\Program Files\Boost\include;D:\Program Files\OpenCV2.4.9-x64-VS10\include;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv2;D:\Program Files\OpenCV2.4.9-x64-VS10\include\opencv;C:\Program Files\OpenNI\Include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include</IncludePath>
+    <LibraryPath>C:\Program Files\Boost\lib;D:\Program Files\OpenCV2.4.9-x64-VS10\lib;C:\Program Files\OpenNI\Lib64;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -167,6 +167,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="icp.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="segment.cpp" />
+    <ClCompile Include="triangulation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abstracticp.h" />
@@ -176,6 +177,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="features.h" />
     <ClInclude Include="icp.h" />
     <ClInclude Include="segment.h" />
+    <ClInclude Include="triangulation.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

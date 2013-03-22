@@ -5,6 +5,7 @@
 #include "segment.h"
 #include "features.h"
 #include "camera.h"
+#include "triangulation.h"
 
 using namespace std;
 using namespace cv;
@@ -24,26 +25,20 @@ void checkOpenNIError(XnStatus result, string status)
 //////////////////////////////////////////////////////////////////////////
 //
 //---OpenGL 全局变量
-// float xyzdata[480][640][3];
-// float texture[480][640][3];
 vector<Vec3f> pointCloudData;
 vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 int glWinWidth = 640, glWinHeight = 480;
 int width = 640, height = 480;
-double eyex, eyey, eyez, atx, aty, atz;				// eye* - 摄像机位置，at* - 注视点位置
 
-bool leftClickHold = false, rightClickHold = false;	//鼠标左右键是否被按住
-int mx, my;											// 鼠标按键时在 OpenGL 窗口的坐标
-int ry = 90, rx = 90;								// 摄像机相对注视点的观察角度
-double mindepth, maxdepth;							// 深度数据的极值
-double radius = 6000.0;								// 摄像机与注视点的距离
 Camera userCamera;
 
 Features features;
 #define SIMILARITY_THRESHOLD 0.001
 
 #define SAMPLE_INTERVAL 1
+
+Triangulation::Delaunay delaunay;
 
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
 	Mat& colorImg, Mat& depthImg)
@@ -191,19 +186,31 @@ void drawPoints()
 	float x,y,z;
 	// 绘制图像点云
 	glPointSize(1.0);
-	glBegin(GL_POINTS);
-	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
+// 	glBegin(GL_POINTS);
+// 	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
+// 	{
+// // 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
+// // 			{
+// // 				continue;
+// // 			}
+// 		glColor3d(pointColorData[i][0] / 255.0, 
+// 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
+// 		x = (float)pointCloudData[i][0];
+// 		y = (float)pointCloudData[i][1];
+// 		z = (float)pointCloudData[i][2];
+// 		glVertex3f(x, y, z);
+// 	}
+	glBegin(GL_TRIANGLES);
+	for (int i = 0; i < delaunay.m_triangles.size(); i++)
 	{
-// 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
-// 			{
-// 				continue;
-// 			}
-		glColor3d(pointColorData[i][0] / 255.0, 
-			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = (float)pointCloudData[i][0];
-		y = (float)pointCloudData[i][1];
-		z = (float)pointCloudData[i][2];
-		glVertex3f(x, y, z);
+		Triangulation::Triangle t = delaunay.m_triangles[i];
+		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+		{
+			Triangulation::Vertex v = t.m_vertices[j];
+			glColor3d(v.m_color[0] / 255.0, 
+				v.m_color[1] / 255.0, v.m_color[2] / 255.0);
+			glVertex3f(v.m_xyz[0], v.m_xyz[1], v.m_xyz[2]);
+		}
 	}
 	glEnd(); 
 }
@@ -216,60 +223,12 @@ void drawPoints()
 // 鼠标按键响应函数
 void mouse(int button, int state, int x, int y)
 {
-	if(button == GLUT_LEFT_BUTTON)
-	{
-		if(state == GLUT_DOWN)
-		{
-			leftClickHold=true;
-		}
-		else
-		{
-			leftClickHold=false;
-		}
-	}
-
-	if (button== GLUT_RIGHT_BUTTON)
-	{
-		if(state == GLUT_DOWN)
-		{
-			rightClickHold=true;
-		}
-		else
-		{
-			rightClickHold=false;
-		}
-	}
 }
 
 //////////////////////////////////////////////////////////////////////////
 // 鼠标运动响应函数
 void motion(int x, int y)
 {
-	int rstep = 5;
-	if(leftClickHold==true)
-	{
-		if( abs(x-mx) > abs(y-my) )
-		{
-			rx += SIGN(x-mx)*rstep;   
-		}
-		else
-		{
-			ry -= SIGN(y-my)*rstep;   
-		}
-
-		mx=x;
-		my=y;
-		glutPostRedisplay();
-	}
-
-	if(rightClickHold==true)
-	{
-		radius += SIGN(y-my)*100.0;
-		radius = std::max( radius, 100.0 );
-		mx=x;
-		my=y;
-		glutPostRedisplay();
-	}
 }
 
 void keyboard(uchar key, int x, int y)
@@ -333,16 +292,6 @@ void renderScene(void)
 	// Reset the coordinate system before modifying
 	glLoadIdentity();   
 	// set the camera position
-// 	atx = 0.0f;
-// 	aty = 0.0f;
-// 	atz = ( mindepth - maxdepth ) / 2.0f;
-// 	eyex = atx + radius * sin( CV_PI * ry / 180.0f ) * cos( CV_PI * rx/ 180.0f );
-// 	eyey = aty + radius * cos( CV_PI * ry/ 180.0f );
-// 	eyez = atz + radius * sin( CV_PI * ry / 180.0f ) * sin( CV_PI * rx/ 180.0f );
-// 	eyex *= 0.5;
-// 	eyey *= 0.5;
-// 	eyez *= 0.5;
-// 	gluLookAt (eyex, eyey, eyez, atx, aty, atz, 0.0, 1.0, 0.0);
 	userCamera.look();
 
 	// 对点云数据进行三角化
@@ -524,8 +473,14 @@ int main(int argc, char** argv)
 /*			waitKey();*/
 		}
 
-		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
-			pointColors, false), OUTPUT, "load data");
+// 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
+// 			pointColors, false), OUTPUT, "load data");
+		waitKey();
+		delaunay.addVertices(realPointCloud, pointColors);
+		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+			OUTPUT, "delaunay");
+		cout << delaunay.m_triangles.size() << endl;
+		waitKey();
 
 		char key = waitKey(1);
 		if (key == 27)

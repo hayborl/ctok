@@ -278,7 +278,7 @@ void mouseEntry(int state)
 		break;
 	case GLUT_ENTERED:
 		userCamera.setMouseState(true);
-		ShowCursor(false);
+		ShowCursor(FALSE);
 		break;
 	}
 }

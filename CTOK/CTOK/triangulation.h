@@ -55,7 +55,8 @@ namespace Triangulation
 			在v0v1边上返回-1，
 			在v1v2边上返回-2，
 			在v2v0边上返回-3*/
-		int inTriangle(Vertex v);		
+		int inTriangle(Vertex v);
+		bool isVertex(const int index);	// 判断当前索引值的点是否是三角形的顶点
 
 		bool operator==(const Triangle& t)const;
 	};
@@ -90,10 +91,10 @@ namespace Triangulation
 			TriangleVector& triSet);	// 根据指定点集计算三角形
 		void addBounding(const VertexVector& verSet, 
 			TriangleVector& triSet);	// 增加一个边界三角形将所有点包围在内
-		void removeBounding(
-			TriangleVector& triSet);	// 去除包含边界点的三角形
+		void removeBounding(TriangleVector& triSet, 
+			const int& index);			// 保留当前索引值的点所在的不包含边界的三角形
 		void insertVertex(TriangleVector& triSet, 
-			const Vertex& v);			//往已有三角形中插入一个点
+			const Vertex& v);			// 往已有三角形中插入一个点
 		bool flipTest(TriangleVector& triSet, 
 			Triangle t);				// 优化三角形使符合delaunay的条件
 

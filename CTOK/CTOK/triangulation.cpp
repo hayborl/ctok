@@ -88,9 +88,19 @@ int Triangle::inTriangle( Vertex v )
 			r = -3;
 		}
 	}
-/*	cout << diff << " " << r << endl;*/
 
 	return r;
+}
+
+bool Triangle::isVertex(const int index)
+{
+	if (m_vertices[0].m_index == index ||
+		m_vertices[1].m_index == index ||
+		m_vertices[2].m_index == index)
+	{
+		return true;
+	}
+	return false;
 }
 
 bool Triangle::operator==( const Triangle& t ) const
@@ -259,7 +269,7 @@ void Delaunay::computeDelaunay( const VertexVector& verSet,
 		insertVertex(triSet, verSet[i]);
 /*		drawTrianglesOnPlane(triSet);*/
 	}
-	removeBounding(triSet);
+	removeBounding(triSet, verSet[0].m_index);
 }
 
 void Delaunay::saveTriangles( char* file )
@@ -355,14 +365,15 @@ void Delaunay::addBounding( const VertexVector& verSet,
 	triSet.push_back(Triangle(v0, v1, v2));
 }
 
-void Delaunay::removeBounding( TriangleVector& triSet )
+void Delaunay::removeBounding( TriangleVector& triSet, const int& index )
 {
 	for (TriangleVector::iterator iter = triSet.begin(); 
 		iter != triSet.end();)
 	{
 		if (iter->m_vertices[0].m_index < 0 || 
 			iter->m_vertices[1].m_index < 0 ||
-			iter->m_vertices[2].m_index < 0)
+			iter->m_vertices[2].m_index < 0 ||
+			!iter->isVertex(index))
 		{
 			iter = triSet.erase(iter);
 		}

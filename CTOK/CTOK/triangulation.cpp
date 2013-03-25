@@ -146,8 +146,6 @@ void Delaunay::computeDelaunay()
 {
 	assert(m_vertices.size() > 0);
 
-	m_triangles.clear();
-
 	// 构建kdtree
 	ANNpointArray verticesData = annAllocPts((int)m_vertices.size(), 3);
 	for (int i = 0; i < m_vertices.size(); i++)
@@ -161,7 +159,7 @@ void Delaunay::computeDelaunay()
 
 	TriangleSet triSet;
 	// 依次遍历每个点，寻找最近邻，进行三角化
-	for (int i = 0; i < m_vertices.size(); i++)
+	for (int i = m_pre_size; i < m_vertices.size(); i++)
 	{
 		Vertex v = m_vertices[i];
 		ANNidx idxs[k];
@@ -207,7 +205,7 @@ void Delaunay::computeDelaunay()
 			double dist = sqrt(dists[j]) * SQRT_3 / 2;
 			double alpha = vv.dot(normal);
 
-			if (alpha > dist || alpha < -dist)	// 去除去方向量夹角小于30度或大于150度的点
+			if (alpha > dist || alpha < -dist)	// 去除与法向量夹角小于30度或大于150度的点
 			{
 				continue;
 			}
@@ -298,9 +296,9 @@ void Delaunay::saveTriangles( const TriangleVector& triSet, char* file )
 void Delaunay::addVertices( const Mat& pts, const vector<Vec3b>& colors )
 {
 	assert(pts.rows == colors.size());
-	m_vertices.clear();
+	m_pre_size = m_vertices.size();
 
-	int cnt = 0;
+	int cnt = m_pre_size;
 	for (int i = 0; i < pts.rows; i++)
 	{
 // 		if ((double)rand() / (double)RAND_MAX > 0.5)
@@ -319,9 +317,9 @@ void Delaunay::addVertices( const Mat& pts, const vector<Vec3b>& colors )
 void Delaunay::addVertices( const Mat& pts, const Mat& colors )
 {
 	assert(pts.rows == colors.rows);
-	m_vertices.clear();
+	m_pre_size = m_vertices.size();
 
-	int cnt = 0;
+	int cnt = m_pre_size;
 	for (int i = 0; i < pts.rows; i++)
 	{
 // 		if ((double)rand() / (double)RAND_MAX > 0.5)

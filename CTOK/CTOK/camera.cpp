@@ -157,6 +157,11 @@ void Camera::moveCamera(float speed)
 	m_vView[2] += vView[2] * speed;
 }
 
+void Camera::reset()
+{
+	positionCamera(0.0f, 1.8f, 100.0f, 0.0f, 1.8f, 0.0f, 0.0f, 1.0f, 0.0f);
+}
+
 // 更新Camera位置和方向
 void Camera::update(void)
 {

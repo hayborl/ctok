@@ -85,6 +85,7 @@ namespace Triangulation
 
 	private:
 		VertexVector m_vertices;		// 点集
+		int m_pre_size;					// 记录下一次compute之前有多少点
 		enum {k = 20};
 
 		void computeDelaunay(const VertexVector& verSet, 

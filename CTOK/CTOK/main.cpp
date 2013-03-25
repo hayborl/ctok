@@ -30,6 +30,7 @@ vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 int glWinWidth = 640, glWinHeight = 480;
 int width = 640, height = 480;
+bool breakScan = false;
 
 Camera userCamera;
 
@@ -183,35 +184,35 @@ void loadPointCloudAndTexture(Mat pointCloud,
 // 绘制点云
 void drawPoints()
 {
-// 	float x,y,z;
-// 	// 绘制图像点云
-// 	glPointSize(1.0);
-// 	glBegin(GL_POINTS);
-// 	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
-// 	{
-// // 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
-// // 			{
-// // 				continue;
-// // 			}
-// 		glColor3d(pointColorData[i][0] / 255.0, 
-// 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-// 		x = (float)pointCloudData[i][0];
-// 		y = (float)pointCloudData[i][1];
-// 		z = (float)pointCloudData[i][2];
-// 		glVertex3f(x, y, z);
-// 	}
-	glBegin(GL_TRIANGLES);
-	for (int i = 0; i < delaunay.m_triangles.size(); i++)
+	float x,y,z;
+	// 绘制图像点云
+	glPointSize(1.0);
+	glBegin(GL_POINTS);
+	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
 	{
-		Triangulation::Triangle t = delaunay.m_triangles[i];
-		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
-		{
-			Triangulation::Vertex v = t.m_vertices[j];
-			glColor3d(v.m_color[2] / 255.0, 
-				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
-		}
+// 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
+// 			{
+// 				continue;
+// 			}
+		glColor3d(pointColorData[i][0] / 255.0, 
+			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
+		x = (float)pointCloudData[i][0];
+		y = (float)pointCloudData[i][1];
+		z = (float)pointCloudData[i][2];
+		glVertex3f(x, y, z);
 	}
+// 	glBegin(GL_TRIANGLES);
+// 	for (int i = 0; i < delaunay.m_triangles.size(); i++)
+// 	{
+// 		Triangulation::Triangle t = delaunay.m_triangles[i];
+// 		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+// 		{
+// 			Triangulation::Vertex v = t.m_vertices[j];
+// 			glColor3d(v.m_color[2] / 255.0, 
+// 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+// 			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+// 		}
+// 	}
 	glEnd(); 
 }
 
@@ -262,6 +263,14 @@ void keyboard(uchar key, int x, int y)
 	case 'P':
 		saveData("real.xyz", pointCloudData);
 		cout << "save points" << endl;
+		break;
+	case 'r':
+	case 'R':
+		userCamera.reset();
+		break;
+	case 'b':
+	case 'B':
+		breakScan = true;
 		break;
 	default:
 		break;
@@ -380,6 +389,11 @@ int main(int argc, char** argv)
 	XnUInt32 frameCnt = 1;
 	while (1)   
 	{
+		if (breakScan)
+		{
+			break;
+		}
+
 		rc = context.WaitOneUpdateAll(depthGenerator);
 		rc = context.WaitOneUpdateAll(imageGenerator);
 
@@ -473,15 +487,14 @@ int main(int argc, char** argv)
 /*			waitKey();*/
 		}
 
-// 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
-// 			pointColors, false), OUTPUT, "load data");
-		waitKey();
-		delaunay.addVertices(realPointCloud, pointColors);
-		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-			OUTPUT, "delaunay");
-		cout << delaunay.m_triangles.size() << endl;
-		delaunay.saveTriangles("triangles.tri");
-		waitKey();
+		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
+			pointColors, false), OUTPUT, "load data");
+/*		waitKey();*/
+// 		delaunay.addVertices(realPointCloud, pointColors);
+// 		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+// 			OUTPUT, "delaunay");
+// 		cout << delaunay.m_triangles.size() << endl;
+// 		delaunay.saveTriangles("triangles.tri");
 
 		char key = waitKey(1);
 		if (key == 27)
@@ -495,6 +508,8 @@ int main(int argc, char** argv)
 
 		// OpenCV 处理键盘响应消息后，再显示 OpenGL 图像
 		glutMainLoopEvent();
+
+/*		waitKey();*/
 	}
 
 	// destroy  

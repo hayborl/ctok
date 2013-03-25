@@ -45,6 +45,9 @@ public:
 	// 前后移动Camera(速度:speed)
 	void moveCamera(float speed);
 
+	// 重置相机位置
+	void reset();
+
 private:
 	// 更新Camere的方向和其他信息
 	void update();

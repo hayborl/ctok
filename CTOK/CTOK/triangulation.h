@@ -84,7 +84,7 @@ namespace Triangulation
 
 	private:
 		VertexVector m_vertices;		// 点集
-		enum {k = 50};
+		enum {k = 20};
 
 		void computeDelaunay(const VertexVector& verSet, 
 			TriangleVector& triSet);	// 根据指定点集计算三角形

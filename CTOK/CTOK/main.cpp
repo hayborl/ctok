@@ -183,9 +183,9 @@ void loadPointCloudAndTexture(Mat pointCloud,
 // 绘制点云
 void drawPoints()
 {
-	float x,y,z;
-	// 绘制图像点云
-	glPointSize(1.0);
+// 	float x,y,z;
+// 	// 绘制图像点云
+// 	glPointSize(1.0);
 // 	glBegin(GL_POINTS);
 // 	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
 // 	{
@@ -207,9 +207,9 @@ void drawPoints()
 		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
 		{
 			Triangulation::Vertex v = t.m_vertices[j];
-			glColor3d(v.m_color[0] / 255.0, 
-				v.m_color[1] / 255.0, v.m_color[2] / 255.0);
-			glVertex3f(v.m_xyz[0], v.m_xyz[1], v.m_xyz[2]);
+			glColor3d(v.m_color[2] / 255.0, 
+				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 		}
 	}
 	glEnd(); 
@@ -480,6 +480,7 @@ int main(int argc, char** argv)
 		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
 			OUTPUT, "delaunay");
 		cout << delaunay.m_triangles.size() << endl;
+		delaunay.saveTriangles("triangles.tri");
 		waitKey();
 
 		char key = waitKey(1);

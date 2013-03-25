@@ -223,7 +223,7 @@ void Delaunay::computeDelaunay()
 			float x = vv.dot(vx);
 			float y = vx.cross(vv)[id] / normal[id];
 			Vec3f proj(x, y, 0);
-			vVector.push_back(Vertex(proj, vVector[j].m_index));
+			vVector.push_back(Vertex(proj, tmpvVector[j].m_index));
 		}
 
 		TriangleVector tVector;
@@ -238,12 +238,6 @@ void Delaunay::computeDelaunay()
 			t.m_vertices[2] = m_vertices[t.m_vertices[2].m_index];
 			triSet.insert(t);
 		}
-	}
-
-	if (triSet.size() == 0)
-	{
-		annDeallocPts(verticesData);
-		return;
 	}
 
 	for (TriangleSet::iterator iter = triSet.begin(); 
@@ -361,7 +355,7 @@ void Delaunay::addBounding( const VertexVector& verSet,
 	triSet.push_back(Triangle(v0, v1, v2));
 }
 
-void Triangulation::Delaunay::removeBounding( TriangleVector& triSet )
+void Delaunay::removeBounding( TriangleVector& triSet )
 {
 	for (TriangleVector::iterator iter = triSet.begin(); 
 		iter != triSet.end();)
@@ -379,7 +373,7 @@ void Triangulation::Delaunay::removeBounding( TriangleVector& triSet )
 	}
 }
 
-void Triangulation::Delaunay::insertVertex( TriangleVector& triSet, const Vertex& v )
+void Delaunay::insertVertex( TriangleVector& triSet, const Vertex& v )
 {
 	TriangleVector tmp;
 	for (TriangleVector::iterator iter = triSet.begin(); 
@@ -441,15 +435,15 @@ void Triangulation::Delaunay::insertVertex( TriangleVector& triSet, const Vertex
 
 	for (int i = 0; i < tmp.size(); i++)
 	{
-// 		if (!flipTest(triSet, tmp[i]))	// 优化delaunay三角
-// 		{
+		if (!flipTest(triSet, tmp[i]))	// 优化delaunay三角
+		{
 			triSet.push_back(tmp[i]);
-/*		}*/
+		}
 /*		drawTrianglesOnPlane(triSet);*/
 	}
 }
 
-bool Triangulation::Delaunay::flipTest( TriangleVector& triSet, Triangle t )
+bool Delaunay::flipTest( TriangleVector& triSet, Triangle t )
 {
 	bool flipped = false;
 
@@ -534,7 +528,7 @@ bool Triangulation::Delaunay::flipTest( TriangleVector& triSet, Triangle t )
 	return flipped;
 }
 
-bool Triangulation::Delaunay::inCircle( Vertex a, Vertex b, Vertex c, Vertex p )
+bool Delaunay::inCircle( Vertex a, Vertex b, Vertex c, Vertex p )
 {
 	Vec3f ac = c.m_xyz - a.m_xyz;
 	Vec3f ab = b.m_xyz - a.m_xyz;
@@ -561,7 +555,7 @@ bool Triangulation::Delaunay::inCircle( Vertex a, Vertex b, Vertex c, Vertex p )
 	return false;
 }
 
-void Triangulation::Delaunay::drawTrianglesOnPlane( const TriangleVector& triSet )
+void Delaunay::drawTrianglesOnPlane( const TriangleVector& triSet )
 {
 	int width = 1024, height = 768;
 	Mat triangleImg(height, width, CV_8UC3, Scalar::all(0));

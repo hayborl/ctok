@@ -13,7 +13,7 @@ namespace Triangulation
 #define SQRT_3			1.732	// 根号3
 
 	// distance_range 寻找最近邻的范围球的半径平方
-	enum{Distance_Range = 5000};
+	enum {Distance_Range = 1000};
 
 	// 用于三角化的点的类
 	class Vertex
@@ -56,11 +56,13 @@ namespace Triangulation
 			在v1v2边上返回-2，
 			在v2v0边上返回-3*/
 		int inTriangle(Vertex v);
-		bool isVertex(const int index);	// 判断当前索引值的点是否是三角形的顶点
+		bool isVertex(const int index);			// 判断当前索引值的点是否是三角形的顶点
+		bool angleCriterion(const float& minCosAngle = 1.0f,
+			const float& maxCosAngle = -1.0f);	// 判断三角形是否符合最大、最小角限制
 
 		bool operator==(const Triangle& t)const;
 	};
-	size_t hash_value(const Triangle& t);	// hash函数，用于boost库的set类
+	size_t hash_value(const Triangle& t);		// hash函数，用于boost库的set类
 
 	typedef vector<Vertex> VertexVector;
 	typedef vector<Triangle> TriangleVector;
@@ -92,7 +94,7 @@ namespace Triangulation
 			TriangleVector& triSet);	// 根据指定点集计算三角形
 		void addBounding(const VertexVector& verSet, 
 			TriangleVector& triSet);	// 增加一个边界三角形将所有点包围在内
-		void removeBounding(TriangleVector& triSet, 
+		void removeBounding(TriangleVector inSet, TriangleVector& outSet,
 			const int& index);			// 保留当前索引值的点所在的不包含边界的三角形
 		void insertVertex(TriangleVector& triSet, 
 			const Vertex& v);			// 往已有三角形中插入一个点

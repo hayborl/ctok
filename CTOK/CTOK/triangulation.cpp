@@ -92,7 +92,7 @@ int Triangle::inTriangle( Vertex v )
 	return r;
 }
 
-bool Triangle::isVertex(const int index)
+bool Triangle::isVertex( const int index )
 {
 	if (m_vertices[0].m_index == index ||
 		m_vertices[1].m_index == index ||
@@ -101,6 +101,69 @@ bool Triangle::isVertex(const int index)
 		return true;
 	}
 	return false;
+}
+
+bool Triangle::angleCriterion( const float& minCosAngle, 
+	const float& maxCosAngle )
+{
+	Vec3f ab = m_vertices[1].m_xyz - m_vertices[0].m_xyz;
+	Vec3f bc = m_vertices[2].m_xyz - m_vertices[1].m_xyz;
+	Vec3f ac = m_vertices[2].m_xyz - m_vertices[0].m_xyz;
+
+	float lenAB = ab.dot(ab);
+	float lenBC = bc.dot(bc);
+	float lenAC = ac.dot(ac);
+
+	float maxLen = lenAB, minLen = lenAB;
+	float lenMaxE0 = lenBC, lenMaxE1 = lenAC;
+	float lenMinE0 = lenBC, lenMinE1 = lenAC;
+	Vec3f maxE0 = bc, maxE1 = ac, minE0 = bc, minE1 = ac;
+
+	bool maxFlag = true, minFlag = true;
+	float sqrt3_2 = (float)SQRT_3 / 2.0f;
+	if (maxCosAngle > -1.0f && maxCosAngle <=  sqrt3_2)
+	{
+		if (maxLen < lenBC)
+		{
+			maxLen = lenBC;
+			lenMaxE0 = lenAB;
+			lenMaxE1 = lenAC;
+			maxE0 = ab;
+			maxE1 = ac;
+		}
+		if (maxLen < lenAC)
+		{
+			lenMaxE0 = lenAB;
+			lenMaxE1 = lenBC;
+			maxE0 = -ab;
+			maxE1 = bc;
+		}
+		maxFlag = maxE0.dot(maxE1) > sqrtf(lenMaxE0) 
+			* sqrtf(lenMaxE1) * maxCosAngle;
+	}
+	if (minCosAngle < 1.0f && minCosAngle >= sqrt3_2)
+	{
+		if (minLen > lenBC)
+		{
+			minLen = lenBC;
+			lenMinE0 = lenAB;
+			lenMinE1 = lenAC;
+			minE0 = ab;
+			minE1 = ac;
+		}
+		if (minLen > lenAC)
+		{
+			lenMinE0 = lenAB;
+			lenMinE1 = lenBC;
+			minE0 = -ab;
+			minE1 = bc;
+		}
+		minFlag = minE0.dot(minE1) < sqrtf(lenMinE0) 
+			* sqrtf(lenMinE1) * minCosAngle;
+	}
+	
+	return minFlag && maxFlag;
+
 }
 
 bool Triangle::operator==( const Triangle& t ) const
@@ -260,14 +323,15 @@ void Delaunay::computeDelaunay()
 void Delaunay::computeDelaunay( const VertexVector& verSet, 
 	TriangleVector& triSet )
 {
-	addBounding(verSet, triSet);
+	TriangleVector tmpTriSet;
+	addBounding(verSet, tmpTriSet);
 	for (int i = 0; i < verSet.size(); i++)
 	{
 /*		cout << verSet[i].m_xyz << endl;*/
-		insertVertex(triSet, verSet[i]);
+		insertVertex(tmpTriSet, verSet[i]);
 /*		drawTrianglesOnPlane(triSet);*/
 	}
-	removeBounding(triSet, verSet[0].m_index);
+	removeBounding(tmpTriSet, triSet, verSet[0].m_index);
 }
 
 void Delaunay::saveTriangles( char* file )
@@ -296,7 +360,7 @@ void Delaunay::saveTriangles( const TriangleVector& triSet, char* file )
 void Delaunay::addVertices( const Mat& pts, const vector<Vec3b>& colors )
 {
 	assert(pts.rows == colors.size());
-	m_pre_size = m_vertices.size();
+	m_pre_size = (int)m_vertices.size();
 
 	int cnt = m_pre_size;
 	for (int i = 0; i < pts.rows; i++)
@@ -317,7 +381,7 @@ void Delaunay::addVertices( const Mat& pts, const vector<Vec3b>& colors )
 void Delaunay::addVertices( const Mat& pts, const Mat& colors )
 {
 	assert(pts.rows == colors.rows);
-	m_pre_size = m_vertices.size();
+	m_pre_size = (int)m_vertices.size();
 
 	int cnt = m_pre_size;
 	for (int i = 0; i < pts.rows; i++)
@@ -363,21 +427,18 @@ void Delaunay::addBounding( const VertexVector& verSet,
 	triSet.push_back(Triangle(v0, v1, v2));
 }
 
-void Delaunay::removeBounding( TriangleVector& triSet, const int& index )
+void Delaunay::removeBounding( TriangleVector inSet, 
+	TriangleVector& outSet, const int& index )
 {
-	for (TriangleVector::iterator iter = triSet.begin(); 
-		iter != triSet.end();)
+	for (TriangleVector::iterator iter = inSet.begin(); 
+		iter != inSet.end(); iter++)
 	{
-		if (iter->m_vertices[0].m_index < 0 || 
-			iter->m_vertices[1].m_index < 0 ||
-			iter->m_vertices[2].m_index < 0 ||
-			!iter->isVertex(index))
+		if (iter->m_vertices[0].m_index >= 0 && 
+			iter->m_vertices[1].m_index >= 0 && 
+			iter->m_vertices[2].m_index >= 0 && 
+			iter->isVertex(index) && iter->angleCriterion(0.866f)) // 30-180
 		{
-			iter = triSet.erase(iter);
-		}
-		else
-		{
-			iter++;
+			outSet.push_back(*iter);
 		}
 	}
 }

@@ -494,8 +494,8 @@ int main(int argc, char** argv)
 			pointColors), OUTPUT, "load data");
 		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
 			OUTPUT, "delaunay");
-// 		cout << delaunay.m_triangles.size() << endl;
-// 		delaunay.saveTriangles("triangles.tri");
+		cout << delaunay.m_triangles.size() << endl;
+		delaunay.saveTriangles("triangles.tri");
 
 		char key = waitKey(1);
 		if (key == 27)

@@ -184,35 +184,35 @@ void loadPointCloudAndTexture(Mat pointCloud,
 // 绘制点云
 void drawPoints()
 {
-	float x,y,z;
-	// 绘制图像点云
-	glPointSize(1.0);
-	glBegin(GL_POINTS);
-	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
-	{
-// 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
-// 			{
-// 				continue;
-// 			}
-		glColor3d(pointColorData[i][0] / 255.0, 
-			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = (float)pointCloudData[i][0];
-		y = (float)pointCloudData[i][1];
-		z = (float)pointCloudData[i][2];
-		glVertex3f(x, y, z);
-	}
-// 	glBegin(GL_TRIANGLES);
-// 	for (int i = 0; i < delaunay.m_triangles.size(); i++)
+// 	float x,y,z;
+// 	// 绘制图像点云
+// 	glPointSize(1.0);
+// 	glBegin(GL_POINTS);
+// 	for (int i = 0; i < pointCloudData.size(); i++/*+= (int)radius / 10*/)
 // 	{
-// 		Triangulation::Triangle t = delaunay.m_triangles[i];
-// 		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
-// 		{
-// 			Triangulation::Vertex v = t.m_vertices[j];
-// 			glColor3d(v.m_color[2] / 255.0, 
-// 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-// 			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
-// 		}
+// // 			if (rand() < RAND_MAX * radius / (pointCloudData.size() * 100))
+// // 			{
+// // 				continue;
+// // 			}
+// 		glColor3d(pointColorData[i][0] / 255.0, 
+// 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
+// 		x = (float)pointCloudData[i][0];
+// 		y = (float)pointCloudData[i][1];
+// 		z = (float)pointCloudData[i][2];
+// 		glVertex3f(x, y, z);
 // 	}
+	glBegin(GL_TRIANGLES);
+	for (int i = 0; i < delaunay.m_triangles.size(); i++)
+	{
+		Triangulation::Triangle t = delaunay.m_triangles[i];
+		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+		{
+			Triangulation::Vertex v = t.m_vertices[j];
+			glColor3d(v.m_color[2] / 255.0, 
+				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+		}
+	}
 	glEnd(); 
 }
 
@@ -336,7 +336,7 @@ void reshape (int w, int h)
 /************************************************************************/
 int main(int argc, char** argv)
 {
-	hasCuda = initCuda();
+	hasCuda = false;//initCuda();
 	userCamera.positionCamera(0.0f, 1.8f, 100.0f, 0.0f, 1.8f, 0.0f, 0.0f, 1.0f, 0.0f);
 
 	// OpenGL Window
@@ -473,7 +473,7 @@ int main(int argc, char** argv)
 
 // 			ICP i(pointCloudNow, pointCloudPre);
 // 			RUNANDTIME(global_timer, i.run(), OUTPUT, "run ICP.");
-			//ICP i(objSetOrigin, modSet);
+			/*ICP i(objSetOrigin, modSet);*/
 			EMICP i(objSetOrigin, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
 
 			RUNANDTIME(global_timer, 
@@ -487,12 +487,13 @@ int main(int argc, char** argv)
 /*			waitKey();*/
 		}
 
-		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
-			pointColors, false), OUTPUT, "load data");
+// 		RUNANDTIME(global_timer, loadPointCloudAndTexture(realPointCloud, 
+// 			pointColors, false), OUTPUT, "load data");
 /*		waitKey();*/
-// 		delaunay.addVertices(realPointCloud, pointColors);
-// 		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-// 			OUTPUT, "delaunay");
+		RUNANDTIME(global_timer, delaunay.addVertices(realPointCloud, 
+			pointColors), OUTPUT, "load data");
+		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+			OUTPUT, "delaunay");
 // 		cout << delaunay.m_triangles.size() << endl;
 // 		delaunay.saveTriangles("triangles.tri");
 

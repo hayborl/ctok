@@ -265,10 +265,10 @@ void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud,
 		if (index != -1)
 		{
 			Point3f p = objPointCloud.at<Point3f>(index, 0);
-			if (p == Point3f(0, 0, 0))
-			{
-				continue;
-			}
+// 			if (p == Point3f(0, 0, 0))
+// 			{
+// 				continue;
+// 			}
 			objTmpSetOrign.push_back(p);
 			Point2f p2d = transPoints[i];
 			proj[cnt].X = p2d.x;

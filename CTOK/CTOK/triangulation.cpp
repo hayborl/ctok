@@ -120,7 +120,7 @@ bool Triangle::angleCriterion( const float& minCosAngle,
 	Vec3f maxE0 = bc, maxE1 = ac, minE0 = bc, minE1 = ac;
 
 	bool maxFlag = true, minFlag = true;
-	float sqrt3_2 = (float)SQRT_3 / 2.0f;
+	float sqrt3_2 = SQRT_3 / 2.0f;
 	if (maxCosAngle > -1.0f && maxCosAngle <=  sqrt3_2)
 	{
 		if (maxLen < lenBC)
@@ -255,29 +255,37 @@ void Delaunay::computeDelaunay()
 			continue;
 		}
 
+		float minDistance = -1;
+		int j;
+		for (j = 0; j < cnt; j++)
+		{
+			if (dists[j] > 0)
+			{
+				minDistance = (float)dists[j];
+				break;
+			}
+		}
 		VertexVector vVector, tmpvVector;
 		// 将最近邻点投射到该点的切平面上
-		for (int j = 1; j < cnt; j++)
+		for (; j < cnt; j++)
 		{
-			if (dists[j] < CLOSE_DISTANCE)	// 去除非常接近的点
-			{
-				continue;
-			}
 			Vertex tmpv = m_vertices[idxs[j]];
-			Vec3f vv = tmpv.m_xyz - v.m_xyz;
-			double dist = sqrt(dists[j]) * SQRT_3 / 2;
-			double alpha = vv.dot(normal);
-
-			if (alpha > dist || alpha < -dist)	// 去除与法向量夹角小于30度或大于150度的点
+			if (dists[j] < u * minDistance ||		// 去除非常接近的点
+				(tmpv.m_index < v.m_index && tmpv.m_index >= m_pre_size))	// 去除已遍历过的点
 			{
 				continue;
 			}
-
-			if (tmpv.m_index >= v.m_index)	// 去除已遍历过的点
+			
+			Vec3f vv = tmpv.m_xyz - v.m_xyz;
+			double dist2 = dists[j] * 0.75f;	// sqrt
+			double alpha = vv.dot(normal);
+			alpha = alpha * alpha;
+			if (alpha > dist2)		// 去除与法向量夹角小于30度或大于150度的点
 			{
-				Vec3f proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
-				tmpvVector.push_back(Vertex(proj, idxs[j]));
+				continue;
 			}
+			Vec3f proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
+			tmpvVector.push_back(Vertex(proj, idxs[j]));
 		}
 		if (tmpvVector.size() < 3)	// 少于3个不能构成三角形
 		{
@@ -288,7 +296,7 @@ void Delaunay::computeDelaunay()
 		vVector.push_back(Vertex(Vec3f(0, 0, 0), i));	// 原点
 		Vec3f vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
 		vx = normalize(vx);
-		for (int j = 0; j < tmpvVector.size(); j++)
+		for (j = 0; j < tmpvVector.size(); j++)
 		{
 			Vec3f vv = tmpvVector[j].m_xyz - v.m_xyz;
 			float x = vv.dot(vx);
@@ -301,7 +309,7 @@ void Delaunay::computeDelaunay()
 		computeDelaunay(vVector, tVector);
 // 		cout << vVector.size() << " " << tVector.size() << endl; 
 // 		drawTrianglesOnPlane(tVector);
-		for (int j = 0; j < tVector.size(); j++)
+		for (j = 0; j < tVector.size(); j++)
 		{
 			Triangle t = tVector[j];
 			t.m_vertices[0] = m_vertices[t.m_vertices[0].m_index];
@@ -600,27 +608,18 @@ bool Delaunay::flipTest( TriangleVector& triSet, Triangle t )
 
 bool Delaunay::inCircle( Vertex a, Vertex b, Vertex c, Vertex p )
 {
-	Vec3f ac = c.m_xyz - a.m_xyz;
-	Vec3f ab = b.m_xyz - a.m_xyz;
-	Vec3f ap = p.m_xyz - a.m_xyz;
-	Vec3f bc = ac - ab;
-	Vec3f ba = -ab;
-	Vec3f bp = ap - ab;
-	float acb = ab[0] * ac[1] - ab[1] * ac[0];
-	float acp = ap[0] * ac[1] - ap[1] * ac[0];
-	float bca = bc[0] * ba[1] - bc[1] * ba[0];
-	float bcp = bc[0] * bp[1] - bc[1] * bp[0];
+	Vec3f cb = b.m_xyz - c.m_xyz;
+	Vec3f ca = a.m_xyz - c.m_xyz;
+	Vec3f pb = b.m_xyz - p.m_xyz;
+	Vec3f pa = a.m_xyz - p.m_xyz;
 
-	if (acb * acp > 0 && bca * bcp > 0)	// b、p在ac同侧且a、p在bc同侧
+	float cross_cbca = fabs(cb[0] * ca[1] - cb[1] * ca[0]);
+	float cross_pbpa = fabs(pb[0] * pa[1] - pb[1] * pa[0]);
+	float dot_cbca = cb.dot(ca);
+	float dot_pbpa = pb.dot(pa);
+	if (cross_cbca * dot_pbpa + cross_pbpa * dot_cbca < 0)
 	{
-		Vec3f pa = -ap;
-		Vec3f pc = ac - ap;
-		float d_apc = pa.dot(pc) * sqrtf(ba.dot(ba)) * sqrtf(bc.dot(bc));
-		float d_abc = ba.dot(bc) * sqrtf(pa.dot(pa)) * sqrtf(pc.dot(pc));
-		if (d_apc < d_abc)
-		{
-			return true;
-		}
+		return true;
 	}
 	return false;
 }

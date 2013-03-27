@@ -10,7 +10,7 @@ namespace Triangulation
 {
 #define CLOSE_DISTANCE	10		// 判断两个点是否相等的临界距离
 #define FLOAT_ERROR		1e-3	// 浮点数的误差范围
-#define SQRT_3			1.732	// 根号3
+#define SQRT_3			1.732f	// 根号3
 
 	// distance_range 寻找最近邻的范围球的半径平方
 	enum {Distance_Range = 1000};
@@ -88,7 +88,7 @@ namespace Triangulation
 	private:
 		VertexVector m_vertices;		// 点集
 		int m_pre_size;					// 记录下一次compute之前有多少点
-		enum {k = 20};
+		enum {k = 20, u = 5};			// k个邻近点，u倍最小距离内的点去除
 
 		void computeDelaunay(const VertexVector& verSet, 
 			TriangleVector& triSet);	// 根据指定点集计算三角形

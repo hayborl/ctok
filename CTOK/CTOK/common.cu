@@ -44,6 +44,10 @@ void transformPointCloud(Mat input, Mat* output,
 	Mat m_T = transformMat(Rect(3, 0, 1, 3)).clone();
 
 	int num = input.rows;
+	if (num == 0)
+	{
+		return;
+	}
 	float3* arr_in = new float3[num];
 	memcpy(arr_in, (float3*)input.data, num * sizeof(float3));
 

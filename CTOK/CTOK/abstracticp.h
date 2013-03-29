@@ -5,6 +5,12 @@
 
 #define SUBOUTPUT false
 
+typedef struct tag_Transformation
+{
+	Vec4f q;
+	Vec3f t;
+} Transformation;
+
 class AbstractICP
 {
 public:

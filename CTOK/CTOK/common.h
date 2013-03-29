@@ -22,6 +22,8 @@
 #include "ANN/ANN.h"
 #pragma comment(lib, "ANN.lib")
 
+#include "timer.h"
+
 using namespace cv;
 using namespace std;
 using namespace gpu; 
@@ -35,62 +37,16 @@ using namespace gpu;
 
 typedef unsigned int uint;
 
-class My_Timer : public TickMeter
-{
-public:
-	enum TimeUnit{MICRO, MILLI, SEC};
-	void start()
-	{
-		TickMeter::reset();
-		TickMeter::start();
-	}
-	double stop(TimeUnit unit = SEC)
-	{
-		TickMeter::stop();
-		switch (unit)
-		{
-		case MICRO:
-			return getTimeMicro();
-		case MILLI:
-			return getTimeMilli();
-		case SEC:
-		default:
-			return getTimeSec();
-		}
-	}
-};
-
-#define RUNANDTIME(timer, fun, output, s) timer.start(); fun; \
-	if(output) cout << timer.stop() << "s " << s << endl;
-
 void saveData(const char* filename, const Mat& mat, int flag = 0);
 void saveData(const char* filename, const vector<Vec3f> pts);
 
 bool initCuda();
-
-extern bool hasCuda;
-
-static My_Timer global_timer;
-
-typedef struct tag_Transformation
-{
-	Vec4f q;
-	Vec3f t;
-} Transformation;
 
 // 将m*n k通道转换为m*(n*k) 单通道
 Mat convertMat(const Mat& mat);
 
 void transformPointCloud(Mat input, Mat* output, 
 	Mat transformMat, bool withCuda = false);
-
-Mat getFeaturePointCloud(const Mat& colorImg, 
-	const Mat& pointCloud, const Mat& pointIndices);
-
-void getSurfPointsSet(const Mat& objColorImg, const Mat& objPointCloud, 
-	const Mat& objPointIndex, const Mat& modColorImg, 
-	const Mat& modPointCloud, const Mat& modPointIndex, 
-	Mat& objSetOrigin, Mat& objSet, Mat& modSet, xn::DepthGenerator dg);
 
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);
 

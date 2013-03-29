@@ -54,6 +54,9 @@
     <ClInclude Include="triangulation.h">
       <Filter>head files</Filter>
     </ClInclude>
+    <ClInclude Include="timer.h">
+      <Filter>head files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="head files">

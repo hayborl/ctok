@@ -1,7 +1,10 @@
 #ifndef FEATURES_H
 #define FEATURES_H
 
-#include "common.h"
+#include "opencv2/gpu/gpu.hpp"
+#include "opencv2/opencv.hpp"
+#include "XnCppWrapper.h"
+using namespace cv;
 
 #define GRAY_LEVEL 16
 
@@ -16,16 +19,26 @@ public:
 	Features(void){}
 	~Features(void){}
 
-	void getHSVColorHistDes(const Mat& image, Mat& descriptors);	// HSV颜色直方图
-	void getGLCMDes(const Mat& image, Mat& descriptors);			// 灰度共生矩阵
+	void getHSVColorHistDes(const Mat &image, Mat &descriptors);	// HSV颜色直方图
+	void getGLCMDes(const Mat &image, Mat &descriptors);			// 灰度共生矩阵
 
 private:
 	int convertH(double h);
 	int convertS(double s);
 	int convertV(double v);
-	void getGLCM(const Mat& image, 
+	void getGLCM(const Mat &image, 
 		double* normGlcm, int orientation, int step);
 };
 
+void getSurfPointsSet(const Mat &objColorImg, const Mat &objPointCloud, 
+	const Mat &objPointIndex, const Mat &modColorImg, 
+	const Mat &modPointCloud, const Mat &modPointIndex, 
+	Mat &objSetOrigin, Mat &objSet, Mat &modSet, xn::DepthGenerator dg);
+
+void getFeaturePoints(xn::DepthGenerator dg,				// OpenNI，用以将点转换成真实世界的点
+	const Mat &colorImgNow, const Mat &depthImgNow,		// 当前帧的彩色图与深度图
+	const Mat &colorImgPre, const Mat &depthImgPre,		// 前一帧的彩色图与深度图
+	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask);	// 依次为当前帧的特征点集，前一帧的特征点集，
+															// 匹配转换后当前帧的特征点集，当前帧相比前一帧多出的部分
 
 #endif //FEATURES_H

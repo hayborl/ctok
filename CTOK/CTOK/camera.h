@@ -4,8 +4,8 @@
 #include "common.h"
 
 //摄像头移动速度
-#define MOVESPEEDLR 0.1f
-#define MOVESPEEDFB	10.0f
+#define MOVESPEEDLR 10.0f
+#define MOVESPEEDFB	50.0f
 //摄像头旋转速度
 #define ROTSPEED 0.01f
 

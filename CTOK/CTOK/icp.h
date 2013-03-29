@@ -11,7 +11,7 @@ public:
 
 	ICP(){}
 	// iterMax：最大迭代次数；epsilon：精度
-	ICP(const Mat& objSet, const Mat& modSet, 
+	ICP(const Mat &objSet, const Mat &modSet, 
 		int iterMax = 50, double epsilon = 1e-6);
 
 	void run(bool withCuda, Mat* initObjSet = NULL);		// 运行ICP算法
@@ -29,8 +29,8 @@ private:
 
 	int m_cnt;					// 实际起作用的点的数目
 
-	Mat getClosestPointsSet(const Mat& objSet, double& d,
-		Mat& lambda, Method method = KDTREE);					// 计算固定点云集中与目标点云最近的点云及其权重
+	Mat getClosestPointsSet(const Mat &objSet, double &d,
+		Mat &lambda, Method method = KDTREE);					// 计算固定点云集中与目标点云最近的点云及其权重
 
 	void createKDTree();										// 创建KDTree						
 };

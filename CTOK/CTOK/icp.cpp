@@ -1,6 +1,6 @@
 #include "icp.h"
 
-ICP::ICP( const Mat& objSet, const Mat& modSet, int iterMax, double epsilon )
+ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 {
 	assert(objSet.cols == 1 && modSet.cols == 1);
 	assert(!objSet.empty() && !modSet.empty());
@@ -55,8 +55,8 @@ void ICP::run(bool withCuda, Mat* initObjSet)
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }
 
-Mat ICP::getClosestPointsSet( const Mat& objSet, double& d,
-	Mat& lambda, Method method )
+Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
+	Mat &lambda, Method method )
 {
 	int rows = objSet.rows;
 	Mat closestSet(rows, 1, DataType<Point3f>::type);

@@ -7,7 +7,7 @@
 
 using namespace Triangulation;
 
-Vertex& Vertex::operator=( const Vertex& v )
+Vertex& Vertex::operator=( const Vertex &v )
 {
 	m_xyz = v.m_xyz;
 	m_color = v.m_color;
@@ -15,12 +15,12 @@ Vertex& Vertex::operator=( const Vertex& v )
 	return *this;
 }
 
-bool Vertex::operator==( const Vertex& v ) const
+bool Vertex::operator==( const Vertex &v ) const
 {
 	return m_xyz == v.m_xyz;
 }
 
-float Vertex::distance2( const Vertex& v )
+float Vertex::distance2( const Vertex &v )
 {
 	Vec3f d = m_xyz - v.m_xyz;
 	return d.dot(d);
@@ -103,8 +103,8 @@ bool Triangle::isVertex( const int index )
 	return false;
 }
 
-bool Triangle::angleCriterion( const float& minCosAngle, 
-	const float& maxCosAngle )
+bool Triangle::angleCriterion( const float &minCosAngle, 
+	const float &maxCosAngle )
 {
 	Vec3f ab = m_vertices[1].m_xyz - m_vertices[0].m_xyz;
 	Vec3f bc = m_vertices[2].m_xyz - m_vertices[1].m_xyz;
@@ -166,7 +166,7 @@ bool Triangle::angleCriterion( const float& minCosAngle,
 
 }
 
-bool Triangle::operator==( const Triangle& t ) const
+bool Triangle::operator==( const Triangle &t ) const
 {
 	int cnt = 0;
 	for (int i = 0; i < Vertex_Size; i++)
@@ -182,7 +182,7 @@ bool Triangle::operator==( const Triangle& t ) const
 	return cnt == Vertex_Size;
 }
 
-size_t Triangulation::hash_value( const Triangle& t )
+size_t Triangulation::hash_value( const Triangle &t )
 {
 	size_t seed;
 	for (int i = 0; i < Triangle::Vertex_Size; i++)
@@ -195,12 +195,12 @@ size_t Triangulation::hash_value( const Triangle& t )
 	return seed;
 }
 
-Delaunay::Delaunay( const Mat& pts, const vector<Vec3b>& colors )
+Delaunay::Delaunay( const Mat &pts, const vector<Vec3b> &colors )
 {
 	addVertices(pts, colors);
 }
 
-Delaunay::Delaunay( const Mat& pts, const Mat& colors )
+Delaunay::Delaunay( const Mat &pts, const Mat &colors )
 {
 	addVertices(pts, colors);
 }
@@ -328,8 +328,8 @@ void Delaunay::computeDelaunay()
 	annDeallocPts(verticesData);
 }
 
-void Delaunay::computeDelaunay( const VertexVector& verSet, 
-	TriangleVector& triSet )
+void Delaunay::computeDelaunay( const VertexVector &verSet, 
+	TriangleVector &triSet )
 {
 	TriangleVector tmpTriSet;
 	addBounding(verSet, tmpTriSet);
@@ -347,7 +347,7 @@ void Delaunay::saveTriangles( char* file )
 	saveTriangles(m_triangles, file);
 }
 
-void Delaunay::saveTriangles( const TriangleVector& triSet, char* file )
+void Delaunay::saveTriangles( const TriangleVector &triSet, char* file )
 {
 	ofstream ofs(file);
 	if (ofs)
@@ -365,7 +365,7 @@ void Delaunay::saveTriangles( const TriangleVector& triSet, char* file )
 	}
 }
 
-void Delaunay::addVertices( const Mat& pts, const vector<Vec3b>& colors )
+void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
 {
 	assert(pts.rows == colors.size());
 	m_pre_size = (int)m_vertices.size();
@@ -386,7 +386,7 @@ void Delaunay::addVertices( const Mat& pts, const vector<Vec3b>& colors )
 	cout << m_vertices.size() << endl;
 }
 
-void Delaunay::addVertices( const Mat& pts, const Mat& colors )
+void Delaunay::addVertices( const Mat &pts, const Mat &colors )
 {
 	assert(pts.rows == colors.rows);
 	m_pre_size = (int)m_vertices.size();
@@ -407,8 +407,8 @@ void Delaunay::addVertices( const Mat& pts, const Mat& colors )
 	cout << m_vertices.size() << endl;
 }
 
-void Delaunay::addBounding( const VertexVector& verSet, 
-	TriangleVector& triSet )
+void Delaunay::addBounding( const VertexVector &verSet, 
+	TriangleVector &triSet )
 {
 	float max_x = -100000, max_y = -100000;
 	float min_x = 100000, min_y = 100000;
@@ -436,7 +436,7 @@ void Delaunay::addBounding( const VertexVector& verSet,
 }
 
 void Delaunay::removeBounding( TriangleVector inSet, 
-	TriangleVector& outSet, const int& index )
+	TriangleVector &outSet, const int &index )
 {
 	for (TriangleVector::iterator iter = inSet.begin(); 
 		iter != inSet.end(); iter++)
@@ -451,7 +451,7 @@ void Delaunay::removeBounding( TriangleVector inSet,
 	}
 }
 
-void Delaunay::insertVertex( TriangleVector& triSet, const Vertex& v )
+void Delaunay::insertVertex( TriangleVector &triSet, const Vertex &v )
 {
 	TriangleVector tmp;
 	for (TriangleVector::iterator iter = triSet.begin(); 
@@ -521,7 +521,7 @@ void Delaunay::insertVertex( TriangleVector& triSet, const Vertex& v )
 	}
 }
 
-bool Delaunay::flipTest( TriangleVector& triSet, Triangle t )
+bool Delaunay::flipTest( TriangleVector &triSet, Triangle t )
 {
 	bool flipped = false;
 
@@ -624,7 +624,7 @@ bool Delaunay::inCircle( Vertex a, Vertex b, Vertex c, Vertex p )
 	return false;
 }
 
-void Delaunay::drawTrianglesOnPlane( const TriangleVector& triSet )
+void Delaunay::drawTrianglesOnPlane( const TriangleVector &triSet )
 {
 	int width = 1024, height = 768;
 	Mat triangleImg(height, width, CV_8UC3, Scalar::all(0));

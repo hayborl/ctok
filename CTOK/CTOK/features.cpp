@@ -6,7 +6,7 @@ using namespace gpu;
 
 extern bool hasCuda;
 
-void Features::getHSVColorHistDes( const Mat& image, Mat& descriptors )
+void Features::getHSVColorHistDes( const Mat &image, Mat &descriptors )
 {
 	assert(image.channels() == 3);
 
@@ -46,7 +46,7 @@ void Features::getHSVColorHistDes( const Mat& image, Mat& descriptors )
 	}
 }
 
-void Features::getGLCMDes( const Mat& image, Mat& descriptors )
+void Features::getGLCMDes( const Mat &image, Mat &descriptors )
 {
 	double normGlcm[GRAY_LEVEL * GRAY_LEVEL];
 
@@ -146,7 +146,7 @@ int Features::convertV( double v )
 	}
 }
 
-void Features::getGLCM( const Mat& image, double* normGlcm, 
+void Features::getGLCM( const Mat &image, double* normGlcm, 
 	int orientation, int step )
 {
 	Mat tmp(image.rows, image.cols, image.type());
@@ -214,10 +214,25 @@ void Features::getGLCM( const Mat& image, double* normGlcm,
 	}
 }
 
-void getSurfPointsSet( const Mat& objColorImg, const Mat& objPointCloud, 
-	const Mat& objPointIndex, const Mat& modColorImg, 
-	const Mat& modPointCloud, const Mat& modPointIndex, 
-	Mat& objSetOrigin, Mat& objSet, Mat& modSet, xn::DepthGenerator dg)
+double bhattacharyyaDistance(const Mat &mat1, const Mat &mat2)
+{
+	assert(mat1.channels() == 1 && mat2.channels() == 1);
+	Mat tmp = mat1.mul(mat2);
+	sqrt(tmp, tmp);
+	return -log(sum(tmp)[0]);
+}
+
+double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2)
+{
+	double dis1 = bhattacharyyaDistance(des1.first, des2.first);
+	double dis2 = bhattacharyyaDistance(des1.second, des2.second);
+	return (dis1 + dis2) * 0.5;
+}
+
+void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud, 
+	const Mat &objPointIndex, const Mat &modColorImg, 
+	const Mat &modPointCloud, const Mat &modPointIndex, 
+	Mat &objSetOrigin, Mat &objSet, Mat &modSet, xn::DepthGenerator dg)
 {
 	Mat colorImgs[2], keyPointsImgs[2], descriptors[2];
 	vector<KeyPoint> keyPoints[2];

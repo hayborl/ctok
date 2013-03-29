@@ -1,6 +1,6 @@
 #include "abstracticp.h"
 
-cv::Mat AbstractICP::getTransformMat(const Transformation& tr)
+cv::Mat AbstractICP::getTransformMat(const Transformation &tr)
 {
 	float tempR[9], tempT[3];
 	getRotateMatrix(tr.q, tempR);
@@ -17,8 +17,8 @@ cv::Mat AbstractICP::getTransformMat(const Transformation& tr)
 	return mat.clone();
 }
 
-Transformation AbstractICP::computeTransformation( const Mat& objSet, 
-	const Mat& modSet, const Mat& lambda )
+Transformation AbstractICP::computeTransformation( const Mat &objSet, 
+	const Mat &modSet, const Mat &lambda )
 {
 	assert(objSet.cols == 3 && modSet.cols == 3);
 	assert(objSet.rows == modSet.rows && objSet.rows == lambda.rows);
@@ -84,7 +84,7 @@ Transformation AbstractICP::computeTransformation( const Mat& objSet,
 }
 
 Transformation AbstractICP::cuda_computeTransformation( 
-	const Mat& objSet, const Mat& modSet, const Mat& lambda )
+	const Mat &objSet, const Mat &modSet, const Mat &lambda )
 {
 	assert(objSet.cols == 3 && modSet.cols == 3);
 	assert(objSet.rows == modSet.rows && objSet.rows == lambda.rows);
@@ -168,4 +168,22 @@ Transformation AbstractICP::cuda_computeTransformation(
 	RT.t = Vec3f(T);
 
 	return RT;
+}
+
+void getRotateMatrix( Vec4f q, float* R )
+{
+	float q0 = q[0];
+	float q1 = q[1];
+	float q2 = q[2];
+	float q3 = q[3];
+
+	R[0] = q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3;
+	R[1] = 2 * (q1 * q2 - q0 * q3);
+	R[2] = 2 * (q1 * q3 + q0 * q2);
+	R[3] = 2 * (q1 * q2 + q0 * q3);
+	R[4] = q0 * q0 + q2 * q2 - q1 * q1 - q3 * q3;
+	R[5] = 2 * (q2 * q3 - q0 * q1);
+	R[6] = 2 * (q1 * q3 - q0 * q2);
+	R[7] = 2 * (q2 * q3 + q0 * q1);
+	R[8] = q0 * q0 + q3 * q3 - q1 * q1 - q2 * q2;
 }

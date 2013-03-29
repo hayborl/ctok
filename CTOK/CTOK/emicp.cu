@@ -10,7 +10,7 @@ struct updateA_functor
 	{
 		sigma = _sigma;
 	}
-	__host__ __device__ float operator()(const float3& p1, const float3& p2)
+	__host__ __device__ float operator()(const float3 &p1, const float3 &p2)
 	{
 		float tmp0, tmp1, tmp2;
 		tmp0 = p1.x - p2.x;
@@ -22,8 +22,8 @@ struct updateA_functor
 	}
 };
 
-void EMICP::updateA( Mat& A, const Mat& objSet, 
-	const Mat& modSet, bool withCuda )
+void EMICP::updateA( Mat &A, const Mat &objSet, 
+	const Mat &modSet, bool withCuda )
 {
 	
 	if (withCuda)
@@ -72,7 +72,7 @@ void EMICP::updateA( Mat& A, const Mat& objSet,
 
 struct normalizeRow_functor
 {
-	__host__ __device__ float operator()(const float& x, const float& lambda)
+	__host__ __device__ float operator()(const float &x, const float &lambda)
 	{
 		return (float)(x / (lambda + 1e-7));
 	}
@@ -80,7 +80,7 @@ struct normalizeRow_functor
 
 struct sqrt_functor
 {
-	__host__ __device__ float operator()(const float& x)
+	__host__ __device__ float operator()(const float &x)
 	{
 		return sqrtf(x);
 	}
@@ -202,8 +202,8 @@ __global__ void kernelNormalizeRows(PtrStepSz<float> d_mat,
 	}
 }
 
-void EMICP::cuda_normalizeRows(Mat& mat, 
-	const Mat& alpha, bool withSqrt)
+void EMICP::cuda_normalizeRows(Mat &mat, 
+	const Mat &alpha, bool withSqrt)
 {
 	int rows = mat.rows;
 	int cols = mat.cols;

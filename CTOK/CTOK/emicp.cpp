@@ -1,6 +1,6 @@
 #include "emicp.h"
 
-EMICP::EMICP(const Mat& objSet, const Mat& modSet, 
+EMICP::EMICP(const Mat &objSet, const Mat &modSet, 
 	float sigma_p2, float sigma_inf, 
 	float sigma_factor, float d_02)
 {
@@ -68,63 +68,3 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 	tr.t *= 1000.0f;
 	m_tr = getTransformMat(tr);
 }
-
-// void EMICP::updateA( Mat& A, const Mat& objSet, 
-// 	const Mat& R, const Mat& T, bool withCuda )
-// {
-// #pragma omp parallel for
-// 	for (int c = 0; c < A.cols; c++)
-// 	{
-// 		Mat mp = Mat(m_modSet.at<Point3f>(c, 0));
-// 		for (int r = 0; r < A.rows; r++)
-// 		{
-// 			Mat op = Mat(objSet.at<Point3f>(r, 0));
-// 			Mat tmp = mp - (R * op + T);
-// 			double d = tmp.dot(tmp) / m_sigma_p2;
-// 			d = exp(-d);
-// 			A.at<float>(r, c) = (float)d;
-// 		}
-// 	}
-// }
-
-// void EMICP::normalizeRows( Mat& A, const Mat& C, bool withCuda )
-// {
-// 	int rowsA = A.rows;
-// 	int colsA = A.cols;
-// #pragma omp parallel for
-// 	for (int r = 0; r < rowsA; r++)
-// 	{
-// 		Mat row = A(Rect(0, r, colsA, 1));
-// 		float c = C.at<float>(r, 0);
-// 		if (c > 10e-7f)
-// 		{
-// 			row = row / c;
-// 		}
-// 		else
-// 		{
-// 			float tmp = 1.0f / colsA;
-// 			Mat(rowsA, colsA, CV_32FC1, Scalar::all(tmp)).copyTo(row);
-// 		}
-// 	}
-// }
-
-// void EMICP::normalizeRows2( Mat& A, const Mat& C )
-// {
-// 	int rowsA = A.rows;
-// 	int colsA = A.cols;
-// #pragma omp parallel for
-// 	for (int r = 0; r < rowsA; r++)
-// 	{
-// 		Mat row = A(Rect(0, r, colsA, 1));
-// 		float c = C.at<float>(r, 0);
-// 		if (c > 10e-7f)
-// 		{
-// 			row = row / c;
-// 		}
-// 		else
-// 		{
-// 			float tmp = 1.0f / colsA;
-// 			Mat(rowsA, colsA, CV_32FC1, Scalar::all(tmp)).copyTo(row);
-// 		}
-// 	}
-// }

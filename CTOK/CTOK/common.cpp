@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-void saveData(const char* filename, const Mat& mat, int flag)      
+void saveData(const char* filename, const Mat &mat, int flag)      
 {
 	FILE* fp;
 	fopen_s(&fp, filename, "wt");
@@ -112,7 +112,7 @@ bool initCuda()
 	return true;
 }
 
-Mat convertMat( const Mat& mat )
+Mat convertMat( const Mat &mat )
 {
 	Mat* subs = new Mat[mat.channels()];
 	split(mat, subs);
@@ -185,40 +185,7 @@ void plotTwoPoint3DSet( Mat objSet, Mat modSet )
 	waitKey();
 }
 
-void getRotateMatrix( Vec4f q, float* R )
-{
-	float q0 = q[0];
-	float q1 = q[1];
-	float q2 = q[2];
-	float q3 = q[3];
-
-	R[0] = q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3;
-	R[1] = 2 * (q1 * q2 - q0 * q3);
-	R[2] = 2 * (q1 * q3 + q0 * q2);
-	R[3] = 2 * (q1 * q2 + q0 * q3);
-	R[4] = q0 * q0 + q2 * q2 - q1 * q1 - q3 * q3;
-	R[5] = 2 * (q2 * q3 - q0 * q1);
-	R[6] = 2 * (q1 * q3 - q0 * q2);
-	R[7] = 2 * (q2 * q3 + q0 * q1);
-	R[8] = q0 * q0 + q3 * q3 - q1 * q1 - q2 * q2;
-}
-
-double bhattacharyyaDistance(const Mat& mat1, const Mat& mat2)
-{
-	assert(mat1.channels() == 1 && mat2.channels() == 1);
-	Mat tmp = mat1.mul(mat2);
-	sqrt(tmp, tmp);
-	return -log(sum(tmp)[0]);
-}
-
-double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2)
-{
-	double dis1 = bhattacharyyaDistance(des1.first, des2.first);
-	double dis2 = bhattacharyyaDistance(des1.second, des2.second);
-	return (dis1 + dis2) * 0.5;
-}
-
-Vec3f computeNormal( ANNpointArray pts, ANNidxArray idxs, const int& k )
+Vec3f computeNormal( ANNpointArray pts, ANNidxArray idxs, const int &k )
 {
 	Mat M = Mat::zeros(3, 3, CV_64FC1);
 	Mat mean = Mat::zeros(3, 1, CV_64FC1);

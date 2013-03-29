@@ -9,7 +9,7 @@
 char* fileName = "common.cu";
 
 inline void __checkCudaErrors(cudaError err, 
-	const char *file = NULL, const int line = 0)
+	const char* file = NULL, const int line = 0)
 {
 	if (cudaSuccess != err)
 	{
@@ -22,12 +22,12 @@ inline void __checkCudaErrors(cudaError err,
 struct transform_functor
 {
 	float R[9], T[3];
-	transform_functor(const Mat& m_R, const Mat& m_T)
+	transform_functor(const Mat &m_R, const Mat &m_T)
 	{
 		memcpy(R, (float*)m_R.data, 9 * sizeof(float));
 		memcpy(T, (float*)m_T.data, 3 * sizeof(float));
 	}
-	__host__ __device__ float3 operator()(const float3& pt) const
+	__host__ __device__ float3 operator()(const float3 &pt) const
 	{
 		float3 tmp;
 		tmp.x = R[0] * pt.x + R[1] * pt.y + R[2] * pt.z + T[0];

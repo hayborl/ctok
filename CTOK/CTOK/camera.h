@@ -28,7 +28,7 @@ public:
 	void positionCamera(float posX, float posY, float posZ,
 		float viewX, float viewY, float viewZ,
 		float upX, float upY, float upZ);
-	void positionCamera(const Vec3f& pos, const Vec3f& view, const Vec3f& up);
+	void positionCamera(const Vec3f &pos, const Vec3f &view, const Vec3f &up);
 
 	// 使用gluLookAt()在场景中摆放Camera
 	void look();
@@ -37,7 +37,7 @@ public:
 	void setViewByMouse(void); 
 
 	// 绕给出的轴旋转Camera的方向
-	void rotateView(float angle, const Vec3f& vAxis);
+	void rotateView(float angle, const Vec3f &vAxis);
 
 	// 左右移动Camera(速度:speed)
 	void strafeCamera(float speed);

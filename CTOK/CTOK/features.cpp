@@ -468,7 +468,7 @@ void getFeaturePoints(xn::DepthGenerator dg,
 	int cols = colorImgNow.cols;
 	int size = rows * cols;
 
-	mask = Mat(colorImgs[1].rows, colorImgs[1].cols, CV_8UC1, Scalar::all(0));
+	depthImgPre.convertTo(mask, CV_8UC1, -255.0, 255.0);
 	warpPerspective(mask, mask, H, Size(cols, rows),
 		INTER_LINEAR + WARP_INVERSE_MAP, 0, Scalar::all(255));
 

@@ -15,7 +15,8 @@ Camera::Camera()
 
 	mouseInWindow = true;
 
-	SetCursorPos(Window_Width >> 1, Window_Height >> 1);
+	SetCursorPos(glWinPosX + glWinWidth >> 1, 
+		glWinPosY + glWinHeight >> 1);
 	//ShowCursor(FALSE);
 }
 
@@ -37,7 +38,6 @@ void Camera::positionCamera(float posX, float posY, float posZ,
 	Vec3f tmp;
 	normalize(m_vView-m_vPosition, tmp);
 	m_vView = m_vPosition + tmp;
-	//SetCursorPos(Window_Width >> 1, Window_Height >> 1);
 }
 
 // 设置Camera位置
@@ -52,18 +52,17 @@ void Camera::positionCamera(const Vec3f &pos, const Vec3f &view, const Vec3f &up
 	Vec3f tmp;
 	normalize(m_vView-m_vPosition, tmp);
 	m_vView = m_vPosition + tmp;
-	//SetCursorPos(Window_Width >> 1, Window_Height >> 1);
 }
 
 // 通过移动鼠标移动Camera的方向(第一人称)
 void Camera::setViewByMouse(void)
 {
-	POINT mousePos;						// 存储鼠标位置的结构体
-	int middleX = Window_Width  >> 1;	// 窗口宽度的一半
-	int middleY = Window_Height >> 1;	// 窗口高度的一半
-	float angleY = 0.0f;				// 存储向上看、向下看的角度
-	float angleZ = 0.0f;				// 存储向左看、向右看的角度
-	static float currentRotX = 0.0f;	// 存储总的向上、向下的旋转角度
+	POINT mousePos;									// 存储鼠标位置的结构体
+	int middleX = glWinPosX + glWinWidth  >> 1;		// 窗口宽度的一半
+	int middleY = glWinPosY + glWinHeight >> 1;		// 窗口高度的一半
+	float angleY = 0.0f;							// 存储向上看、向下看的角度
+	float angleZ = 0.0f;							// 存储向左看、向右看的角度
+	static float currentRotX = 0.0f;				// 存储总的向上、向下的旋转角度
 
 	// 获得当前鼠标位置
 	GetCursorPos(&mousePos);						

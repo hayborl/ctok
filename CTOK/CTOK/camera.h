@@ -10,8 +10,11 @@
 #define ROTSPEED 0.01f
 
 // 窗口的高度和宽度
-#define Window_Width	640
-#define Window_Height	480
+extern int glWinWidth;
+extern int glWinHeight;
+// 窗口的初始位置坐标
+extern int glWinPosX;
+extern int glWinPosY;
 
 class Camera {
 public:
@@ -61,5 +64,3 @@ private:
 };
 
 #endif
-
-

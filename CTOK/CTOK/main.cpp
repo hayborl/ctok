@@ -27,6 +27,7 @@ vector<Vec3f> pointCloudData;
 vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 int glWinWidth = 640, glWinHeight = 480;
+int glWinPosX = 30, glWinPosY = 30;
 int width = 640, height = 480;
 bool breakScan = false;
 
@@ -84,6 +85,9 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	vector<Vec3b> colors;
 	Mat tmpDepthImg;
 	depthImg.copyTo(tmpDepthImg, mask);
+	Mat show;
+	tmpDepthImg.convertTo(show, CV_8UC1, 255.0 / 5000.0);
+	imshow("tmpDepth", show);
 	for (int y = 0; y < rows; y++)
 	{
 		for (int x = 0; x < cols; x++)
@@ -306,7 +310,7 @@ int main(int argc, char** argv)
 	// OpenGL Window
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowPosition(30, 30);
+	glutInitWindowPosition(glWinPosX, glWinPosY);
 	glutInitWindowSize(glWinWidth, glWinHeight);
 	glutCreateWindow("3D image");
 
@@ -372,30 +376,30 @@ int main(int argc, char** argv)
 		depthImgPre = depthImgNow.clone();
 		depthImgNow = depthImg.clone();
 
-		desPre = desNow;
-		features.getHSVColorHistDes(colorImgNow, desNow.first);
-		features.getGLCMDes(colorImgNow, desNow.second);
-
-		if (frameCnt != 1)
-		{
-			double distance = computeDistance(desPre, desNow);
-			if (distance < SIMILARITY_THRESHOLD)
-			{
-				colorImgNow = colorImgPre.clone();
-				desNow = desPre;
-
-				char key = waitKey(1);
-				if (key == 27)
-				{
-					break;
-				}
-				frameCnt++;
-
-				glutPostRedisplay();
-				glutMainLoopEvent();
-				continue;
-			}
-		}
+// 		desPre = desNow;
+// 		features.getHSVColorHistDes(colorImgNow, desNow.first);
+// 		features.getGLCMDes(colorImgNow, desNow.second);
+// 
+// 		if (frameCnt != 1)
+// 		{
+// 			double distance = computeDistance(desPre, desNow);
+// 			if (distance < SIMILARITY_THRESHOLD)
+// 			{
+// 				colorImgNow = colorImgPre.clone();
+// 				desNow = desPre;
+// 
+// 				char key = waitKey(1);
+// 				if (key == 27)
+// 				{
+// 					break;
+// 				}
+// 				frameCnt++;
+// 
+// 				glutPostRedisplay();
+// 				glutMainLoopEvent();
+// 				continue;
+// 			}
+// 		}
 
 // 		RUNANDTIME(global_timer, simplifyPoints(realPointCloud, 
 // 			realPointCloud, 10, 0.9), OUTPUT, "simplify");
@@ -415,6 +419,7 @@ int main(int argc, char** argv)
 				colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
 				objSet, modSet, objSetAT, mask), 
 				OUTPUT, "get feature points.");
+			mask.setTo(Scalar::all(255));
 
 			/*ICP i(objSet, modSet);*/
 			EMICP i(objSet, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);

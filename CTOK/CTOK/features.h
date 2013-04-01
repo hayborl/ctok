@@ -5,6 +5,7 @@
 #include "opencv2/opencv.hpp"
 #include "XnCppWrapper.h"
 using namespace cv;
+using namespace std;
 
 #define GRAY_LEVEL 16
 

@@ -35,7 +35,7 @@ Camera userCamera;
 bool hasCuda = true;
 
 Features features;
-#define SIMILARITY_THRESHOLD 0.0005
+#define SIMILARITY_THRESHOLD 0.001
 
 #define SAMPLE_INTERVAL 1
 
@@ -155,31 +155,32 @@ void loadPointCloudAndTexture(const Mat &pointCloud,
 // 绘制点云
 void drawPoints()
 {
-	float x,y,z;
-	// 绘制图像点云
-	glPointSize(1.0);
-	glBegin(GL_POINTS);
-	for (int i = 0; i < pointCloudData.size(); i++)
-	{
-		glColor3d(pointColorData[i][0] / 255.0, 
-			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = (float)pointCloudData[i][0];
-		y = (float)pointCloudData[i][1];
-		z = (float)pointCloudData[i][2];
-		glVertex3f(x, y, z);
-	}
-// 	glBegin(GL_TRIANGLES);
-// 	for (int i = 0; i < delaunay.m_triangles.size(); i++)
+// 	float x,y,z;
+// 	// 绘制图像点云
+// 	glPointSize(1.0);
+// 	glBegin(GL_POINTS);
+// 	for (int i = 0; i < pointCloudData.size(); i++)
 // 	{
-// 		Triangulation::Triangle t = delaunay.m_triangles[i];
-// 		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
-// 		{
-// 			Triangulation::Vertex v = t.m_vertices[j];
-// 			glColor3d(v.m_color[2] / 255.0, 
-// 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-// 			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
-// 		}
+// 		glColor3d(pointColorData[i][0] / 255.0, 
+// 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
+// 		x = (float)pointCloudData[i][0];
+// 		y = (float)pointCloudData[i][1];
+// 		z = (float)pointCloudData[i][2];
+// 		glVertex3f(x, y, z);
 // 	}
+// 	glEnd();
+	glBegin(GL_TRIANGLES);
+	for (int i = 0; i < delaunay.m_triangles.size(); i++)
+	{
+		Triangulation::Triangle t = delaunay.m_triangles[i];
+		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+		{
+			Triangulation::Vertex v = t.m_vertices[j];
+			glColor3d(v.m_color[2] / 255.0, 
+				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+		}
+	}
 	glEnd(); 
 }
 
@@ -191,6 +192,17 @@ void drawPoints()
 // 鼠标按键响应函数
 void mouse(int button, int state, int x, int y)
 {
+	if (button == GLUT_LEFT_BUTTON)
+	{
+		if (state == GLUT_DOWN)
+		{
+			userCamera.setMouseState(true);
+		}
+		else
+		{
+			userCamera.setMouseState(false);
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -253,7 +265,7 @@ void mouseEntry(int state)
 		ShowCursor(TRUE);
 		break;
 	case GLUT_ENTERED:
-		userCamera.setMouseState(true);
+		userCamera.setMouseState(false);
 		ShowCursor(FALSE);
 		break;
 	}
@@ -372,34 +384,13 @@ int main(int argc, char** argv)
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			colorImg, depthImg), OUTPUT, "read one frame.");
 		colorImgPre = colorImgNow.clone();
-		colorImgNow = colorImg.clone();
 		depthImgPre = depthImgNow.clone();
+		colorImgNow = colorImg.clone();
 		depthImgNow = depthImg.clone();
 
-// 		desPre = desNow;
-// 		features.getHSVColorHistDes(colorImgNow, desNow.first);
-// 		features.getGLCMDes(colorImgNow, desNow.second);
-// 
-// 		if (frameCnt != 1)
-// 		{
-// 			double distance = computeDistance(desPre, desNow);
-// 			if (distance < SIMILARITY_THRESHOLD)
-// 			{
-// 				colorImgNow = colorImgPre.clone();
-// 				desNow = desPre;
-// 
-// 				char key = waitKey(1);
-// 				if (key == 27)
-// 				{
-// 					break;
-// 				}
-// 				frameCnt++;
-// 
-// 				glutPostRedisplay();
-// 				glutMainLoopEvent();
-// 				continue;
-// 			}
-// 		}
+		desPre = desNow;
+		features.getHSVColorHistDes(colorImgNow, desNow.first);
+		features.getGLCMDes(colorImgNow, desNow.second);
 
 // 		RUNANDTIME(global_timer, simplifyPoints(realPointCloud, 
 // 			realPointCloud, 10, 0.9), OUTPUT, "simplify");
@@ -414,59 +405,62 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			Mat objSet, objSetAT, modSet, mask;	// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
-			RUNANDTIME(global_timer, getFeaturePoints(depthGenerator, 
-				colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
-				objSet, modSet, objSetAT, mask), 
-				OUTPUT, "get feature points.");
-			mask.setTo(Scalar::all(255));
+			double distance = computeDistance(desPre, desNow);
+			if (distance < SIMILARITY_THRESHOLD)	// 判断两帧的相似度，小于阈值则不匹配
+			{
+				colorImgNow = colorImgPre.clone();
+				depthImgNow = depthImgPre.clone();
+				desNow = desPre;
+			}
+			else
+			{
+				Mat objSet, objSetAT, modSet, mask;	// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
+				RUNANDTIME(global_timer, getFeaturePoints(depthGenerator, 
+					colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
+					objSet, modSet, objSetAT, mask), 
+					OUTPUT, "get feature points.");
 
-			/*ICP i(objSet, modSet);*/
-			EMICP i(objSet, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
+				/*ICP i(objSet, modSet);*/
+				EMICP i(objSet, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
 
-			RUNANDTIME(global_timer, 
-				i.run(hasCuda, &objSetAT), OUTPUT, "run ICP.");
-			tr = i.getFinalTransformMat().clone() * tr;
+				RUNANDTIME(global_timer, 
+					i.run(hasCuda, &objSetAT), OUTPUT, "run ICP.");
+				tr = i.getFinalTransformMat().clone() * tr;
 
-			RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
-				depthImg, colorImg, mask, pointCloud, pointColors), 
-				OUTPUT, "read 3D points");
-			RUNANDTIME(global_timer, 
-				transformPointCloud(pointCloud, &pointCloud, tr, hasCuda), 
-				OUTPUT, "transform point cloud.");
+				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
+					depthImg, colorImg, mask, pointCloud, pointColors), 
+					OUTPUT, "read 3D points");
+				RUNANDTIME(global_timer, 
+					transformPointCloud(pointCloud, &pointCloud, tr, hasCuda), 
+					OUTPUT, "transform point cloud.");
 
-/*			waitKey();*/
+/*				waitKey();*/
+			}
 		}
 
-		if (pointCloud.rows == 0 || pointColors.rows == 0)
+		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-			continue;
-		}
 
-		RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-			pointColors, false), OUTPUT, "load data");
-/*		waitKey();*/
-// 		RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-// 			pointColors), OUTPUT, "load data");
-// 		RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-// 			OUTPUT, "delaunay");
-// 		cout << delaunay.m_triangles.size() << endl;
-// 		delaunay.saveTriangles("triangles.tri");
+// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+// 				pointColors, false), OUTPUT, "load data");
+/*			waitKey();*/
+			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+				pointColors), OUTPUT, "load data");
+			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+				OUTPUT, "delaunay");
+			cout << delaunay.m_triangles.size() << endl;
+//			delaunay.saveTriangles("triangles.tri");
+		}
 
 		char key = waitKey(1);
 		if (key == 27)
 		{
 			break;
 		}
-
 		frameCnt++;
 
-		glutPostRedisplay();				// 刷新画面
-
-		// OpenCV 处理键盘响应消息后，再显示 OpenGL 图像
-		glutMainLoopEvent();
-
-/*		waitKey();*/
+		glutPostRedisplay();	// 刷新画面
+		glutMainLoopEvent();	// OpenCV 处理键盘响应消息后，再显示 OpenGL 图像
 	}
 
 	// destroy  

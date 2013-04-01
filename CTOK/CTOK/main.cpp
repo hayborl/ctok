@@ -26,6 +26,7 @@ void checkOpenNIError(XnStatus result, string status)
 vector<Vec3f> pointCloudData;
 vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
+
 int glWinWidth = 640, glWinHeight = 480;
 int glWinPosX = 30, glWinPosY = 30;
 int width = 640, height = 480;
@@ -34,12 +35,10 @@ bool breakScan = false;
 Camera userCamera;
 bool hasCuda = true;
 
-Features features;
-#define SIMILARITY_THRESHOLD 0.001
+Features features;							// 用以获取特征比较相似度
+#define SIMILARITY_THRESHOLD 0.001			// 相似度阈值
 
-#define SAMPLE_INTERVAL 1
-
-Triangulation::Delaunay delaunay;
+Triangulation::Delaunay delaunay(COS30);
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -85,9 +84,6 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	vector<Vec3b> colors;
 	Mat tmpDepthImg;
 	depthImg.copyTo(tmpDepthImg, mask);
-	Mat show;
-	tmpDepthImg.convertTo(show, CV_8UC1, 255.0 / 5000.0);
-	imshow("tmpDepth", show);
 	for (int y = 0; y < rows; y++)
 	{
 		for (int x = 0; x < cols; x++)
@@ -315,7 +311,7 @@ void reshape (int w, int h)
 /************************************************************************/
 int main(int argc, char** argv)
 {
-	hasCuda = false;//initCuda();
+	hasCuda = initCuda();
 	userCamera.positionCamera(0.0f, 1.8f, 100.0f, 
 		0.0f, 1.8f, 0.0f, 0.0f, 1.0f, 0.0f);		// 定位摄像机
 

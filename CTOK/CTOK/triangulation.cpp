@@ -120,8 +120,7 @@ bool Triangle::angleCriterion( const float &minCosAngle,
 	Vec3f maxE0 = bc, maxE1 = ac, minE0 = bc, minE1 = ac;
 
 	bool maxFlag = true, minFlag = true;
-	float sqrt3_2 = SQRT_3 / 2.0f;
-	if (maxCosAngle > -1.0f && maxCosAngle <=  sqrt3_2)
+	if (maxCosAngle > COS180 && maxCosAngle <  COS60)
 	{
 		if (maxLen < lenBC)
 		{
@@ -141,7 +140,7 @@ bool Triangle::angleCriterion( const float &minCosAngle,
 		maxFlag = maxE0.dot(maxE1) > sqrtf(lenMaxE0) 
 			* sqrtf(lenMaxE1) * maxCosAngle;
 	}
-	if (minCosAngle < 1.0f && minCosAngle >= sqrt3_2)
+	if (minCosAngle < COS0 && minCosAngle > COS60)
 	{
 		if (minLen > lenBC)
 		{
@@ -163,7 +162,6 @@ bool Triangle::angleCriterion( const float &minCosAngle,
 	}
 	
 	return minFlag && maxFlag;
-
 }
 
 bool Triangle::operator==( const Triangle &t ) const
@@ -195,12 +193,16 @@ size_t Triangulation::hash_value( const Triangle &t )
 	return seed;
 }
 
-Delaunay::Delaunay( const Mat &pts, const vector<Vec3b> &colors )
+Delaunay::Delaunay( const Mat &pts, const vector<Vec3b> &colors,
+	float minAngle, float maxAngle)
+	: m_minAngle(minAngle), m_maxAngle(maxAngle)
 {
 	addVertices(pts, colors);
 }
 
-Delaunay::Delaunay( const Mat &pts, const Mat &colors )
+Delaunay::Delaunay( const Mat &pts, const Mat &colors,
+	float minAngle, float maxAngle)
+	: m_minAngle(minAngle), m_maxAngle(maxAngle)
 {
 	addVertices(pts, colors);
 }
@@ -222,7 +224,7 @@ void Delaunay::computeDelaunay()
 
 	TriangleSet triSet;
 	// 依次遍历每个点，寻找最近邻，进行三角化
-	for (int i = m_pre_size; i < m_vertices.size(); i++)
+	for (int i = m_preSize; i < m_vertices.size(); i++)
 	{
 		Vertex v = m_vertices[i];
 		ANNidx idxs[k];
@@ -271,7 +273,7 @@ void Delaunay::computeDelaunay()
 		{
 			Vertex tmpv = m_vertices[idxs[j]];
 			if (dists[j] < u * minDistance ||		// 去除非常接近的点
-				(tmpv.m_index < v.m_index && tmpv.m_index >= m_pre_size))	// 去除已遍历过的点
+				(tmpv.m_index < v.m_index && tmpv.m_index >= m_preSize))	// 去除已遍历过的点
 			{
 				continue;
 			}
@@ -368,9 +370,9 @@ void Delaunay::saveTriangles( const TriangleVector &triSet, char* file )
 void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
 {
 	assert(pts.rows == colors.size());
-	m_pre_size = (int)m_vertices.size();
+	m_preSize = (int)m_vertices.size();
 
-	int cnt = m_pre_size;
+	int cnt = m_preSize;
 	for (int i = 0; i < pts.rows; i++)
 	{
 // 		if ((double)rand() / (double)RAND_MAX > 0.5)
@@ -389,9 +391,9 @@ void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
 void Delaunay::addVertices( const Mat &pts, const Mat &colors )
 {
 	assert(pts.rows == colors.rows);
-	m_pre_size = (int)m_vertices.size();
+	m_preSize = (int)m_vertices.size();
 
-	int cnt = m_pre_size;
+	int cnt = m_preSize;
 	for (int i = 0; i < pts.rows; i++)
 	{
 // 		if ((double)rand() / (double)RAND_MAX > 0.5)
@@ -444,7 +446,8 @@ void Delaunay::removeBounding( TriangleVector inSet,
 		if (iter->m_vertices[0].m_index >= 0 && 
 			iter->m_vertices[1].m_index >= 0 && 
 			iter->m_vertices[2].m_index >= 0 && 
-			iter->isVertex(index) && iter->angleCriterion(0.866f)) // 30-180
+			iter->isVertex(index) && 
+			iter->angleCriterion(m_minAngle, m_maxAngle)) // 30-180
 		{
 			outSet.push_back(*iter);
 		}

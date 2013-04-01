@@ -8,9 +8,11 @@ using namespace cv;
 
 namespace Triangulation
 {
-#define CLOSE_DISTANCE	10		// 判断两个点是否相等的临界距离
 #define FLOAT_ERROR		1e-3	// 浮点数的误差范围
-#define SQRT_3			1.732f	// 根号3
+#define COS0			0.0f	// cos0
+#define COS30			0.866f	// cos30
+#define COS60			0.5f	// cos60
+#define COS180			-1.0f	// cos180
 
 	// distance_range 寻找最近邻的范围球的半径平方
 	enum {Distance_Range = 1000};
@@ -74,9 +76,12 @@ namespace Triangulation
 	public:
 		TriangleVector m_triangles;	// 三角形集合
 
-		Delaunay(){}
-		Delaunay(const Mat &pts, const vector<Vec3b> &colors);
-		Delaunay(const Mat &pts, const Mat &colors);
+		Delaunay(float minAngle = COS30, float maxAngle = COS180) 
+			: m_minAngle(minAngle), m_maxAngle(maxAngle){}
+		Delaunay(const Mat &pts, const vector<Vec3b> &colors, 
+			float minAngle = COS30, float maxAngle = COS180);
+		Delaunay(const Mat &pts, const Mat &colors, 
+			float minAngle = COS30, float maxAngle = COS180);
 
 		void computeDelaunay();				// 计算Delaunay三角
 		void saveTriangles(char* file);		// 保存当前划分出的三角形到文件
@@ -87,7 +92,8 @@ namespace Triangulation
 
 	private:
 		VertexVector m_vertices;		// 点集
-		int m_pre_size;					// 记录下一次compute之前有多少点
+		int m_preSize;					// 记录下一次compute之前有多少点
+		float m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制
 		enum {k = 20, u = 5};			// k个邻近点，u倍最小距离内的点去除
 
 		void computeDelaunay(const VertexVector &verSet, 

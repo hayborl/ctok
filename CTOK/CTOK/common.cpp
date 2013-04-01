@@ -81,34 +81,40 @@ bool initCuda()
 {
 	int count; 
 	//传回有计算能力的设备数(≥1)，没有回传回1，device 0是一个仿真装置，不支持CUDA功能
-	cudaGetDeviceCount(&count);
-
-	if(count == 0) //没有cuda计算能力的设备
+	cudaError_t errorId = cudaGetDeviceCount(&count);
+	if (errorId != cudaSuccess)
 	{
-		fprintf(stderr,"There is no device.\n");
+		fprintf(stderr, "cudaGetDeviceCount returned %d\n-> %s\n", 
+			(int)errorId, cudaGetErrorString(errorId));
+		return false;
+	}
+
+	if (count == 0) //没有cuda计算能力的设备
+	{
+		fprintf(stderr, "There is no device.\n");
 		return false;
 	}
 
 	int i;
-	for(i=0;i<count;i++)
+	for (i = 0; i < count; i++)
 	{
 		cudaDeviceProp prop; //设备属性
-		if (cudaGetDeviceProperties(&prop,i)==cudaSuccess) //取得设备数据，brief Returns information about the compute-device
+		if (cudaGetDeviceProperties(&prop, i) == cudaSuccess) //取得设备信息
 		{
-			if (prop.major>=1) //cuda计算能力
+			if (prop.major >= 1) //cuda计算能力
 			{
 				break;
 			}
 		}
 	}
 
-	if (i==count)
+	if (i == count)
 	{
-		fprintf(stderr,"There is no device supporting CUDA 1.x\n");
+		fprintf(stderr, "There is no device supporting CUDA 1.x\n");
 		return false;
 	}
 
-	cudaSetDevice(i); //brief Set device to be used for GPU executions
+	cudaSetDevice(i); //设置cuda运行的GPU设备
 	return true;
 }
 

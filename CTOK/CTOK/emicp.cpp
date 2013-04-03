@@ -20,6 +20,10 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 {
 	Mat objSet = initObjSet->clone() / 1000.0f;
 	Mat modSet = convertMat(m_modSet);
+
+// 	Mat objSet;
+// 	initTransform(objSet, withCuda);
+	
 	int rowsA = objSet.rows;
 	int colsA = modSet.rows;
 	Transformation tr;
@@ -44,13 +48,11 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 		C = C * alpha + A * ones;
 		RUNANDTIME(global_timer, normalizeRows(A, C, withCuda, true), 
 			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
-// 		Mat tmpM = A.clone();
-// 		sqrt(tmpM, A);
 
 		Mat lambda = A * ones;
 		Mat modSetPrime = A * modSet;
 		RUNANDTIME(global_timer, 
-			normalizeRows(modSetPrime, lambda),
+			normalizeRows(modSetPrime, lambda, withCuda),
 			OUTPUT && SUBOUTPUT, "normalize rows of mod with lambda");
 
 		Mat tmpObjSet = convertMat(m_objSet);

@@ -17,6 +17,41 @@ cv::Mat AbstractICP::getTransformMat(const Transformation &tr)
 	return mat.clone();
 }
 
+void AbstractICP::initTransform( Mat &initObj, bool withCuda )
+{
+	assert(m_objSet.cols == 1 && m_modSet.cols == 1);
+	assert(m_objSet.type() == DataType<Point3f>::type);
+	assert(m_modSet.type() == DataType<Point3f>::type);
+
+	int objRows = m_objSet.rows;
+	int modRows = m_modSet.rows;
+
+	Mat objSet = Mat::ones(objRows, 4, CV_32FC1);
+	Mat modSet = Mat::ones(modRows, 4, CV_32FC1);
+
+	Mat objCMat, modCMat;
+
+#pragma omp parallel sections
+	{
+#pragma omp section
+		{
+			Mat tmp = convertMat(m_objSet);
+			Mat roi = objSet(Rect(0, 0, 3, objRows));
+			tmp.copyTo(roi);
+			getConstructionMat(objSet, objCMat);
+		}
+#pragma omp section
+		{
+			Mat tmp = convertMat(m_modSet);
+			Mat roi = modSet(Rect(0, 0, 3, modRows));
+			tmp.copyTo(roi);
+			getConstructionMat(modSet, modCMat);
+		}
+	}
+	Mat T = objCMat.inv() * modCMat;
+	transformPointCloud(m_objSet, &initObj, T, withCuda);
+}
+
 Transformation AbstractICP::computeTransformation( const Mat &objSet, 
 	const Mat &modSet, const Mat &lambda )
 {
@@ -66,11 +101,8 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 	Mat eigenValues(4, 1, CV_32FC1);
 	Mat eigenVector(4, 4, CV_32FC1);
 	eigen(Q, eigenValues, eigenVector);
-
-	int maxEigenIndex = 0;
-	minMaxIdx(eigenValues, NULL, NULL, NULL, &maxEigenIndex);
 	Transformation RT;
-	RT.q = Vec4f(eigenVector.row(maxEigenIndex));
+	RT.q = Vec4f(eigenVector.row(0));
 
 	//get the rotation matrix
 	float tempR[9];
@@ -168,6 +200,26 @@ Transformation AbstractICP::cuda_computeTransformation(
 	RT.t = Vec3f(T);
 
 	return RT;
+}
+
+void AbstractICP::getConstructionMat( const Mat &in, Mat &out )
+{
+	assert(in.channels() == 1);
+	assert(in.type() == CV_32FC1);
+	int rows = in.rows;
+	Mat ones = Mat::ones(rows, 1, CV_32FC1);
+
+	Mat mean = in.t() * ones;
+	mean /= (float)rows;
+
+	Mat ccMatrix = in.t() * in / ((float)rows) - mean * mean.t();
+	Mat eigenValues(ccMatrix.rows, 1, CV_32FC1);
+	Mat eigenVector(ccMatrix.rows, ccMatrix.cols, CV_32FC1);
+	eigen(ccMatrix, eigenValues, eigenVector);
+
+	out = eigenVector.t();
+	Mat roi = out(Rect(ccMatrix.rows - 1, 0, 1, ccMatrix.cols));
+	mean.copyTo(roi);
 }
 
 void getRotateMatrix( Vec4f q, float* R )

@@ -40,6 +40,8 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);
 
+char* videoFile = "ttt.oni";
+
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
 	Mat &colorImg, Mat &depthImg)
@@ -151,20 +153,20 @@ void loadPointCloudAndTexture(const Mat &pointCloud,
 // 绘制点云
 void drawPoints()
 {
-// 	float x,y,z;
-// 	// 绘制图像点云
-// 	glPointSize(1.0);
-// 	glBegin(GL_POINTS);
-// 	for (int i = 0; i < pointCloudData.size(); i++)
-// 	{
-// 		glColor3d(pointColorData[i][0] / 255.0, 
-// 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-// 		x = (float)pointCloudData[i][0];
-// 		y = (float)pointCloudData[i][1];
-// 		z = (float)pointCloudData[i][2];
-// 		glVertex3f(x, y, z);
-// 	}
-// 	glEnd();
+	float x,y,z;
+	// 绘制图像点云
+	glPointSize(1.0);
+	glBegin(GL_POINTS);
+	for (int i = 0; i < pointCloudData.size(); i++)
+	{
+		glColor3d(pointColorData[i][0] / 255.0, 
+			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
+		x = (float)pointCloudData[i][0];
+		y = (float)pointCloudData[i][1];
+		z = (float)pointCloudData[i][2];
+		glVertex3f(x, y, z);
+	}
+	glEnd();
 	glBegin(GL_TRIANGLES);
 	for (int i = 0; i < delaunay.m_triangles.size(); i++)
 	{
@@ -262,7 +264,7 @@ void mouseEntry(int state)
 		break;
 	case GLUT_ENTERED:
 		userCamera.setMouseState(false);
-		ShowCursor(FALSE);
+		ShowCursor(TRUE);
 		break;
 	}
 }
@@ -341,7 +343,7 @@ int main(int argc, char** argv)
 	checkOpenNIError(rc, "initialize context");
 
 	Player player;
-	rc = context.OpenFileRecording("ttt.oni", player);						//打开已有的oni文件
+	rc = context.OpenFileRecording(videoFile, player);						//打开已有的oni文件
 	checkOpenNIError(rc, "Open File Recording");
 
 	ImageGenerator imageGenerator;											//创建image generator
@@ -361,7 +363,7 @@ int main(int argc, char** argv)
 	pair<Mat, Mat> desPre, desNow;
 
 	XnUInt32 frameCnt = 1;
-	while (1)   
+	for (; ; frameCnt++) 
 	{
 		if (breakScan)
 		{
@@ -422,6 +424,7 @@ int main(int argc, char** argv)
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, &objSetAT), OUTPUT, "run ICP.");
 				tr = i.getFinalTransformMat().clone() * tr;
+				cout << i.getFinalTransformMat() << endl << tr << endl;
 
 				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 					depthImg, colorImg, mask, pointCloud, pointColors), 
@@ -437,15 +440,15 @@ int main(int argc, char** argv)
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
 
-// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-// 				pointColors, false), OUTPUT, "load data");
+			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+				pointColors, false), OUTPUT, "load data");
 /*			waitKey();*/
-			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-				pointColors), OUTPUT, "load data");
-			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-				OUTPUT, "delaunay");
-			cout << delaunay.m_triangles.size() << endl;
-//			delaunay.saveTriangles("triangles.tri");
+// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+// 				pointColors), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+// 				OUTPUT, "delaunay");
+// 			cout << delaunay.m_triangles.size() << endl;
+// 			delaunay.saveTriangles("triangles.tri");
 		}
 
 		char key = waitKey(1);
@@ -453,7 +456,6 @@ int main(int argc, char** argv)
 		{
 			break;
 		}
-		frameCnt++;
 
 		glutPostRedisplay();	// 刷新画面
 		glutMainLoopEvent();	// OpenCV 处理键盘响应消息后，再显示 OpenGL 图像

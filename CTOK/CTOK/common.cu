@@ -37,8 +37,8 @@ struct transform_functor
 	}
 };
 
-void transformPointCloud(Mat input, Mat* output, 
-	Mat transformMat, bool withCuda)
+void transformPointCloud(const Mat &input, Mat &output, 
+	const Mat &transformMat, bool withCuda)
 {
 	Mat m_R = transformMat(Rect(0, 0, 3, 3)).clone();
 	Mat m_T = transformMat(Rect(3, 0, 1, 3)).clone();
@@ -74,8 +74,8 @@ void transformPointCloud(Mat input, Mat* output,
 
 		float3* h_out_ptr = thrust::raw_pointer_cast(&h_out[0]);
 
-		*output = Mat(input.rows, input.cols, input.type());
-		memcpy((float3*)output->data, h_out_ptr, num * sizeof(float3));
+		output.create(input.rows, input.cols, input.type());
+		memcpy((float3*)output.data, h_out_ptr, num * sizeof(float3));
 	}
 	catch (thrust::system_error e)
 	{

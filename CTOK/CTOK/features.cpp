@@ -411,7 +411,7 @@ void getFeaturePoints(xn::DepthGenerator dg,
 		DescriptorMatcher* matcher = new FlannBasedMatcher;
 
 		initModule_nonfree();
-		surf = Algorithm::create<Feature2D>("Feature2D.SURF");
+		surf = Algorithm::create<Feature2D>("Feature2D.SIFT");
 
 #pragma omp parallel for
 		for (int i = 0; i < 2; i++)

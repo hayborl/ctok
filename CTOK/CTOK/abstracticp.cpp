@@ -49,7 +49,7 @@ void AbstractICP::initTransform( Mat &initObj, bool withCuda )
 		}
 	}
 	Mat T = objCMat.inv() * modCMat;
-	transformPointCloud(m_objSet, &initObj, T, withCuda);
+	transformPointCloud(m_objSet, initObj, T, withCuda);
 }
 
 Transformation AbstractICP::computeTransformation( const Mat &objSet, 

@@ -424,13 +424,12 @@ int main(int argc, char** argv)
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, &objSetAT), OUTPUT, "run ICP.");
 				tr = i.getFinalTransformMat().clone() * tr;
-				cout << i.getFinalTransformMat() << endl << tr << endl;
 
 				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 					depthImg, colorImg, mask, pointCloud, pointColors), 
 					OUTPUT, "read 3D points");
 				RUNANDTIME(global_timer, 
-					transformPointCloud(pointCloud, &pointCloud, tr, hasCuda), 
+					transformPointCloud(pointCloud, pointCloud, tr, hasCuda), 
 					OUTPUT, "transform point cloud.");
 
 /*				waitKey();*/
@@ -440,15 +439,15 @@ int main(int argc, char** argv)
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
 
-			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-				pointColors, false), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+// 				pointColors, false), OUTPUT, "load data");
 /*			waitKey();*/
-// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-// 				pointColors), OUTPUT, "load data");
-// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-// 				OUTPUT, "delaunay");
-// 			cout << delaunay.m_triangles.size() << endl;
-// 			delaunay.saveTriangles("triangles.tri");
+			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+				pointColors), OUTPUT, "load data");
+			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+				OUTPUT, "delaunay");
+			cout << delaunay.m_triangles.size() << endl;
+/*			delaunay.saveTriangles("triangles.tri");*/
 		}
 
 		char key = waitKey(1);

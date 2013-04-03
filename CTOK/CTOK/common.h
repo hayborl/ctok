@@ -33,7 +33,7 @@ using namespace gpu;
 #define DISTANCE_MAX 100000000
 #define DISTANCE_RANGE 100
 #define DISTANCE_THRE 1500
-#define OUTPUT	false
+#define OUTPUT	true
 
 typedef unsigned int uint;
 
@@ -45,8 +45,8 @@ bool initCuda();
 // 将m*n k通道转换为m*(n*k) 单通道
 Mat convertMat(const Mat &mat);
 
-void transformPointCloud(Mat input, Mat* output, 
-	Mat transformMat, bool withCuda = false);
+void transformPointCloud(const Mat &input, Mat &output, 
+	const Mat &transformMat, bool withCuda = false);
 
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);
 

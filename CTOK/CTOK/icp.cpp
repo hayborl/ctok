@@ -21,9 +21,17 @@ void ICP::run(bool withCuda, Mat* initObjSet)
 
 	double d_pre = 100000, d_now = 100000;
 	int iterCnt = 0;
-
-	Mat objSet = initObjSet->clone();
+	Mat objSet;
 	Transformation tr;
+
+	if (initObjSet == NULL)
+	{
+		objSet = m_objSet.clone();
+	}
+	else
+	{
+		objSet = initObjSet->clone();
+	}
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 
@@ -43,7 +51,7 @@ void ICP::run(bool withCuda, Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "compute transformation");
 		Mat transformMat = getTransformMat(tr);
 		RUNANDTIME(global_timer, transformPointCloud(
-			m_objSet, &objSet, transformMat, withCuda), 
+			m_objSet, objSet, transformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		iterCnt++;

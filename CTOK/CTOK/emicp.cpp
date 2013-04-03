@@ -18,16 +18,23 @@ EMICP::EMICP(const Mat &objSet, const Mat &modSet,
 
 void EMICP::run(bool withCuda, Mat* initObjSet)
 {
-	Mat objSet = initObjSet->clone() / 1000.0f;
-	Mat modSet = convertMat(m_modSet);
 
 // 	Mat objSet;
 // 	initTransform(objSet, withCuda);
-	
+	Transformation tr;
+	Mat objSet;
+	Mat modSet = convertMat(m_modSet);
+	if (initObjSet == NULL)
+	{
+		objSet = m_objSet.clone();
+	}
+	else
+	{
+		objSet = initObjSet->clone() / 1000.0f;
+	}
+
 	int rowsA = objSet.rows;
 	int colsA = modSet.rows;
-	Transformation tr;
-
 	int iter = 0;
 
 	Mat A(rowsA, colsA, CV_32FC1);
@@ -61,7 +68,7 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 			OUTPUT && SUBOUTPUT, "compute transformation");
 		nowTransformMat = getTransformMat(tr);
 		RUNANDTIME(global_timer, transformPointCloud(
-			m_objSet, &objSet, nowTransformMat, withCuda), 
+			m_objSet, objSet, nowTransformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;

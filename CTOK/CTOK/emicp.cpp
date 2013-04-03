@@ -16,7 +16,7 @@ EMICP::EMICP(const Mat &objSet, const Mat &modSet,
 	m_d_02 = d_02;
 }
 
-void EMICP::run(bool withCuda, Mat* initObjSet)
+void EMICP::run(bool withCuda, InputArray initObjSet)
 {
 
 // 	Mat objSet;
@@ -24,13 +24,13 @@ void EMICP::run(bool withCuda, Mat* initObjSet)
 	Transformation tr;
 	Mat objSet;
 	Mat modSet = convertMat(m_modSet);
-	if (initObjSet == NULL)
+	if (initObjSet.empty())
 	{
 		objSet = m_objSet.clone();
 	}
 	else
 	{
-		objSet = initObjSet->clone() / 1000.0f;
+		objSet = initObjSet.getMat() / 1000.0f;
 	}
 
 	int rowsA = objSet.rows;

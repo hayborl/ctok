@@ -19,7 +19,8 @@ public:
 
 	Mat getFinalTransformMat(){return m_tr.clone();}				// 得到变换矩阵
 	Mat getTransformMat(const Transformation &tr);					// 得到变换矩阵
-	virtual void run(bool withCuda, Mat* initObjSet = NULL){};		// 运行ICP算法
+	virtual void run(bool withCuda, 
+		InputArray initObjSet = noArray()){};						// 运行ICP算法
 
 protected:
 	Mat m_objSet;				// 待配准的点云

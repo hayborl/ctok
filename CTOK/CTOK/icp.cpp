@@ -15,7 +15,7 @@ ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 		OUTPUT && SUBOUTPUT, "create kdTree");
 }
 
-void ICP::run(bool withCuda, Mat* initObjSet)
+void ICP::run(bool withCuda, InputArray initObjSet)
 {
 	assert(!m_objSet.empty() && !m_modSet.empty());
 
@@ -24,13 +24,13 @@ void ICP::run(bool withCuda, Mat* initObjSet)
 	Mat objSet;
 	Transformation tr;
 
-	if (initObjSet == NULL)
+	if (initObjSet.empty())
 	{
 		objSet = m_objSet.clone();
 	}
 	else
 	{
-		objSet = initObjSet->clone();
+		objSet = initObjSet.getMat();
 	}
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/

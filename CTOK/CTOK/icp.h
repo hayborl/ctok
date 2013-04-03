@@ -14,7 +14,7 @@ public:
 	ICP(const Mat &objSet, const Mat &modSet, 
 		int iterMax = 50, double epsilon = 1e-6);
 
-	void run(bool withCuda, Mat* initObjSet = NULL);		// 运行ICP算法
+	void run(bool withCuda, InputArray initObjSet = noArray());		// 运行ICP算法
 
 	// 获取对应点的方法
 	// BASIC：直接遍历；KDTREE：构建KDTree；POINT_TO_PLANE：点到面

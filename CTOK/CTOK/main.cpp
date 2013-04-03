@@ -422,7 +422,7 @@ int main(int argc, char** argv)
 				EMICP i(objSet, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
 
 				RUNANDTIME(global_timer, 
-					i.run(hasCuda, &objSetAT), OUTPUT, "run ICP.");
+					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
 				tr = i.getFinalTransformMat().clone() * tr;
 
 				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 

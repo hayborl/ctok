@@ -33,19 +33,16 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 		objSet = initObjSet.getMat() / 1000.0f;
 	}
 
+/*	plotTwoPoint3DSet(objSet, m_modSet);*/
+
 	int rowsA = objSet.rows;
 	int colsA = modSet.rows;
 	int iter = 0;
 
 	Mat A(rowsA, colsA, CV_32FC1);
 
-	Mat preTransformMat = Mat::zeros(4, 4, CV_32FC1);
-	Mat nowTransformMat = Mat::zeros(4, 4, CV_32FC1);
-
 	do
 	{
-		preTransformMat = nowTransformMat;
-
 		RUNANDTIME(global_timer, updateA(A, objSet, m_modSet, withCuda),
 			OUTPUT && SUBOUTPUT, "update A Matrix");
 
@@ -66,14 +63,15 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 		RUNANDTIME(global_timer, tr = 
 			computeTransformation(tmpObjSet, modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		nowTransformMat = getTransformMat(tr);
+		Mat transformMat = getTransformMat(tr);
 		RUNANDTIME(global_timer, transformPointCloud(
-			m_objSet, objSet, nowTransformMat, withCuda), 
+			m_objSet, objSet, transformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;
-	}while (m_sigma_p2 > m_sigma_inf && 
-		abs(sum(nowTransformMat - preTransformMat)[0]) > 1e-5);
+	}while (m_sigma_p2 > m_sigma_inf);
 	tr.t *= 1000.0f;
 	m_tr = getTransformMat(tr);
+// 
+// 	plotTwoPoint3DSet(objSet, m_modSet);
 }

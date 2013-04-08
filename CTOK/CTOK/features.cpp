@@ -457,77 +457,73 @@ void getFeaturePoints(xn::DepthGenerator dg,
 		}
 	}
 	// 用RANSAC方法计算基本矩阵
-	Mat H = findHomography(points0, points1, CV_RANSAC).clone();
+	vector<uchar> ransacStatus;
+	Mat H = findHomography(points0, points1, ransacStatus, CV_RANSAC);
 
 	// 将特征点通过基本矩阵转换
-	vector<Point2f> tmpKeyPoints, transPoints;
-	KeyPoint::convert(keyPoints[0], tmpKeyPoints);
-	perspectiveTransform(tmpKeyPoints, transPoints, H);
+	vector<Point2f> transPoints;
+	perspectiveTransform(points0, transPoints, H);
 
 	int rows = colorImgNow.rows;
 	int cols = colorImgNow.cols;
-	int size = rows * cols;
+	int size = (int)points0.size();
 
-	depthImgPre.convertTo(mask, CV_8UC1, -255.0, 255.0);
+	Mat tmpMask;
+	depthImgPre.convertTo(tmpMask, CV_8UC1, -255.0, 255.0);
+	mask = mask & tmpMask;
 	warpPerspective(mask, mask, H, Size(cols, rows),
 		INTER_LINEAR + WARP_INVERSE_MAP, 0, Scalar::all(255));
 
 	vector<Point3f> modTmpSet, objTmpSet, objTmpSetAT;
-	Ptr<XnPoint3D> proj = new XnPoint3D[size];
-	Ptr<XnPoint3D> real = new XnPoint3D[size];
+	Ptr<XnPoint3D> projO = new XnPoint3D[size];
+	Ptr<XnPoint3D> realO = new XnPoint3D[size];
+	Ptr<XnPoint3D> projM = new XnPoint3D[size];
+	Ptr<XnPoint3D> realM = new XnPoint3D[size];
 	Ptr<XnPoint3D> projAT = new XnPoint3D[size];
 	Ptr<XnPoint3D> realAT = new XnPoint3D[size];
 	int cnt = 0;
-	for (int i = 0; i < tmpKeyPoints.size(); i++)
+	for (int i = 0; i < size; i++)
 	{
-		int x = (int)(tmpKeyPoints[i].x);
-		int y = (int)(tmpKeyPoints[i].y);
-		ushort z = depthImgNow.at<ushort>(y, x);
-		if (z != 0)
+		if (ransacStatus[i] == 0)
 		{
-			proj[cnt].X = (float)x;
-			proj[cnt].Y = (float)y;
-			proj[cnt].Z = (float)z;
+			continue;
+		}
+		int ox = (int)(points0[i].x);
+		int oy = (int)(points0[i].y);
+		int mx = (int)(points1[i].x);
+		int my = (int)(points1[i].y);
+		ushort oz = depthImgNow.at<ushort>(oy, ox);
+		ushort mz = depthImgPre.at<ushort>(my, mx);
+		if (oz != 0 && mz != 0)
+		{
+			projO[cnt].X = (float)ox;
+			projO[cnt].Y = (float)oy;
+			projO[cnt].Z = (float)oz;
 
 			Point2f p2d = transPoints[i];
 			projAT[cnt].X = p2d.x;
 			projAT[cnt].Y = p2d.y;
-			projAT[cnt].Z = (float)z;
+			projAT[cnt].Z = (float)oz;
+
+			projM[cnt].X = (float)mx;
+			projM[cnt].Y = (float)my;
+			projM[cnt].Z = (float)mz;
 			cnt++;
 		}
 	}
-	dg.ConvertProjectiveToRealWorld(cnt, proj, real);
+	dg.ConvertProjectiveToRealWorld(cnt, projO, realO);
+	dg.ConvertProjectiveToRealWorld(cnt, projM, realM);
 	dg.ConvertProjectiveToRealWorld(cnt, projAT, realAT);
 
 	objSet = Mat(cnt, 1, DataType<Point3f>::type);
+	modSet = Mat(cnt, 1, DataType<Point3f>::type);
 	objSetAT = Mat(cnt, 1, DataType<Point3f>::type);
 #pragma omp parallel for
 	for (int i = 0; i < cnt; i++)
 	{
-		objSet.at<Point3f>(i, 0) = Point3f(real[i].X, real[i].Y, real[i].Z);
+		objSet.at<Point3f>(i, 0) = Point3f(realO[i].X, realO[i].Y, realO[i].Z);
+		modSet.at<Point3f>(i, 0) = Point3f(realM[i].X, realM[i].Y, realM[i].Z);
 		objSetAT.at<Point3f>(i, 0) = Point3f(
 			realAT[i].X, realAT[i].Y, realAT[i].Z);
-	}
-
-	cnt = 0;
-	for (int i = 0; i < keyPoints[1].size(); i++)
-	{
-		int x = (int)(keyPoints[1][i].pt.x);
-		int y = (int)(keyPoints[1][i].pt.y);
-		ushort z = depthImgPre.at<ushort>(y, x);
-		if (z != 0)
-		{
-			proj[cnt].X = (float)x;
-			proj[cnt].Y = (float)y;
-			proj[cnt].Z = (float)z;
-			cnt++;
-		}
-	}
-	dg.ConvertProjectiveToRealWorld(cnt, proj, real);
-	modSet = Mat(cnt, 1, DataType<Point3f>::type);
-#pragma omp parallel for
-	for (int i = 0; i < cnt; i++)
-	{
-		modSet.at<Point3f>(i, 0) = Point3f(real[i].X, real[i].Y, real[i].Z);
 	}
 }

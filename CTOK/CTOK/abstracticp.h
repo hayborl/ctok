@@ -36,6 +36,9 @@ protected:
 	Transformation cuda_computeTransformation(const Mat &objSet,
 		const Mat &modSet, const Mat &lambda);						// 使用cuda来计算变换矩阵
 
+	double computeError(const Mat &objAfterTrans, 
+		const Mat &mod, const Mat &lambda, bool withCuda);			// 计算误差
+
 private:
 	void getConstructionMat(const Mat &in, Mat &out);				// 用主成分分析法建立构造矩阵
 };

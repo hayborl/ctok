@@ -447,7 +447,7 @@ void Delaunay::removeBounding( TriangleVector inSet,
 			iter->m_vertices[1].m_index >= 0 && 
 			iter->m_vertices[2].m_index >= 0 && 
 			iter->isVertex(index) && 
-			iter->angleCriterion(m_minAngle, m_maxAngle)) // 30-180
+			iter->angleCriterion(m_minAngle, m_maxAngle))
 		{
 			outSet.push_back(*iter);
 		}

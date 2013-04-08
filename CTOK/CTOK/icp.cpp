@@ -19,7 +19,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 {
 	assert(!m_objSet.empty() && !m_modSet.empty());
 
-	double d_pre = 100000, d_now = 100000;
+	float d_pre = 100000, d_now = 100000;
 	int iterCnt = 0;
 	Mat objSet;
 	Transformation tr;
@@ -42,7 +42,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 		Mat closestSet;
 		Mat lambda(objSet.rows, 1, CV_32FC1);
 		RUNANDTIME(global_timer, closestSet = 
-			getClosestPointsSet(objSet, d_now, lambda, KDTREE).clone(), 
+			getClosestPointsSet(objSet, lambda, KDTREE).clone(), 
 			OUTPUT && SUBOUTPUT, "compute closest points.");
 		Mat tmpObjSet = convertMat(m_objSet);
 		Mat tmpModSet = convertMat(closestSet);
@@ -53,9 +53,12 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 		RUNANDTIME(global_timer, transformPointCloud(
 			m_objSet, objSet, transformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
+		RUNANDTIME(global_timer, 
+			d_now = computeError(objSet, closestSet, lambda, withCuda),
+			OUTPUT && SUBOUTPUT, "compute error.");
 
 		iterCnt++;
-	} while (fabs(d_now - d_pre) > m_epsilon && iterCnt <= m_iterMax);
+	} while (fabs(d_pre - d_now) > m_epsilon && iterCnt <= m_iterMax);
 
 	m_tr = getTransformMat(tr);
 /*	waitKey();*/
@@ -63,8 +66,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }
 
-Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
-	Mat &lambda, Method method )
+Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 {
 	int rows = objSet.rows;
 	Mat closestSet(rows, 1, DataType<Point3f>::type);
@@ -158,7 +160,6 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
 	}
 
 	threshold /= (double)cnt;
-	d = 0;
 	for (int r = 0; r < rows; r++)
 	{
 		double dist = dists[r];
@@ -166,14 +167,12 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, double &d,
 		{
 			float l = 1.0f;
 			lambda.at<float>(r, 0) = l;
-			d += l * dist;
 		}
 		else
 		{
 			lambda.at<float>(r, 0) = 0;
 		}
 	}
-	d /= (double)cnt;
 	return closestSet.clone();
 }
 

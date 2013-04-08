@@ -74,6 +74,7 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 		Mat col = tmpObjSet(Rect(c, 0, 1, rows));
 		Mat(col.mul(lambda)).copyTo(col);
 	}
+	tmpObjSet /= sumLambda;
 	ccMatrix = tmpObjSet.t() * modSet - meanMatObj * meanMatMod.t();
 
 	//compute the trace of cross-covariance matrix

@@ -82,5 +82,8 @@
     <CudaCompile Include="segment.cu">
       <Filter>cuda files</Filter>
     </CudaCompile>
+    <CudaCompile Include="abstracticp.cu">
+      <Filter>cuda files</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

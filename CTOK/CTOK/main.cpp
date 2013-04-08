@@ -40,7 +40,7 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);
 
-char* videoFile = "ttt.oni";
+char* videoFile = "3281.oni";
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -62,7 +62,10 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 	Mat imgDepth16U(rows, cols, CV_16UC1, (void*)depthMD.Data());
 	medianBlur(imgDepth16U, imgDepth16U, 5);
 
-	imgDepth16U.convertTo(depthImageShow, CV_8UC1, 255 / 5000.0);
+	double min, max;
+	minMaxLoc(imgDepth16U, &min, &max);
+
+	imgDepth16U.convertTo(depthImageShow, CV_8UC1, 255.0 / max);
 	Mat imgRGB(rows, cols, CV_8UC3, (void*)imageMD.Data());
 	cvtColor(imgRGB, colorImageShow, CV_RGB2BGR);
 	imshow("depth", depthImageShow);
@@ -86,6 +89,9 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	vector<Vec3b> colors;
 	Mat tmpDepthImg;
 	depthImg.copyTo(tmpDepthImg, mask);
+	Mat show;
+	tmpDepthImg.convertTo(show, CV_8UC1, 255.0 / 5000.0);
+	imshow("mask", show);
 	for (int y = 0; y < rows; y++)
 	{
 		for (int x = 0; x < cols; x++)
@@ -360,6 +366,7 @@ int main(int argc, char** argv)
 
 	Mat colorImgPre, colorImgNow, depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
 	Mat tr = Mat::eye(4, 4, CV_32FC1);
+	Mat mask;
 	pair<Mat, Mat> desPre, desNow;
 
 	XnUInt32 frameCnt = 1;
@@ -396,7 +403,8 @@ int main(int argc, char** argv)
 		Mat pointCloud, pointColors;
 		if (frameCnt == 1)
 		{
-			Mat mask(colorImg.rows, colorImg.cols, CV_8UC1, Scalar::all(255));
+			mask.create(colorImg.rows, colorImg.cols, CV_8UC1);
+			mask.setTo(Scalar::all(255));
 			RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 				depthImg, colorImg, mask, pointCloud, pointColors), 
 				OUTPUT, "read 3D points");
@@ -412,7 +420,7 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-				Mat objSet, objSetAT, modSet, mask;	// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
+				Mat objSet, objSetAT, modSet;	// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				RUNANDTIME(global_timer, getFeaturePoints(depthGenerator, 
 					colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
 					objSet, modSet, objSetAT, mask), 

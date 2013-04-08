@@ -29,7 +29,7 @@ private:
 
 	int m_cnt;					// 实际起作用的点的数目
 
-	Mat getClosestPointsSet(const Mat &objSet, double &d,
+	Mat getClosestPointsSet(const Mat &objSet,
 		Mat &lambda, Method method = KDTREE);					// 计算固定点云集中与目标点云最近的点云及其权重
 
 	void createKDTree();										// 创建KDTree						

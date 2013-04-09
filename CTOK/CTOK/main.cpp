@@ -420,7 +420,7 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-				Mat objSet, objSetAT, modSet;	// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
+				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				RUNANDTIME(global_timer, getFeaturePoints(depthGenerator, 
 					colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
 					objSet, modSet, objSetAT, mask), 

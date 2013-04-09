@@ -18,9 +18,6 @@ EMICP::EMICP(const Mat &objSet, const Mat &modSet,
 
 void EMICP::run(bool withCuda, InputArray initObjSet)
 {
-
-// 	Mat objSet;
-// 	initTransform(objSet, withCuda);
 	Transformation tr;
 	Mat objSet;
 	Mat modSet = convertMat(m_modSet);
@@ -33,7 +30,9 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 		objSet = initObjSet.getMat() / 1000.0f;
 	}
 
-/*	plotTwoPoint3DSet(objSet, m_modSet);*/
+// 	plotTwoPoint3DSet(objSet, m_modSet);
+// 	initTransform(objSet, withCuda);
+// 	plotTwoPoint3DSet(objSet, m_modSet);
 
 	int rowsA = objSet.rows;
 	int colsA = modSet.rows;
@@ -72,6 +71,6 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 	}while (m_sigma_p2 > m_sigma_inf);
 	tr.t *= 1000.0f;
 	m_tr = getTransformMat(tr);
-// 
-// 	plotTwoPoint3DSet(objSet, m_modSet);
+
+/*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }

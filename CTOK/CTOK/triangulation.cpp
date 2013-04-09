@@ -20,6 +20,19 @@ bool Vertex::operator==( const Vertex &v ) const
 	return m_xyz == v.m_xyz;
 }
 
+bool Vertex::operator<( const Vertex &v ) const
+{
+	if (m_xyz[0] == v.m_xyz[0])
+	{
+		if (m_xyz[1] == v.m_xyz[1])
+		{
+			return m_xyz[2] < v.m_xyz[2];
+		}
+		return m_xyz[1] < v.m_xyz[1];
+	}
+	return m_xyz[0] < v.m_xyz[0];
+}
+
 float Vertex::distance2( const Vertex &v )
 {
 	Vec3f d = m_xyz - v.m_xyz;
@@ -38,6 +51,20 @@ Triangle::Triangle( Vertex v0, Vertex v1, Vertex v2 )
 	m_vertices[0] = v0;
 	m_vertices[1] = v1;
 	m_vertices[2] = v2;
+
+// 	Vertex tmp;
+// 	for (int i = 0; i < Vertex_Size - 1; i++)
+// 	{
+// 		for (int j = i + 1; j < Vertex_Size; j++)
+// 		{
+// 			if (m_vertices[j] < m_vertices[i])
+// 			{
+// 				tmp = m_vertices[j];
+// 				m_vertices[j] = m_vertices[i];
+// 				m_vertices[i] = tmp;
+// 			}
+// 		}
+// 	}
 }
 
 Vec3f Triangle::getNormal()

@@ -33,6 +33,7 @@ namespace Triangulation
 
 		Vertex& operator=(const Vertex &v);
 		bool operator==(const Vertex &v)const;
+		bool operator<(const Vertex &v)const;
 
 		float distance2(const Vertex &v);	// 求点之间的距离，返回距离平方
 

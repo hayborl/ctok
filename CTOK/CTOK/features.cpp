@@ -38,11 +38,11 @@ void Features::getHSVColorHistDes( const Mat &image, Mat &descriptors )
 	}
 
 	int n = rows * cols;
-	descriptors = Mat(1, 72, CV_32FC1);
+	descriptors = Mat(1, 72, CV_64FC1);
 	for (int i = 0; i < 72; i++)
 	{
-		float temp = (float)hist[i] / (float)n;
-		descriptors.at<float>(0, i) = temp;
+		double temp = (double)hist[i] / (double)n;
+		descriptors.at<double>(0, i) = temp;
 	}
 }
 
@@ -50,7 +50,7 @@ void Features::getGLCMDes( const Mat &image, Mat &descriptors )
 {
 	double normGlcm[GRAY_LEVEL * GRAY_LEVEL];
 
-	descriptors = Mat(4, 4, CV_32FC1);
+	descriptors = Mat(4, 4, CV_64FC1);
 	for (int i = 0; i < 4; i++)
 	{
 		getGLCM(image, normGlcm, i, 1);
@@ -68,13 +68,13 @@ void Features::getGLCMDes( const Mat &image, Mat &descriptors )
 			glcm_con += dd * normGlcm[j];
 			glcm_idm += normGlcm[j] / (1 + dd);
 		}
-		descriptors.at<float>(i, 0) = (float)glcm_asm;
-		descriptors.at<float>(i, 1) = (float)glcm_ent;
-		descriptors.at<float>(i, 2) = (float)glcm_con;
-		descriptors.at<float>(i, 3) = (float)glcm_idm;
+		descriptors.at<double>(i, 0) = glcm_asm;
+		descriptors.at<double>(i, 1) = glcm_ent;
+		descriptors.at<double>(i, 2) = glcm_con;
+		descriptors.at<double>(i, 3) = glcm_idm;
 	}
 
-	float totalSum = (float)sum(descriptors)[0];
+	double totalSum = sum(descriptors)[0];
 	descriptors /= totalSum;
 }
 
@@ -321,7 +321,7 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 	KeyPoint::convert(keyPoints[0], tmpKeyPoints);
 	perspectiveTransform(tmpKeyPoints, transPoints, tmp);
 
-	vector<Point3f> modTmpSet, objTmpSetOrign;
+	vector<Point3d> modTmpSet, objTmpSetOrign;
 	Ptr<XnPoint3D> proj = new XnPoint3D[objPointCloud.rows];
 	Ptr<XnPoint3D> real = new XnPoint3D[objPointCloud.rows];
 	int cnt = 0;
@@ -332,8 +332,8 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 		int index = objPointIndex.at<int>(y, x);
 		if (index != -1)
 		{
-			Point3f p = objPointCloud.at<Point3f>(index, 0);
-			// 			if (p == Point3f(0, 0, 0))
+			Point3d p = objPointCloud.at<Point3d>(index, 0);
+			// 			if (p == Point3d(0, 0, 0))
 			// 			{
 			// 				continue;
 			// 			}
@@ -341,17 +341,17 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 			Point2f p2d = transPoints[i];
 			proj[cnt].X = p2d.x;
 			proj[cnt].Y = p2d.y;
-			proj[cnt].Z = p.z;
+			proj[cnt].Z = (float)p.z;
 			cnt++;
 		}
 	}
 	dg.ConvertProjectiveToRealWorld(cnt, proj, real);
 
-	objSet = Mat(cnt, 1, DataType<Point3f>::type);
+	objSet = Mat(cnt, 1, DataType<Point3d>::type);
 #pragma omp parallel for
 	for (int i = 0; i < cnt; i++)
 	{
-		objSet.at<Point3f>(i, 0) = Point3f(real[i].X, real[i].Y, real[i].Z);
+		objSet.at<Point3d>(i, 0) = Point3d(real[i].X, real[i].Y, real[i].Z);
 	}
 
 	for (int i = 0; i < keyPoints[1].size(); i++)
@@ -361,7 +361,7 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 		int index = modPointIndex.at<int>(y, x);
 		if (index != -1)
 		{
-			modTmpSet.push_back(modPointCloud.at<Point3f>(index, 0));
+			modTmpSet.push_back(modPointCloud.at<Point3d>(index, 0));
 		}
 	}
 
@@ -474,7 +474,7 @@ void getFeaturePoints(xn::DepthGenerator dg,
 	warpPerspective(mask, mask, H, Size(cols, rows),
 		INTER_LINEAR + WARP_INVERSE_MAP, 0, Scalar::all(255));
 
-	vector<Point3f> modTmpSet, objTmpSet, objTmpSetAT;
+	vector<Point3d> modTmpSet, objTmpSet, objTmpSetAT;
 	Ptr<XnPoint3D> projO = new XnPoint3D[size];
 	Ptr<XnPoint3D> realO = new XnPoint3D[size];
 	Ptr<XnPoint3D> projM = new XnPoint3D[size];
@@ -515,15 +515,15 @@ void getFeaturePoints(xn::DepthGenerator dg,
 	dg.ConvertProjectiveToRealWorld(cnt, projM, realM);
 	dg.ConvertProjectiveToRealWorld(cnt, projAT, realAT);
 
-	objSet = Mat(cnt, 1, DataType<Point3f>::type);
-	modSet = Mat(cnt, 1, DataType<Point3f>::type);
-	objSetAT = Mat(cnt, 1, DataType<Point3f>::type);
+	objSet = Mat(cnt, 1, DataType<Point3d>::type);
+	modSet = Mat(cnt, 1, DataType<Point3d>::type);
+	objSetAT = Mat(cnt, 1, DataType<Point3d>::type);
 #pragma omp parallel for
 	for (int i = 0; i < cnt; i++)
 	{
-		objSet.at<Point3f>(i, 0) = Point3f(realO[i].X, realO[i].Y, realO[i].Z);
-		modSet.at<Point3f>(i, 0) = Point3f(realM[i].X, realM[i].Y, realM[i].Z);
-		objSetAT.at<Point3f>(i, 0) = Point3f(
+		objSet.at<Point3d>(i, 0) = Point3d(realO[i].X, realO[i].Y, realO[i].Z);
+		modSet.at<Point3d>(i, 0) = Point3d(realM[i].X, realM[i].Y, realM[i].Z);
+		objSetAT.at<Point3d>(i, 0) = Point3d(
 			realAT[i].X, realAT[i].Y, realAT[i].Z);
 	}
 }

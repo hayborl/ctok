@@ -38,7 +38,7 @@ void saveData(const char* filename, const Mat &mat, int flag)
 		{
 			for(int x = 0; x < mat.cols; x++)
 			{
-				float disp = mat.at<float>(y,x);
+				double disp = mat.at<double>(y,x);
 				fprintf(fp, "%10.4f\n", disp);
 			}
 		}
@@ -48,7 +48,7 @@ void saveData(const char* filename, const Mat &mat, int flag)
 		{
 			for(int x = 0; x < mat.cols; x++)
 			{
-				Vec3f point = mat.at<Vec3f>(y, x);   // Vec3f 是 template 类定义
+				Vec3d point = mat.at<Vec3d>(y, x);   // Vec3d 是 template 类定义
 				fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
 			}
 		}
@@ -63,14 +63,14 @@ void saveData(const char* filename, const Mat &mat, int flag)
 	fclose(fp);
 }
 
-void saveData(const char* filename, const vector<Vec3f> pts)
+void saveData(const char* filename, const vector<Vec3d> pts)
 {
 	FILE* fp;
 	fopen_s(&fp, filename, "wt");
 	fprintf(fp, "%d\n", pts.size());
 	for (int i = 0; i < pts.size(); i++)
 	{
-		Vec3f point = pts[i];
+		Vec3d point = pts[i];
 		fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
 	}
 	fclose(fp);
@@ -123,7 +123,7 @@ Mat convertMat( const Mat &mat )
 	Mat* subs = new Mat[mat.channels()];
 	split(mat, subs);
 
-	Mat tmp(mat.rows, mat.cols * mat.channels(), CV_32FC1);
+	Mat tmp(mat.rows, mat.cols * mat.channels(), CV_64FC1);
 #pragma omp parallel for
 	for (int i = 0; i < mat.channels(); i++)
 	{
@@ -162,12 +162,12 @@ void plotTwoPoint3DSet( Mat objSet, Mat modSet )
 	{
 		for (int j = 0; j < objSet.cols; j++)
 		{
-			int x = (int)((objSet.at<Point3f>(i, j).x - minX) * 500 / (maxX - minX));
-			int y = (int)((maxY - objSet.at<Point3f>(i, j).y) * 375 / (maxY - minY));
+			int x = (int)((objSet.at<Point3d>(i, j).x - minX) * 500 / (maxX - minX));
+			int y = (int)((maxY - objSet.at<Point3d>(i, j).y) * 375 / (maxY - minY));
 			pointImg.at<Vec3b>(y, x) = Vec3b(0, 0, 255);
 
-			x = (int)((objSet.at<Point3f>(i, j).x - minX) * 500 / (maxX - minX));
-			y = (int)((maxZ - objSet.at<Point3f>(i, j).z) * 375 / (maxZ - minZ)) + 375;
+			x = (int)((objSet.at<Point3d>(i, j).x - minX) * 500 / (maxX - minX));
+			y = (int)((maxZ - objSet.at<Point3d>(i, j).z) * 375 / (maxZ - minZ)) + 375;
 			pointImg.at<Vec3b>(y, x) = Vec3b(0, 0, 255);
 		}
 	}
@@ -175,12 +175,12 @@ void plotTwoPoint3DSet( Mat objSet, Mat modSet )
 	{
 		for (int j = 0; j < modSet.cols; j++)
 		{
-			int x = (int)((modSet.at<Point3f>(i, j).x - minX) * 500 / (maxX - minX));
-			int y = (int)((maxY - modSet.at<Point3f>(i, j).y) * 375 / (maxY - minY));
+			int x = (int)((modSet.at<Point3d>(i, j).x - minX) * 500 / (maxX - minX));
+			int y = (int)((maxY - modSet.at<Point3d>(i, j).y) * 375 / (maxY - minY));
 			pointImg.at<Vec3b>(y, x) += Vec3b(0, 255, 0);
 
-			x = (int)((modSet.at<Point3f>(i, j).x - minX) * 500 / (maxX - minX));
-			y = (int)((maxZ - modSet.at<Point3f>(i, j).z) * 375 / (maxZ - minZ)) + 375;
+			x = (int)((modSet.at<Point3d>(i, j).x - minX) * 500 / (maxX - minX));
+			y = (int)((maxZ - modSet.at<Point3d>(i, j).z) * 375 / (maxZ - minZ)) + 375;
 			pointImg.at<Vec3b>(y, x) += Vec3b(0, 255, 0);
 		}
 	}
@@ -191,7 +191,7 @@ void plotTwoPoint3DSet( Mat objSet, Mat modSet )
 	waitKey();
 }
 
-Vec3f computeNormal( ANNpointArray pts, ANNidxArray idxs, const int &k )
+Vec3d computeNormal( ANNpointArray pts, ANNidxArray idxs, const int &k )
 {
 	Mat M = Mat::zeros(3, 3, CV_64FC1);
 	Mat mean = Mat::zeros(3, 1, CV_64FC1);
@@ -205,14 +205,14 @@ Vec3f computeNormal( ANNpointArray pts, ANNidxArray idxs, const int &k )
 	mean /= (double)k;
 	M -= mean * mean.t();
 
-	Mat eigenValues(3, 1, CV_32FC1);
-	Mat eigenVector(3, 3, CV_32FC1);
+	Mat eigenValues(3, 1, CV_64FC1);
+	Mat eigenVector(3, 3, CV_64FC1);
 	eigen(M, eigenValues, eigenVector);
 
 	int minEigenIndex = 0;
 	minMaxIdx(eigenValues, NULL, NULL, &minEigenIndex, NULL);
 
-	return normalize(Vec3f(eigenVector.row(minEigenIndex)));
+	return normalize(Vec3d(eigenVector.row(minEigenIndex)));
 }
 
 void simplifyPoints( Mat inPts, Mat& outPts, 
@@ -225,7 +225,7 @@ void simplifyPoints( Mat inPts, Mat& outPts,
 #pragma omp parallel for
 	for (int i = 0; i < num; i++)
 	{
-		Vec3f p = inPts.at<Vec3f>(i, 0);
+		Vec3d p = inPts.at<Vec3d>(i, 0);
 		pts[i][0] = p[0];
 		pts[i][1] = p[1];
 		pts[i][2] = p[2];
@@ -240,7 +240,7 @@ void simplifyPoints( Mat inPts, Mat& outPts,
 	{
 		ANNpoint q = pts[i];
 		kdTree->annkSearch(q, k, idxs, dists);
-		Vec3f normalVector = computeNormal(pts, idxs, k);
+		Vec3d normalVector = computeNormal(pts, idxs, k);
 		double sumd = 0;
 		for (int j = 0; j < k; j++)
 		{
@@ -259,7 +259,7 @@ void simplifyPoints( Mat inPts, Mat& outPts,
 	{
 		if (sumdMat.at<double>(i, 0) < thres)
 		{
-			outPts.at<Vec3f>(i, 0) = Vec3f(0, 0, 0);
+			outPts.at<Vec3d>(i, 0) = Vec3d(0, 0, 0);
 			cnt++;
 		}
 	}

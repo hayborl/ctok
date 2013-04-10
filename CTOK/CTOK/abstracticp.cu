@@ -5,9 +5,9 @@
 
 struct dist2_functor
 {
-	__host__ __device__ float operator()(const float3 &p1, const float3 &p2)
+	__host__ __device__ double operator()(const double3 &p1, const double3 &p2)
 	{
-		float tmp0, tmp1, tmp2;
+		double tmp0, tmp1, tmp2;
 		tmp0 = p1.x - p2.x;
 		tmp1 = p1.y - p2.y;
 		tmp2 = p1.z - p2.z;
@@ -27,30 +27,30 @@ double AbstractICP::computeError(const Mat &objAfterTrans,
 	}
 	else
 	{
-		float error = 0;
+		double error = 0;
 		int rows = objAfterTrans.rows;
 
-		float3* arr_obj = new float3[rows];
-		memcpy(arr_obj, (float3*)objAfterTrans.data, rows * sizeof(float3));
-		float3* arr_mod = new float3[rows];
-		memcpy(arr_mod, (float3*)mod.data, rows * sizeof(float3));
-		float* arr_lambda = new float[rows];
-		memcpy(arr_lambda, (float*)lambda.data, rows * sizeof(float));
+		double3* arr_obj = new double3[rows];
+		memcpy(arr_obj, (double3*)objAfterTrans.data, rows * sizeof(double3));
+		double3* arr_mod = new double3[rows];
+		memcpy(arr_mod, (double3*)mod.data, rows * sizeof(double3));
+		double* arr_lambda = new double[rows];
+		memcpy(arr_lambda, (double*)lambda.data, rows * sizeof(double));
 
 		try
 		{
-			thrust::host_vector<float3> h_obj(arr_obj, arr_obj + rows);
-			thrust::host_vector<float3> h_mod(arr_mod, arr_mod + rows);
-			thrust::host_vector<float> h_lambda(
+			thrust::host_vector<double3> h_obj(arr_obj, arr_obj + rows);
+			thrust::host_vector<double3> h_mod(arr_mod, arr_mod + rows);
+			thrust::host_vector<double> h_lambda(
 				arr_lambda, arr_lambda + rows);
 
-			thrust::host_vector<float> tmp(rows);
+			thrust::host_vector<double> tmp(rows);
 			thrust::transform(h_obj.begin(), h_obj.end(), 
 				h_mod.begin(), tmp.begin(), dist2_functor());
 			thrust::transform(tmp.begin(), tmp.end(), 
-				h_lambda.begin(), tmp.begin(), thrust::multiplies<float>());
+				h_lambda.begin(), tmp.begin(), thrust::multiplies<double>());
 			error = thrust::reduce(tmp.begin(), 
-				tmp.end(), 0.0f, thrust::plus<float>());
+				tmp.end(), 0.0f, thrust::plus<double>());
 		}
 		catch (thrust::system_error e)
 		{

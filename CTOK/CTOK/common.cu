@@ -21,15 +21,15 @@ inline void __checkCudaErrors(cudaError err,
 
 struct transform_functor
 {
-	float R[9], T[3];
+	double R[9], T[3];
 	transform_functor(const Mat &m_R, const Mat &m_T)
 	{
-		memcpy(R, (float*)m_R.data, 9 * sizeof(float));
-		memcpy(T, (float*)m_T.data, 3 * sizeof(float));
+		memcpy(R, (double*)m_R.data, 9 * sizeof(double));
+		memcpy(T, (double*)m_T.data, 3 * sizeof(double));
 	}
-	__host__ __device__ float3 operator()(const float3 &pt) const
+	__host__ __device__ double3 operator()(const double3 &pt) const
 	{
-		float3 tmp;
+		double3 tmp;
 		tmp.x = R[0] * pt.x + R[1] * pt.y + R[2] * pt.z + T[0];
 		tmp.y = R[3] * pt.x + R[4] * pt.y + R[5] * pt.z + T[1];
 		tmp.z = R[6] * pt.x + R[7] * pt.y + R[8] * pt.z + T[2];
@@ -48,16 +48,16 @@ void transformPointCloud(const Mat &input, Mat &output,
 	{
 		return;
 	}
-	float3* arr_in = new float3[num];
-	memcpy(arr_in, (float3*)input.data, num * sizeof(float3));
+	double3* arr_in = new double3[num];
+	memcpy(arr_in, (double3*)input.data, num * sizeof(double3));
 
 	try
 	{
-		thrust::host_vector<float3> h_out(num);
+		thrust::host_vector<double3> h_out(num);
 		if (withCuda)
 		{
-			thrust::device_vector<float3> d_in(arr_in, arr_in + num);
-			thrust::device_vector<float3> d_out(num);
+			thrust::device_vector<double3> d_in(arr_in, arr_in + num);
+			thrust::device_vector<double3> d_out(num);
 
 			thrust::transform(d_in.begin(), d_in.end(), 
 				d_out.begin(), transform_functor(m_R, m_T));
@@ -66,16 +66,16 @@ void transformPointCloud(const Mat &input, Mat &output,
 		}
 		else
 		{
-			thrust::host_vector<float3> h_in(arr_in, arr_in + num);
+			thrust::host_vector<double3> h_in(arr_in, arr_in + num);
 
 			thrust::transform(h_in.begin(), h_in.end(), 
 				h_out.begin(), transform_functor(m_R, m_T));
 		}
 
-		float3* h_out_ptr = thrust::raw_pointer_cast(&h_out[0]);
+		double3* h_out_ptr = thrust::raw_pointer_cast(&h_out[0]);
 
 		output.create(input.rows, input.cols, input.type());
-		memcpy((float3*)output.data, h_out_ptr, num * sizeof(float3));
+		memcpy((double3*)output.data, h_out_ptr, num * sizeof(double3));
 	}
 	catch (thrust::system_error e)
 	{

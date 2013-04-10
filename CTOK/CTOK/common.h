@@ -38,7 +38,7 @@ using namespace gpu;
 typedef unsigned int uint;
 
 void saveData(const char* filename, const Mat &mat, int flag = 0);
-void saveData(const char* filename, const vector<Vec3f> pts);
+void saveData(const char* filename, const vector<Vec3d> pts);
 
 bool initCuda();
 
@@ -51,7 +51,7 @@ void transformPointCloud(const Mat &input, Mat &output,
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);
 
 // 根据已知点集估计出所有点拟合的平面的法向量
-Vec3f computeNormal(ANNpointArray pts, ANNidxArray idxs, const int &k);
+Vec3d computeNormal(ANNpointArray pts, ANNidxArray idxs, const int &k);
 
 void simplifyPoints(Mat inPts, Mat &outPts, 
 	const int &k, const double &alpha);

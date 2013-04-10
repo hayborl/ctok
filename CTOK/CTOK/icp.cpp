@@ -9,7 +9,7 @@ ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 	m_modSet = modSet.clone();
 	m_iterMax = iterMax;
 	m_epsilon = epsilon;
-	m_tr = Mat::eye(4, 4, CV_32FC1);
+	m_tr = Mat::eye(4, 4, CV_64FC1);
 
 	RUNANDTIME(global_timer, createKDTree(),
 		OUTPUT && SUBOUTPUT, "create kdTree");
@@ -19,7 +19,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 {
 	assert(!m_objSet.empty() && !m_modSet.empty());
 
-	float d_pre = 100000, d_now = 100000;
+	double d_pre = 100000, d_now = 100000;
 	int iterCnt = 0;
 	Mat objSet;
 	Transformation tr;
@@ -40,7 +40,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 		d_pre = d_now;
 
 		Mat closestSet;
-		Mat lambda(objSet.rows, 1, CV_32FC1);
+		Mat lambda(objSet.rows, 1, CV_64FC1);
 		RUNANDTIME(global_timer, closestSet = 
 			getClosestPointsSet(objSet, lambda, KDTREE).clone(), 
 			OUTPUT && SUBOUTPUT, "compute closest points.");
@@ -69,7 +69,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 {
 	int rows = objSet.rows;
-	Mat closestSet(rows, 1, DataType<Point3f>::type);
+	Mat closestSet(rows, 1, DataType<Point3d>::type);
 	vector<double> dists(rows);
 	double threshold = 0;
 	int cnt = 0;
@@ -80,19 +80,19 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 		for (int i = 0; i < rows; i++)
 		{
 			int minIndex = 0;
-			float minDistance = DISTANCE_MAX;
-			Point3f oPoint = objSet.at<Point3f>(i, 0);
+			double minDistance = DISTANCE_MAX;
+			Point3d oPoint = objSet.at<Point3d>(i, 0);
 			for (int j = 0; j < m_modSet.rows; j++)
 			{
-				Point3f p = m_modSet.at<Point3f>(j, 0) - oPoint;
-				float distance = sqrt(p.dot(p));
+				Point3d p = m_modSet.at<Point3d>(j, 0) - oPoint;
+				double distance = sqrt(p.dot(p));
 				if (distance < minDistance)
 				{
 					minDistance = distance;
 					minIndex = j;
 				}
 			}
-			closestSet.at<Point3f>(i, 0) = m_modSet.at<Point3f>(minIndex, 0);
+			closestSet.at<Point3d>(i, 0) = m_modSet.at<Point3d>(minIndex, 0);
 			dists[i] = minDistance;
 			threshold += minDistance;
 			cnt++;
@@ -102,7 +102,7 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 	default:
 		for (int i = 0; i < rows; i++)
 		{
-			Vec3f oPoint = objSet.at<Vec3f>(i, 0);
+			Vec3d oPoint = objSet.at<Vec3d>(i, 0);
 			ANNpoint qp = annAllocPt(ICP_DIMS);
 			qp[0] = oPoint[0]; 
 			qp[1] = oPoint[1];
@@ -110,9 +110,9 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 			ANNidx idx[1];
 			ANNdist dist[1];
 			m_kdTree->annkSearch(qp, 1, idx, dist);
-			closestSet.at<Point3f>(i, 0) = Point3f(
-				(float)m_modPts[idx[0]][0], (float)m_modPts[idx[0]][1], 
-				(float)m_modPts[idx[0]][2]);
+			closestSet.at<Point3d>(i, 0) = Point3d(
+				m_modPts[idx[0]][0], m_modPts[idx[0]][1], 
+				m_modPts[idx[0]][2]);
 			dists[i] = dist[0];
 			threshold += dist[0];
 			cnt++;
@@ -123,7 +123,7 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 // 			int cnt = 0;
 // 			for (int i = 0; i < rows; i++)
 // 			{
-// 				Vec3f oPoint = Vec3f(objSet.at<Point3f>(i, 0));
+// 				Vec3d oPoint = Vec3d(objSet.at<Point3d>(i, 0));
 // 				_Examplar exm(ICP_DIMS);
 // 				for (int j = 0; j < ICP_DIMS; j++)
 // 				{
@@ -132,21 +132,21 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 // 				vector<pair<_Examplar, double>> results;
 // 				if (m_kdTree.findNearest(exm, DISTANCE_RANGE, results) < 3)
 // 				{
-// 					closestSet.at<Point3f>(i, 0) = Point3f(0, 0, 0);
+// 					closestSet.at<Point3d>(i, 0) = Point3d(0, 0, 0);
 // 					dists[i] = -1;
 // 				}
 // 				else
 // 				{
 // 					ExamplarPairCompare epc;
 // 					sort(results.begin(), results.end(), epc);
-// 					Vec3f normal = computeNormal(results);
+// 					Vec3d normal = computeNormal(results);
 // 					_Examplar mExm = results[0].first;
-// 					Vec3f v((float)mExm[0], (float)mExm[1], (float)mExm[2]);
+// 					Vec3d v((double)mExm[0], (double)mExm[1], (double)mExm[2]);
 // 					v = v - oPoint;
-// 					float dotProd = v.dot(normal);
-// 					float distance = fabs(dotProd);
-// 					Vec3f mPoint = oPoint - dotProd * normal;
-// 					closestSet.at<Point3f>(i, 0) = Point3f(mPoint);
+// 					double dotProd = v.dot(normal);
+// 					double distance = fabs(dotProd);
+// 					Vec3d mPoint = oPoint - dotProd * normal;
+// 					closestSet.at<Point3d>(i, 0) = Point3d(mPoint);
 // 					dists[i] = (double)distance;
 // 					threshold += distance;
 // 					cnt++;
@@ -165,12 +165,12 @@ Mat ICP::getClosestPointsSet( const Mat &objSet, Mat &lambda, Method method )
 		double dist = dists[r];
 		if (dist < threshold && dist > 0)
 		{
-			float l = 1.0f;
-			lambda.at<float>(r, 0) = l;
+			double l = 1.0f;
+			lambda.at<double>(r, 0) = l;
 		}
 		else
 		{
-			lambda.at<float>(r, 0) = 0;
+			lambda.at<double>(r, 0) = 0;
 		}
 	}
 	return closestSet.clone();
@@ -182,7 +182,7 @@ void ICP::createKDTree()
 #pragma omp parallel for
 	for (int r = 0; r < m_modSet.rows; r++)
 	{
-		Vec3f p = m_modSet.at<Vec3f>(r, 0);
+		Vec3d p = m_modSet.at<Vec3d>(r, 0);
 		m_modPts[r][0] = p[0];
 		m_modPts[r][1] = p[1]; 
 		m_modPts[r][2] = p[2];	

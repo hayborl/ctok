@@ -4,10 +4,10 @@
 #include "common.h"
 
 //摄像头移动速度
-#define MOVESPEEDLR 10.0f
-#define MOVESPEEDFB	50.0f
+#define MOVESPEEDLR 10.0
+#define MOVESPEEDFB	50.0
 //摄像头旋转速度
-#define ROTSPEED 0.01f
+#define ROTSPEED 0.01
 
 // 窗口的高度和宽度
 extern int glWinWidth;
@@ -20,18 +20,18 @@ class Camera {
 public:
 	Camera();
 	// 用来返回Camera信息
-	Vec3f position(){ return m_vPosition; }
-	Vec3f view(){ return m_vView; }
-	Vec3f upVector(){ return m_vUpVector; }
-	Vec3f strafe(){ return m_vStrafe; }
+	Vec3d position(){ return m_vPosition; }
+	Vec3d view(){ return m_vView; }
+	Vec3d upVector(){ return m_vUpVector; }
+	Vec3d strafe(){ return m_vStrafe; }
 
 	void setMouseState(bool state) { mouseInWindow = state; }
 
 	// 初始化Camera属性
-	void positionCamera(float posX, float posY, float posZ,
-		float viewX, float viewY, float viewZ,
-		float upX, float upY, float upZ);
-	void positionCamera(const Vec3f &pos, const Vec3f &view, const Vec3f &up);
+	void positionCamera(double posX, double posY, double posZ,
+		double viewX, double viewY, double viewZ,
+		double upX, double upY, double upZ);
+	void positionCamera(const Vec3d &pos, const Vec3d &view, const Vec3d &up);
 
 	// 使用gluLookAt()在场景中摆放Camera
 	void look();
@@ -40,13 +40,13 @@ public:
 	void setViewByMouse(void); 
 
 	// 绕给出的轴旋转Camera的方向
-	void rotateView(float angle, const Vec3f &vAxis);
+	void rotateView(double angle, const Vec3d &vAxis);
 
 	// 左右移动Camera(速度:speed)
-	void strafeCamera(float speed);
+	void strafeCamera(double speed);
 
 	// 前后移动Camera(速度:speed)
-	void moveCamera(float speed);
+	void moveCamera(double speed);
 
 	// 重置相机位置
 	void reset();
@@ -57,10 +57,10 @@ private:
 
 	bool mouseInWindow;		// 鼠标是否在窗体内
 
-	Vec3f m_vPosition;		// Camera 的位置
-	Vec3f m_vView;			// Camera 的视点
-	Vec3f m_vUpVector;		// Camera 向上的向量
-	Vec3f m_vStrafe;		// Camera 水平的向量
+	Vec3d m_vPosition;		// Camera 的位置
+	Vec3d m_vView;			// Camera 的视点
+	Vec3d m_vUpVector;		// Camera 向上的向量
+	Vec3d m_vStrafe;		// Camera 水平的向量
 };
 
 #endif

@@ -7,8 +7,8 @@
 
 typedef struct tag_Transformation
 {
-	Vec4f q;
-	Vec3f t;
+	Vec4d q;
+	Vec3d t;
 } Transformation;
 
 class AbstractICP
@@ -43,6 +43,6 @@ private:
 	void getConstructionMat(const Mat &in, Mat &out);				// 用主成分分析法建立构造矩阵
 };
 
-void getRotateMatrix(Vec4f q, float* R);							// 将四元数转换为旋转矩阵
+void getRotateMatrix(Vec4d q, double* R);							// 将四元数转换为旋转矩阵
 
 #endif

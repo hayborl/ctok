@@ -23,7 +23,7 @@ void checkOpenNIError(XnStatus result, string status)
 //////////////////////////////////////////////////////////////////////////
 //
 //---OpenGL 全局变量
-vector<Vec3f> pointCloudData;
+vector<Vec3d> pointCloudData;
 vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 
@@ -40,7 +40,7 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);
 
-char* videoFile = "3281.oni";
+char* videoFile = "ttt.oni";
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -111,11 +111,11 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 
 	dg.ConvertProjectiveToRealWorld(index, proj, real);
 
-	realPointCloud = Mat(index, 1, DataType<Point3f>::type, Scalar::all(0));
+	realPointCloud = Mat(index, 1, DataType<Point3d>::type, Scalar::all(0));
 #pragma omp parallel for
 	for (int i = 0; i < index; i++)
 	{
-		realPointCloud.at<Point3f>(i, 0) = Point3f(
+		realPointCloud.at<Point3d>(i, 0) = Point3d(
 			real[i].X, real[i].Y, real[i].Z);
 	}
 
@@ -136,12 +136,12 @@ void loadPointCloudAndTexture(const Mat &pointCloud,
 		pointNumber = 0;
 	}
 
-	Vec3f p;
+	Vec3d p;
 	Vec3b color;
 	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
 	{
-		p = pointCloud.at<Vec3f>(i, 0);
-		if (p != Vec3f(0, 0, 0)/* && (double)rand() / (double)RAND_MAX < 0.5*/)
+		p = pointCloud.at<Vec3d>(i, 0);
+		if (p != Vec3d(0, 0, 0)/* && (double)rand() / (double)RAND_MAX < 0.5*/)
 		{
 			p[2] = -p[2];
 			pointCloudData.push_back(p);
@@ -159,7 +159,7 @@ void loadPointCloudAndTexture(const Mat &pointCloud,
 // 绘制点云
 void drawPoints()
 {
-	float x,y,z;
+	double x,y,z;
 	// 绘制图像点云
 	glPointSize(1.0);
 	glBegin(GL_POINTS);
@@ -167,10 +167,10 @@ void drawPoints()
 	{
 		glColor3d(pointColorData[i][0] / 255.0, 
 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = (float)pointCloudData[i][0];
-		y = (float)pointCloudData[i][1];
-		z = (float)pointCloudData[i][2];
-		glVertex3f(x, y, z);
+		x = pointCloudData[i][0];
+		y = pointCloudData[i][1];
+		z = pointCloudData[i][2];
+		glVertex3d(x, y, z);
 	}
 	glEnd();
 	glBegin(GL_TRIANGLES);
@@ -182,7 +182,7 @@ void drawPoints()
 			Triangulation::Vertex v = t.m_vertices[j];
 			glColor3d(v.m_color[2] / 255.0, 
 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-			glVertex3f(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 		}
 	}
 	glEnd(); 
@@ -291,11 +291,11 @@ void renderScene(void)
 
 	drawPoints();
 
-	Vec3f vPos = userCamera.position();
-	Vec3f vView = userCamera.view();
+	Vec3d vPos = userCamera.position();
+	Vec3d vView = userCamera.view();
 
 	// 设置camera的新位置
-	userCamera.positionCamera(vPos, vView, Vec3f(0.0f, 1.0f, 0.0f));
+	userCamera.positionCamera(vPos, vView, Vec3d(0.0, 1.0, 0.0));
 
 	glFlush();
 	glutSwapBuffers();
@@ -310,7 +310,7 @@ void reshape (int w, int h)
 	glViewport (0, 0, (GLsizei)w, (GLsizei)h);
 	glMatrixMode (GL_PROJECTION);
 	glLoadIdentity ();
-	gluPerspective (45, (GLfloat)w / (GLfloat)h, 1.0, 15000.0);   
+	gluPerspective (45, (GLdouble)w / (GLdouble)h, 1.0, 15000.0);   
 	glMatrixMode (GL_MODELVIEW);
 }
 
@@ -320,8 +320,8 @@ void reshape (int w, int h)
 int main(int argc, char** argv)
 {
 	hasCuda = initCuda();
-	userCamera.positionCamera(0.0f, 1.8f, 100.0f, 
-		0.0f, 1.8f, 0.0f, 0.0f, 1.0f, 0.0f);		// 定位摄像机
+	userCamera.positionCamera(0.0, 1.8, 100.0, 
+		0.0, 1.8, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
 
 	// OpenGL Window
 	glutInit(&argc, argv);
@@ -365,7 +365,7 @@ int main(int argc, char** argv)
 	rc = context.WaitNoneUpdateAll();
 
 	Mat colorImgPre, colorImgNow, depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
-	Mat tr = Mat::eye(4, 4, CV_32FC1);
+	Mat tr = Mat::eye(4, 4, CV_64FC1);
 	Mat mask;
 	pair<Mat, Mat> desPre, desNow;
 
@@ -427,7 +427,7 @@ int main(int argc, char** argv)
 					OUTPUT, "get feature points.");
 
 				/*ICP i(objSet, modSet);*/
-				EMICP i(objSet, modSet, 0.01f, 0.00001f, 0.7f, 0.01f);
+				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
 
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");

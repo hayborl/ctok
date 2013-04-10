@@ -21,7 +21,7 @@ public:
 	enum Method{BASIC, KDTREE, POINT_TO_PLANE, CUDA};	
 
 private:
-	vector<Vec3f> m_modNormal;	// 固定点云的法向量
+	vector<Vec3d> m_modNormal;	// 固定点云的法向量
 	int m_iterMax;				// 最大迭代次数
 	double m_epsilon;			// 迭代容差精度
 	ANNkd_tree* m_kdTree;		// modSet 的KDTree

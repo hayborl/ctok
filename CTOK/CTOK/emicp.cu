@@ -5,20 +5,20 @@
 
 struct updateA_functor
 {
-	float sigma;
-	updateA_functor(float _sigma)
+	double sigma;
+	updateA_functor(double _sigma)
 	{
 		sigma = _sigma;
 	}
-	__host__ __device__ float operator()(const float3 &p1, const float3 &p2)
+	__host__ __device__ double operator()(const double3 &p1, const double3 &p2)
 	{
-		float tmp0, tmp1, tmp2;
+		double tmp0, tmp1, tmp2;
 		tmp0 = p1.x - p2.x;
 		tmp1 = p1.y - p2.y;
 		tmp2 = p1.z - p2.z;
 		tmp0 = tmp0 * tmp0 + tmp1 * tmp1 + tmp2 * tmp2;
 		tmp0 /= sigma;
-		return expf(-tmp0);
+		return exp(-tmp0);
 	}
 };
 
@@ -37,28 +37,28 @@ void EMICP::updateA( Mat &A, const Mat &objSet,
 		int rowsA = objSet.rows;
 		int colsA = modSet.rows;
 
-		float3* arr_obj = new float3[rowsA];
-		memcpy(arr_obj, (float3*)objSet.data, rowsA * sizeof(float3));
-		float3* arr_mod = new float3[colsA];
-		memcpy(arr_mod, (float3*)modSet.data, colsA * sizeof(float3));
+		double3* arr_obj = new double3[rowsA];
+		memcpy(arr_obj, (double3*)objSet.data, rowsA * sizeof(double3));
+		double3* arr_mod = new double3[colsA];
+		memcpy(arr_mod, (double3*)modSet.data, colsA * sizeof(double3));
 
 		try
 		{
-			thrust::host_vector<float> h_A = 
-				thrust::host_vector<float>(rowsA * colsA);
-			thrust::host_vector<float3> h_obj(arr_obj, arr_obj + rowsA);
-			thrust::host_vector<float3> h_mod(arr_mod, arr_mod + colsA);
+			thrust::host_vector<double> h_A = 
+				thrust::host_vector<double>(rowsA * colsA);
+			thrust::host_vector<double3> h_obj(arr_obj, arr_obj + rowsA);
+			thrust::host_vector<double3> h_mod(arr_mod, arr_mod + colsA);
 
 			for (int i = 0; i < rowsA; i++)
 			{
-				thrust::constant_iterator<float3> tmp(h_obj[i]);
+				thrust::constant_iterator<double3> tmp(h_obj[i]);
 				thrust::transform(h_mod.begin(), h_mod.end(), tmp, 
 					h_A.begin() + i * colsA, updateA_functor(m_sigma_p2));
 			}
 
-			float* h_A_ptr = thrust::raw_pointer_cast(&h_A[0]);
-			A = Mat(rowsA, colsA, CV_32FC1);
-			memcpy((float*)A.data, h_A_ptr, rowsA * colsA * sizeof(float));
+			double* h_A_ptr = thrust::raw_pointer_cast(&h_A[0]);
+			A = Mat(rowsA, colsA, CV_64FC1);
+			memcpy((double*)A.data, h_A_ptr, rowsA * colsA * sizeof(double));
 		}
 		catch (thrust::system_error e)
 		{
@@ -72,17 +72,17 @@ void EMICP::updateA( Mat &A, const Mat &objSet,
 
 struct normalizeRow_functor
 {
-	__host__ __device__ float operator()(const float &x, const float &lambda)
+	__host__ __device__ double operator()(const double &x, const double &lambda)
 	{
-		return (float)(x / (lambda + 1e-7));
+		return (x / (lambda + 1e-7));
 	}
 };
 
 struct sqrt_functor
 {
-	__host__ __device__ float operator()(const float &x)
+	__host__ __device__ double operator()(const double &x)
 	{
-		return sqrtf(x);
+		return sqrt(x);
 	}
 };
 
@@ -96,20 +96,20 @@ void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda, bool withSq
 	{
 		int rows = mat.rows;
 		int cols = mat.cols;
-		float* arr_mat = new float[rows * cols];
-		memcpy(arr_mat, (float*)mat.data, rows * cols * sizeof(float));
-		float* arr_alpha = new float[rows];
-		memcpy(arr_alpha, (float*)alpha.data, rows * sizeof(float));
+		double* arr_mat = new double[rows * cols];
+		memcpy(arr_mat, (double*)mat.data, rows * cols * sizeof(double));
+		double* arr_alpha = new double[rows];
+		memcpy(arr_alpha, (double*)alpha.data, rows * sizeof(double));
 
 		try
 		{
-			thrust::host_vector<float> h_mat(arr_mat, arr_mat + rows * cols);
-			thrust::host_vector<float> h_alpha(arr_alpha, arr_alpha + rows);
+			thrust::host_vector<double> h_mat(arr_mat, arr_mat + rows * cols);
+			thrust::host_vector<double> h_alpha(arr_alpha, arr_alpha + rows);
 
 			for (int i = 0; i < rows; i++)
 			{
-				thrust::constant_iterator<float> tmp(h_alpha[i]);
-				thrust::host_vector<float>::iterator 
+				thrust::constant_iterator<double> tmp(h_alpha[i]);
+				thrust::host_vector<double>::iterator 
 					begin = h_mat.begin() + i * cols;
 				thrust::transform(begin, begin + cols, 
 					tmp, begin, normalizeRow_functor());
@@ -121,8 +121,8 @@ void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda, bool withSq
 					h_mat.begin(), sqrt_functor());
 			}
 
-			float* h_mat_ptr = thrust::raw_pointer_cast(&h_mat[0]);
-			memcpy((float*)mat.data, h_mat_ptr, rows * cols * sizeof(float));
+			double* h_mat_ptr = thrust::raw_pointer_cast(&h_mat[0]);
+			memcpy((double*)mat.data, h_mat_ptr, rows * cols * sizeof(double));
 		}
 		catch (thrust::system_error e)
 		{
@@ -136,15 +136,15 @@ void EMICP::normalizeRows(Mat &mat, const Mat &alpha, bool withCuda, bool withSq
 
 #define BLOCK_SIZE 128
 
-__global__ void kernelUpdateA(PtrStepSz<float> d_mod, PtrStepSz<float> d_obj,
-	PtrStep<float> d_A, float sigma_p2)
+__global__ void kernelUpdateA(PtrStepSz<double> d_mod, PtrStepSz<double> d_obj,
+	PtrStep<double> d_A, double sigma_p2)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (y < d_obj.rows && x < d_mod.rows)
 	{
-		float tmp[3];
+		double tmp[3];
 		for (int i = 0; i < 3; i++)
 		{
 			tmp[i] = d_mod(x, i) - d_obj(y, i);
@@ -153,7 +153,7 @@ __global__ void kernelUpdateA(PtrStepSz<float> d_mod, PtrStepSz<float> d_obj,
 		tmp[0] += tmp[1];
 		tmp[0] += tmp[2];
 		tmp[0] /= sigma_p2;
-		tmp[0] = expf(-tmp[0]);
+		tmp[0] = exp(-tmp[0]);
 
 		d_A(y, x) = tmp[0];
 	}
@@ -173,7 +173,7 @@ void EMICP::cuda_updateA(Mat &h_A, const Mat &objSet, const Mat &modSet)
 	dim3 grid((colsA + block.x - 1) / block.x, 
 		(rowsA + block.y - 1) / block.y);
 
-	GpuMat d_A(rowsA, colsA, CV_32FC1);
+	GpuMat d_A(rowsA, colsA, CV_64FC1);
 	kernelUpdateA<<<grid, block>>>(d_mod, d_obj, d_A, m_sigma_p2);
 
 	d_A.download(h_A);
@@ -183,8 +183,8 @@ void EMICP::cuda_updateA(Mat &h_A, const Mat &objSet, const Mat &modSet)
 	d_A.release();
 }
 
-__global__ void kernelNormalizeRows(PtrStepSz<float> d_mat, 
-	PtrStepSz<float> d_alpha, int withSqrt)
+__global__ void kernelNormalizeRows(PtrStepSz<double> d_mat, 
+	PtrStepSz<double> d_alpha, int withSqrt)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -193,7 +193,7 @@ __global__ void kernelNormalizeRows(PtrStepSz<float> d_mat,
 	{
 		if (withSqrt)
 		{
-			d_mat(y, x) = sqrtf(d_mat(y, x) / (d_alpha(y, 0) + 1e-7));
+			d_mat(y, x) = sqrt(d_mat(y, x) / (d_alpha(y, 0) + 1e-7));
 		}
 		else
 		{

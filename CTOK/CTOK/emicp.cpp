@@ -1,15 +1,15 @@
 #include "emicp.h"
 
 EMICP::EMICP(const Mat &objSet, const Mat &modSet, 
-	float sigma_p2, float sigma_inf, 
-	float sigma_factor, float d_02)
+	double sigma_p2, double sigma_inf, 
+	double sigma_factor, double d_02)
 {
 	assert(objSet.cols == 1 && modSet.cols == 1);
 	assert(!objSet.empty() && !modSet.empty());
 
-	m_objSet = objSet.clone() / 1000.0f;
-	m_modSet = modSet.clone() / 1000.0f;
-	m_tr = Mat::eye(4, 4, CV_32FC1);
+	m_objSet = objSet.clone() / 1000.0;
+	m_modSet = modSet.clone() / 1000.0;
+	m_tr = Mat::eye(4, 4, CV_64FC1);
 	m_sigma_p2 = sigma_p2;
 	m_sigma_inf = sigma_inf;
 	m_sigma_factor = sigma_factor;
@@ -27,7 +27,7 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 	}
 	else
 	{
-		objSet = initObjSet.getMat() / 1000.0f;
+		objSet = initObjSet.getMat() / 1000.0;
 	}
 
 // 	plotTwoPoint3DSet(objSet, m_modSet);
@@ -38,16 +38,16 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 	int colsA = modSet.rows;
 	int iter = 0;
 
-	Mat A(rowsA, colsA, CV_32FC1);
+	Mat A(rowsA, colsA, CV_64FC1);
 
 	do
 	{
 		RUNANDTIME(global_timer, updateA(A, objSet, m_modSet, withCuda),
 			OUTPUT && SUBOUTPUT, "update A Matrix");
 
-		Mat C = Mat::ones(rowsA, 1, CV_32FC1);
-		Mat ones = Mat::ones(colsA, 1, CV_32FC1);
-		float alpha = expf(-m_d_02 / m_sigma_p2);
+		Mat C = Mat::ones(rowsA, 1, CV_64FC1);
+		Mat ones = Mat::ones(colsA, 1, CV_64FC1);
+		double alpha = exp(-m_d_02 / m_sigma_p2);
 		C = C * alpha + A * ones;
 		RUNANDTIME(global_timer, normalizeRows(A, C, withCuda, true), 
 			OUTPUT && SUBOUTPUT, "normalize rows of A with C");
@@ -69,7 +69,7 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 
 		m_sigma_p2 *= m_sigma_factor;
 	}while (m_sigma_p2 > m_sigma_inf);
-	tr.t *= 1000.0f;
+	tr.t *= 1000.0;
 	m_tr = getTransformMat(tr);
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/

@@ -33,16 +33,16 @@ bool Vertex::operator<( const Vertex &v ) const
 	return m_xyz[0] < v.m_xyz[0];
 }
 
-float Vertex::distance2( const Vertex &v )
+double Vertex::distance2( const Vertex &v )
 {
-	Vec3f d = m_xyz - v.m_xyz;
+	Vec3d d = m_xyz - v.m_xyz;
 	return d.dot(d);
 }
 
-float Vertex::cross( Vertex a, Vertex b, Vertex c )
+double Vertex::cross( Vertex a, Vertex b, Vertex c )
 {
-	Vec3f ab = b.m_xyz - a.m_xyz;
-	Vec3f ac = c.m_xyz - a.m_xyz;
+	Vec3d ab = b.m_xyz - a.m_xyz;
+	Vec3d ac = c.m_xyz - a.m_xyz;
 	return ab[0] * ac[1] - ab[1] * ac[0];
 }
 
@@ -67,12 +67,12 @@ Triangle::Triangle( Vertex v0, Vertex v1, Vertex v2 )
 // 	}
 }
 
-Vec3f Triangle::getNormal()
+Vec3d Triangle::getNormal()
 {
-	Vec3f edge0 = m_vertices[1].m_xyz - m_vertices[0].m_xyz;
-	Vec3f edge1 = m_vertices[2].m_xyz - m_vertices[0].m_xyz;
+	Vec3d edge0 = m_vertices[1].m_xyz - m_vertices[0].m_xyz;
+	Vec3d edge1 = m_vertices[2].m_xyz - m_vertices[0].m_xyz;
 
-	Vec3f normal = edge0.cross(edge1);
+	Vec3d normal = edge0.cross(edge1);
 	normalize(normal);
 
 	return normal;
@@ -87,30 +87,30 @@ void Triangle::turnBack()
 
 int Triangle::inTriangle( Vertex v )
 {
-	float abc = fabs(Vertex::cross(m_vertices[0], 
+	double abc = fabs(Vertex::cross(m_vertices[0], 
 		m_vertices[1], m_vertices[2]));
-	float abv = fabs(Vertex::cross(m_vertices[0], m_vertices[1], v));
-	float avc = fabs(Vertex::cross(m_vertices[0], v, m_vertices[2]));
-	float vbc = fabs(Vertex::cross(v, m_vertices[1], m_vertices[2]));
+	double abv = fabs(Vertex::cross(m_vertices[0], m_vertices[1], v));
+	double avc = fabs(Vertex::cross(m_vertices[0], v, m_vertices[2]));
+	double vbc = fabs(Vertex::cross(v, m_vertices[1], m_vertices[2]));
 
-	float diff = abc - abv - avc - vbc;
+	double diff = abc - abv - avc - vbc;
 
 	int r = 1;
-	if (fabs(diff) < FLOAT_ERROR)
+	if (fabs(diff) < DOUBLE_ERROR)
 	{
-		if (abv > FLOAT_ERROR && avc > FLOAT_ERROR && vbc > FLOAT_ERROR)		// in
+		if (abv > DOUBLE_ERROR && avc > DOUBLE_ERROR && vbc > DOUBLE_ERROR)			// in
 		{
 			r = 0;
 		}
-		else if (abv < FLOAT_ERROR && avc > FLOAT_ERROR && vbc > FLOAT_ERROR)	// on ab
+		else if (abv < DOUBLE_ERROR && avc > DOUBLE_ERROR && vbc > DOUBLE_ERROR)	// on ab
 		{
 			r = -1;
 		}
-		else if (abv > FLOAT_ERROR && vbc < FLOAT_ERROR && avc > FLOAT_ERROR)	// on bc
+		else if (abv > DOUBLE_ERROR && vbc < DOUBLE_ERROR && avc > DOUBLE_ERROR)	// on bc
 		{
 			r = -2;
 		}
-		else if (abv > FLOAT_ERROR && vbc > FLOAT_ERROR && avc < FLOAT_ERROR)	// on ac
+		else if (abv > DOUBLE_ERROR && vbc > DOUBLE_ERROR && avc < DOUBLE_ERROR)	// on ac
 		{
 			r = -3;
 		}
@@ -130,21 +130,21 @@ bool Triangle::isVertex( const int index )
 	return false;
 }
 
-bool Triangle::angleCriterion( const float &minCosAngle, 
-	const float &maxCosAngle )
+bool Triangle::angleCriterion( const double &minCosAngle, 
+	const double &maxCosAngle )
 {
-	Vec3f ab = m_vertices[1].m_xyz - m_vertices[0].m_xyz;
-	Vec3f bc = m_vertices[2].m_xyz - m_vertices[1].m_xyz;
-	Vec3f ac = m_vertices[2].m_xyz - m_vertices[0].m_xyz;
+	Vec3d ab = m_vertices[1].m_xyz - m_vertices[0].m_xyz;
+	Vec3d bc = m_vertices[2].m_xyz - m_vertices[1].m_xyz;
+	Vec3d ac = m_vertices[2].m_xyz - m_vertices[0].m_xyz;
 
-	float lenAB = ab.dot(ab);
-	float lenBC = bc.dot(bc);
-	float lenAC = ac.dot(ac);
+	double lenAB = ab.dot(ab);
+	double lenBC = bc.dot(bc);
+	double lenAC = ac.dot(ac);
 
-	float maxLen = lenAB, minLen = lenAB;
-	float lenMaxE0 = lenBC, lenMaxE1 = lenAC;
-	float lenMinE0 = lenBC, lenMinE1 = lenAC;
-	Vec3f maxE0 = bc, maxE1 = ac, minE0 = bc, minE1 = ac;
+	double maxLen = lenAB, minLen = lenAB;
+	double lenMaxE0 = lenBC, lenMaxE1 = lenAC;
+	double lenMinE0 = lenBC, lenMinE1 = lenAC;
+	Vec3d maxE0 = bc, maxE1 = ac, minE0 = bc, minE1 = ac;
 
 	bool maxFlag = true, minFlag = true;
 	if (maxCosAngle > COS180 && maxCosAngle <  COS60)
@@ -164,8 +164,8 @@ bool Triangle::angleCriterion( const float &minCosAngle,
 			maxE0 = -ab;
 			maxE1 = bc;
 		}
-		maxFlag = maxE0.dot(maxE1) > sqrtf(lenMaxE0) 
-			* sqrtf(lenMaxE1) * maxCosAngle;
+		maxFlag = maxE0.dot(maxE1) > sqrt(lenMaxE0) 
+			* sqrt(lenMaxE1) * maxCosAngle;
 	}
 	if (minCosAngle < COS0 && minCosAngle > COS60)
 	{
@@ -184,8 +184,8 @@ bool Triangle::angleCriterion( const float &minCosAngle,
 			minE0 = -ab;
 			minE1 = bc;
 		}
-		minFlag = minE0.dot(minE1) < sqrtf(lenMinE0) 
-			* sqrtf(lenMinE1) * minCosAngle;
+		minFlag = minE0.dot(minE1) < sqrt(lenMinE0) 
+			* sqrt(lenMinE1) * minCosAngle;
 	}
 	
 	return minFlag && maxFlag;
@@ -212,7 +212,7 @@ size_t Triangulation::hash_value( const Triangle &t )
 	size_t seed;
 	for (int i = 0; i < Triangle::Vertex_Size; i++)
 	{
-		Vec3f v = t.m_vertices[i].m_xyz;
+		Vec3d v = t.m_vertices[i].m_xyz;
 		boost::hash_combine(seed, boost::hash_value(v[0]));
 		boost::hash_combine(seed, boost::hash_value(v[1]));
 		boost::hash_combine(seed, boost::hash_value(v[2]));
@@ -221,14 +221,14 @@ size_t Triangulation::hash_value( const Triangle &t )
 }
 
 Delaunay::Delaunay( const Mat &pts, const vector<Vec3b> &colors,
-	float minAngle, float maxAngle)
+	double minAngle, double maxAngle)
 	: m_minAngle(minAngle), m_maxAngle(maxAngle)
 {
 	addVertices(pts, colors);
 }
 
 Delaunay::Delaunay( const Mat &pts, const Mat &colors,
-	float minAngle, float maxAngle)
+	double minAngle, double maxAngle)
 	: m_minAngle(minAngle), m_maxAngle(maxAngle)
 {
 	addVertices(pts, colors);
@@ -264,7 +264,7 @@ void Delaunay::computeDelaunay()
 		}
 		cnt = cnt > k ? k : cnt;
 
-		Vec3f normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
+		Vec3d normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
 		int id = 2;
 		// 判断法向量哪个不为0，z->y->x
 		if (normal[2] != 0)		// z
@@ -284,13 +284,13 @@ void Delaunay::computeDelaunay()
 			continue;
 		}
 
-		float minDistance = -1;
+		double minDistance = -1;
 		int j;
 		for (j = 0; j < cnt; j++)
 		{
 			if (dists[j] > 0)
 			{
-				minDistance = (float)dists[j];
+				minDistance = dists[j];
 				break;
 			}
 		}
@@ -305,7 +305,7 @@ void Delaunay::computeDelaunay()
 				continue;
 			}
 			
-			Vec3f vv = tmpv.m_xyz - v.m_xyz;
+			Vec3d vv = tmpv.m_xyz - v.m_xyz;
 			double dist2 = dists[j] * 0.75f;	// sqrt
 			double alpha = vv.dot(normal);
 			alpha = alpha * alpha;
@@ -313,7 +313,7 @@ void Delaunay::computeDelaunay()
 			{
 				continue;
 			}
-			Vec3f proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
+			Vec3d proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
 			tmpvVector.push_back(Vertex(proj, idxs[j]));
 		}
 		if (tmpvVector.size() < 3)	// 少于3个不能构成三角形
@@ -322,15 +322,15 @@ void Delaunay::computeDelaunay()
 		}
 
 		// 将切平面转换为x-y平面进行三角形计算
-		vVector.push_back(Vertex(Vec3f(0, 0, 0), i));	// 原点
-		Vec3f vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
+		vVector.push_back(Vertex(Vec3d(0, 0, 0), i));	// 原点
+		Vec3d vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
 		vx = normalize(vx);
 		for (j = 0; j < tmpvVector.size(); j++)
 		{
-			Vec3f vv = tmpvVector[j].m_xyz - v.m_xyz;
-			float x = vv.dot(vx);
-			float y = vx.cross(vv)[id] / normal[id];
-			Vec3f proj(x, y, 0);
+			Vec3d vv = tmpvVector[j].m_xyz - v.m_xyz;
+			double x = vv.dot(vx);
+			double y = vx.cross(vv)[id] / normal[id];
+			Vec3d proj(x, y, 0);
 			vVector.push_back(Vertex(proj, tmpvVector[j].m_index));
 		}
 
@@ -406,7 +406,7 @@ void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
 // 		{
 // 			continue;
 // 		}
-		Vec3f xyz = pts.at<Vec3f>(i, 0);
+		Vec3d xyz = pts.at<Vec3d>(i, 0);
 		Vec3b color = colors[i];
 
 		m_vertices.push_back(Vertex(xyz, cnt, color));
@@ -427,7 +427,7 @@ void Delaunay::addVertices( const Mat &pts, const Mat &colors )
 // 		{
 // 			continue;
 // 		}
-		Vec3f xyz = pts.at<Vec3f>(i, 0);
+		Vec3d xyz = pts.at<Vec3d>(i, 0);
 		Vec3b color = colors.at<Vec3b>(i, 0);
 
 		m_vertices.push_back(Vertex(xyz, cnt, color));
@@ -439,11 +439,11 @@ void Delaunay::addVertices( const Mat &pts, const Mat &colors )
 void Delaunay::addBounding( const VertexVector &verSet, 
 	TriangleVector &triSet )
 {
-	float max_x = -100000, max_y = -100000;
-	float min_x = 100000, min_y = 100000;
+	double max_x = -100000, max_y = -100000;
+	double min_x = 100000, min_y = 100000;
 	for (int i = 0; i < verSet.size(); i++)
 	{
-		Vec3f v = verSet[i].m_xyz;
+		Vec3d v = verSet[i].m_xyz;
 		max_x = max_x < v[0] ? v[0] : max_x;
 		min_x = min_x > v[0] ? v[0] : min_x;
 		max_y = max_y < v[1] ? v[1] : max_y;
@@ -451,15 +451,15 @@ void Delaunay::addBounding( const VertexVector &verSet,
 	}
 
 	// 将矩形区域的外接三角形作为边界
-	float dx = max_x - min_x;
-	float dy = max_y - min_y;
-	float mid_x = (min_x + max_x) / 2;
-	float mid_y = (min_y + max_y) / 2;
+	double dx = max_x - min_x;
+	double dy = max_y - min_y;
+	double mid_x = (min_x + max_x) / 2;
+	double mid_y = (min_y + max_y) / 2;
 
 	// 为了去除边界方便讲边界点的索引置为负数
-	Vertex v0(Vec3f(mid_x, max_y + dy, 0.0f), -1);
-	Vertex v1(Vec3f(mid_x - dx, min_y, 0.0f), -2);
-	Vertex v2(Vec3f(mid_x + dx, min_y, 0.0f), -3);
+	Vertex v0(Vec3d(mid_x, max_y + dy, 0.0f), -1);
+	Vertex v1(Vec3d(mid_x - dx, min_y, 0.0f), -2);
+	Vertex v2(Vec3d(mid_x + dx, min_y, 0.0f), -3);
 
 	triSet.push_back(Triangle(v0, v1, v2));
 }
@@ -638,15 +638,15 @@ bool Delaunay::flipTest( TriangleVector &triSet, Triangle t )
 
 bool Delaunay::inCircle( Vertex a, Vertex b, Vertex c, Vertex p )
 {
-	Vec3f cb = b.m_xyz - c.m_xyz;
-	Vec3f ca = a.m_xyz - c.m_xyz;
-	Vec3f pb = b.m_xyz - p.m_xyz;
-	Vec3f pa = a.m_xyz - p.m_xyz;
+	Vec3d cb = b.m_xyz - c.m_xyz;
+	Vec3d ca = a.m_xyz - c.m_xyz;
+	Vec3d pb = b.m_xyz - p.m_xyz;
+	Vec3d pa = a.m_xyz - p.m_xyz;
 
-	float cross_cbca = fabs(cb[0] * ca[1] - cb[1] * ca[0]);
-	float cross_pbpa = fabs(pb[0] * pa[1] - pb[1] * pa[0]);
-	float dot_cbca = cb.dot(ca);
-	float dot_pbpa = pb.dot(pa);
+	double cross_cbca = fabs(cb[0] * ca[1] - cb[1] * ca[0]);
+	double cross_pbpa = fabs(pb[0] * pa[1] - pb[1] * pa[0]);
+	double dot_cbca = cb.dot(ca);
+	double dot_pbpa = pb.dot(pa);
 	if (cross_cbca * dot_pbpa + cross_pbpa * dot_cbca < 0)
 	{
 		return true;
@@ -665,13 +665,13 @@ void Delaunay::drawTrianglesOnPlane( const TriangleVector &triSet )
 		return;
 	}
 
-	float max_x = -100000, max_y = -100000;
-	float min_x = 100000, min_y = 100000;
+	double max_x = -100000, max_y = -100000;
+	double min_x = 100000, min_y = 100000;
 	for (int i = 0; i < triSet.size(); i++)
 	{
 		for (int j = 0; j < Triangle::Vertex_Size; j++)
 		{
-			Vec3f v = triSet[i].m_vertices[j].m_xyz;
+			Vec3d v = triSet[i].m_vertices[j].m_xyz;
 			max_x = max_x < v[0] ? v[0] : max_x;
 			min_x = min_x > v[0] ? v[0] : min_x;
 			max_y = max_y < v[1] ? v[1] : max_y;
@@ -684,11 +684,11 @@ void Delaunay::drawTrianglesOnPlane( const TriangleVector &triSet )
 		Point ps[3];
 		for (int j = 0; j < Triangle::Vertex_Size; j++)
 		{
-			float tmpx = triSet[i].m_vertices[j].m_xyz[0];
-			float tmpy = triSet[i].m_vertices[j].m_xyz[1];
+			double tmpx = triSet[i].m_vertices[j].m_xyz[0];
+			double tmpy = triSet[i].m_vertices[j].m_xyz[1];
 
-			float x = (tmpx - min_x) * 800 / (max_x - min_x) + 100;
-			float y = (max_y - tmpy) * 600 / (max_y - min_y) + 100;
+			double x = (tmpx - min_x) * 800 / (max_x - min_x) + 100;
+			double y = (max_y - tmpy) * 600 / (max_y - min_y) + 100;
 
 			ps[j].x = (int)x;
 			ps[j].y = (int)y;
@@ -702,11 +702,11 @@ void Delaunay::drawTrianglesOnPlane( const TriangleVector &triSet )
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			float tmpx = triSet[i].m_vertices[j].m_xyz[0];
-			float tmpy = triSet[i].m_vertices[j].m_xyz[1];
+			double tmpx = triSet[i].m_vertices[j].m_xyz[0];
+			double tmpy = triSet[i].m_vertices[j].m_xyz[1];
 
-			float fx = (tmpx - min_x) * 800 / (max_x - min_x) + 100;
-			float fy = (max_y - tmpy) * 600 / (max_y - min_y) + 100;
+			double fx = (tmpx - min_x) * 800 / (max_x - min_x) + 100;
+			double fy = (max_y - tmpy) * 600 / (max_y - min_y) + 100;
 
 			int x = (int)fx;
 			int y = (int)fy;

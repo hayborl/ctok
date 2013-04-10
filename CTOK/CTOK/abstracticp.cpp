@@ -2,13 +2,13 @@
 
 cv::Mat AbstractICP::getTransformMat(const Transformation &tr)
 {
-	float tempR[9], tempT[3];
+	double tempR[9], tempT[3];
 	getRotateMatrix(tr.q, tempR);
-	Mat R(3, 3, CV_32FC1, tempR);
-	memcpy(tempT, tr.t.val, 3 * sizeof(float));
-	Mat T(3, 1, CV_32FC1, tempT);
+	Mat R(3, 3, CV_64FC1, tempR);
+	memcpy(tempT, tr.t.val, 3 * sizeof(double));
+	Mat T(3, 1, CV_64FC1, tempT);
 
-	Mat mat = Mat::eye(4, 4, CV_32FC1);
+	Mat mat = Mat::eye(4, 4, CV_64FC1);
 	Mat roi = mat(Rect(0, 0, 3, 3));
 	R.copyTo(roi);
 	roi = mat(Rect(3, 0, 1, 3));
@@ -20,8 +20,8 @@ cv::Mat AbstractICP::getTransformMat(const Transformation &tr)
 void AbstractICP::initTransform( Mat &initObj, bool withCuda )
 {
 	assert(m_objSet.cols == 1 && m_modSet.cols == 1);
-	assert(m_objSet.type() == DataType<Point3f>::type);
-	assert(m_modSet.type() == DataType<Point3f>::type);
+	assert(m_objSet.type() == DataType<Point3d>::type);
+	assert(m_modSet.type() == DataType<Point3d>::type);
 
 	int objRows = m_objSet.rows;
 	int modRows = m_modSet.rows;
@@ -43,7 +43,7 @@ void AbstractICP::initTransform( Mat &initObj, bool withCuda )
 			getConstructionMat(modSet, modCMat);
 		}
 	}
-	Mat ones = Mat::ones(objCMat.rows, 1, CV_32FC1);
+	Mat ones = Mat::ones(objCMat.rows, 1, CV_64FC1);
 	Transformation tr = computeTransformation(objCMat, modCMat, ones);
 	Mat transformMat = getTransformMat(tr);
 	transformPointCloud(m_objSet, initObj, transformMat, withCuda);
@@ -58,12 +58,12 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 
 	Mat meanMatMod = modSet.t() * lambda;
 	Mat meanMatObj = objSet.t() * lambda;
-	float sumLambda = (float)sum(lambda)[0];
+	double sumLambda = sum(lambda)[0];
 	meanMatMod /= sumLambda;
 	meanMatObj /= sumLambda;
 
 	//compute cross-covariance matrix
-	Mat ccMatrix = Mat::zeros(3, 3, CV_32FC1);
+	Mat ccMatrix = Mat::zeros(3, 3, CV_64FC1);
 	Mat tmpObjSet = objSet.clone();
 #pragma omp parallel for
 	for (int c = 0; c < 3; c++)
@@ -75,19 +75,19 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 	ccMatrix = tmpObjSet.t() * modSet - meanMatObj * meanMatMod.t();
 
 	//compute the trace of cross-covariance matrix
-	float tr = (float)(trace(ccMatrix)[0]);
+	double tr = trace(ccMatrix)[0];
 
 	//compute the cyclic components of Q
 	Mat ccMatrixT = ccMatrix.t();
 	Mat A = ccMatrix - ccMatrixT;
-	Mat delta(3, 1, CV_32FC1);
-	delta.at<float>(0, 0) = A.at<float>(1, 2);
-	delta.at<float>(1, 0) = A.at<float>(2, 0);
-	delta.at<float>(2, 0) = A.at<float>(0, 1);
-	Mat tempMat = ccMatrix + ccMatrixT - tr * Mat::eye(3, 3, CV_32FC1);
+	Mat delta(3, 1, CV_64FC1);
+	delta.at<double>(0, 0) = A.at<double>(1, 2);
+	delta.at<double>(1, 0) = A.at<double>(2, 0);
+	delta.at<double>(2, 0) = A.at<double>(0, 1);
+	Mat tempMat = ccMatrix + ccMatrixT - tr * Mat::eye(3, 3, CV_64FC1);
 
-	Mat Q(4, 4, CV_32FC1);
-	Q.at<float>(0, 0) = tr;
+	Mat Q(4, 4, CV_64FC1);
+	Q.at<double>(0, 0) = tr;
 	Mat roi = Q(Rect(1, 0, 3, 1));
 	((Mat)delta.t()).copyTo(roi);
 	roi = Q(Rect(0, 1, 1, 3));
@@ -96,19 +96,19 @@ Transformation AbstractICP::computeTransformation( const Mat &objSet,
 	tempMat.copyTo(roi);
 
 	//compute the eigenvalues and eigenvector
-	Mat eigenValues(4, 1, CV_32FC1);
-	Mat eigenVector(4, 4, CV_32FC1);
+	Mat eigenValues(4, 1, CV_64FC1);
+	Mat eigenVector(4, 4, CV_64FC1);
 	eigen(Q, eigenValues, eigenVector);
 	Transformation RT;
 	RT.q = Vec4f(eigenVector.row(0));
 
 	//get the rotation matrix
-	float tempR[9];
+	double tempR[9];
 	getRotateMatrix(RT.q, tempR);
-	Mat R(3, 3, CV_32FC1, tempR);
+	Mat R(3, 3, CV_64FC1, tempR);
 
 	Mat T = meanMatMod - R * meanMatObj;
-	RT.t = Vec3f(T);
+	RT.t = Vec3d(T);
 
 	return RT;
 }
@@ -120,8 +120,8 @@ Transformation AbstractICP::cuda_computeTransformation(
 	assert(objSet.rows == modSet.rows && objSet.rows == lambda.rows);
 	int rows = objSet.rows;
 
-	Mat ones = Mat::ones(3, 1, CV_32FC1);
-	Mat ones33 = Mat::ones(3, 3, CV_32FC1);
+	Mat ones = Mat::ones(3, 1, CV_64FC1);
+	Mat ones33 = Mat::ones(3, 3, CV_64FC1);
 	GpuMat gpuOnes, gpuOnes33;
 	gpuOnes.upload(ones);
 	gpuOnes33.upload(ones33);
@@ -131,7 +131,7 @@ Transformation AbstractICP::cuda_computeTransformation(
 	gpuMod.upload(modSet);
 	gpuLambda.upload(lambda);
 
-	float sumLambda = (float)sum(gpuLambda)[0];
+	double sumLambda = sum(gpuLambda)[0];
 	GpuMat gpuModMatC, gpuObjMatC;
 
 	gemm(gpuObj, gpuLambda, 1.0f / sumLambda, 
@@ -140,7 +140,7 @@ Transformation AbstractICP::cuda_computeTransformation(
 		gpuOnes, 0, gpuModMatC, GEMM_1_T);
 
 	//compute cross-covariance matrix
-	GpuMat gpuCcMatrix(3, 3, CV_32FC1);
+	GpuMat gpuCcMatrix(3, 3, CV_64FC1);
 	GpuMat tmpObjSet = gpuObj.clone();
 	for (int c = 0; c < 3; c++)
 	{
@@ -152,23 +152,23 @@ Transformation AbstractICP::cuda_computeTransformation(
 	gemm(gpuObjMatC, gpuModMatC, 1.0f, gpuOnes33, 0, tmpMat2, GEMM_2_T);
 	subtract(tmpMat1, tmpMat2, gpuCcMatrix);
 
-	Mat ccMatrix(3, 3, CV_32FC1);
+	Mat ccMatrix(3, 3, CV_64FC1);
 	gpuCcMatrix.download(ccMatrix);
 
 	//compute the trace of cross-covariance matrix
-	float tr = (float)(trace(ccMatrix)[0]);
+	double tr = trace(ccMatrix)[0];
 
 	//compute the cyclic components of Q
 	Mat ccMatrixT = ccMatrix.t();
 	Mat A = ccMatrix - ccMatrixT;
-	Mat delta(3, 1, CV_32FC1);
-	delta.at<float>(0, 0) = A.at<float>(1, 2);
-	delta.at<float>(1, 0) = A.at<float>(2, 0);
-	delta.at<float>(2, 0) = A.at<float>(0, 1);
-	Mat tempMat = ccMatrix + ccMatrixT - tr * Mat::eye(3, 3, CV_32FC1);
+	Mat delta(3, 1, CV_64FC1);
+	delta.at<double>(0, 0) = A.at<double>(1, 2);
+	delta.at<double>(1, 0) = A.at<double>(2, 0);
+	delta.at<double>(2, 0) = A.at<double>(0, 1);
+	Mat tempMat = ccMatrix + ccMatrixT - tr * Mat::eye(3, 3, CV_64FC1);
 
-	Mat Q(4, 4, CV_32FC1);
-	Q.at<float>(0, 0) = tr;
+	Mat Q(4, 4, CV_64FC1);
+	Q.at<double>(0, 0) = tr;
 	Mat roi = Q(Rect(1, 0, 3, 1));
 	((Mat)delta.t()).copyTo(roi);
 	roi = Q(Rect(0, 1, 1, 3));
@@ -177,8 +177,8 @@ Transformation AbstractICP::cuda_computeTransformation(
 	tempMat.copyTo(roi);
 
 	//compute the eigenvalues and eigenvector
-	Mat eigenValues(4, 1, CV_32FC1);
-	Mat eigenVector(4, 4, CV_32FC1);
+	Mat eigenValues(4, 1, CV_64FC1);
+	Mat eigenVector(4, 4, CV_64FC1);
 	eigen(Q, eigenValues, eigenVector);
 
 	int maxEigenIndex = 0;
@@ -187,15 +187,15 @@ Transformation AbstractICP::cuda_computeTransformation(
 	RT.q = Vec4f(eigenVector.row(maxEigenIndex));
 
 	//get the rotation matrix
-	float tempR[9];
+	double tempR[9];
 	getRotateMatrix(RT.q, tempR);
-	Mat R(3, 3, CV_32FC1, tempR);
+	Mat R(3, 3, CV_64FC1, tempR);
 
 	Mat objMatC, modMatC;
 	gpuObjMatC.download(objMatC);
 	gpuModMatC.download(modMatC);
 	Mat T = modMatC - R * objMatC;
-	RT.t = Vec3f(T);
+	RT.t = Vec3d(T);
 
 	return RT;
 }
@@ -203,18 +203,18 @@ Transformation AbstractICP::cuda_computeTransformation(
 void AbstractICP::getConstructionMat( const Mat &in, Mat &out )
 {
 	assert(in.channels() == 1);
-	assert(in.type() == CV_32FC1);
+	assert(in.type() == CV_64FC1);
 
-	out.create(4, 3, CV_32FC1);
+	out.create(4, 3, CV_64FC1);
 	int rows = in.rows;
-	Mat ones = Mat::ones(rows, 1, CV_32FC1);
+	Mat ones = Mat::ones(rows, 1, CV_64FC1);
 
 	Mat mean = in.t() * ones;
-	mean /= (float)rows;
+	mean /= (double)rows;
 
-	Mat ccMatrix = in.t() * in / ((float)rows) - mean * mean.t();
-	Mat eigenValues(ccMatrix.rows, 1, CV_32FC1);
-	Mat eigenVector(ccMatrix.rows, ccMatrix.cols, CV_32FC1);
+	Mat ccMatrix = in.t() * in / ((double)rows) - mean * mean.t();
+	Mat eigenValues(ccMatrix.rows, 1, CV_64FC1);
+	Mat eigenVector(ccMatrix.rows, ccMatrix.cols, CV_64FC1);
 	eigen(ccMatrix, eigenValues, eigenVector);
 
 	Mat roi = out(Rect(0, 0, 3, 3));
@@ -223,12 +223,12 @@ void AbstractICP::getConstructionMat( const Mat &in, Mat &out )
 	Mat(mean.t()).copyTo(roi);
 }
 
-void getRotateMatrix( Vec4f q, float* R )
+void getRotateMatrix( Vec4d q, double* R )
 {
-	float q0 = q[0];
-	float q1 = q[1];
-	float q2 = q[2];
-	float q3 = q[3];
+	double q0 = q[0];
+	double q1 = q[1];
+	double q2 = q[2];
+	double q3 = q[3];
 
 	R[0] = q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3;
 	R[1] = 2 * (q1 * q2 - q0 * q3);

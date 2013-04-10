@@ -8,11 +8,11 @@ using namespace cv;
 
 namespace Triangulation
 {
-#define FLOAT_ERROR		1e-3	// 浮点数的误差范围
-#define COS0			0.0f	// cos0
-#define COS30			0.866f	// cos30
-#define COS60			0.5f	// cos60
-#define COS180			-1.0f	// cos180
+#define DOUBLE_ERROR	1e-3	// 浮点数的误差范围
+#define COS0			0.0		// cos0
+#define COS30			0.866	// cos30
+#define COS60			0.5		// cos60
+#define COS180			-1.0	// cos180
 
 	// distance_range 寻找最近邻的范围球的半径平方
 	enum {Distance_Range = 1000};
@@ -21,23 +21,23 @@ namespace Triangulation
 	class Vertex
 	{
 	public:
-		Vec3f m_xyz;		// x、y、z坐标
+		Vec3d m_xyz;		// x、y、z坐标
 		Vec3b m_color;		// 颜色信息
 		int m_index;		// 索引值
 
 		Vertex() : m_index(-1){}
-		Vertex(float x, float y, float z) 
-			: m_index(-1){ m_xyz = Vec3f(x, y, z);}
-		Vertex(Vec3f xyz, int index = -1, Vec3b color = Vec3b(0, 0, 0)) 
+		Vertex(double x, double y, double z) 
+			: m_index(-1){ m_xyz = Vec3d(x, y, z);}
+		Vertex(Vec3d xyz, int index = -1, Vec3b color = Vec3b(0, 0, 0)) 
 			: m_xyz(xyz), m_index(index), m_color(color){}
 
 		Vertex& operator=(const Vertex &v);
 		bool operator==(const Vertex &v)const;
 		bool operator<(const Vertex &v)const;
 
-		float distance2(const Vertex &v);	// 求点之间的距离，返回距离平方
+		double distance2(const Vertex &v);	// 求点之间的距离，返回距离平方
 
-		static float cross(Vertex a, Vertex b, Vertex c);	// ab x ac，只考虑x, y。
+		static double cross(Vertex a, Vertex b, Vertex c);	// ab x ac，只考虑x, y。
 	};
 
 	// 三角形类
@@ -50,7 +50,7 @@ namespace Triangulation
 		Triangle(){}
 		Triangle(Vertex v0, Vertex v1, Vertex v2);
 
-		Vec3f getNormal();				// 获取三角形的法向量
+		Vec3d getNormal();				// 获取三角形的法向量
 		void turnBack();				// 交换v0、v2
 	
 		/*	判断一个点是否在三角形内，
@@ -60,8 +60,8 @@ namespace Triangulation
 			在v2v0边上返回-3*/
 		int inTriangle(Vertex v);
 		bool isVertex(const int index);			// 判断当前索引值的点是否是三角形的顶点
-		bool angleCriterion(const float &minCosAngle = 1.0f,
-			const float &maxCosAngle = -1.0f);	// 判断三角形是否符合最大、最小角限制
+		bool angleCriterion(const double &minCosAngle = 1.0f,
+			const double &maxCosAngle = -1.0f);	// 判断三角形是否符合最大、最小角限制
 
 		bool operator==(const Triangle &t)const;
 	};
@@ -77,12 +77,12 @@ namespace Triangulation
 	public:
 		TriangleVector m_triangles;	// 三角形集合
 
-		Delaunay(float minAngle = COS30, float maxAngle = COS180) 
+		Delaunay(double minAngle = COS30, double maxAngle = COS180) 
 			: m_minAngle(minAngle), m_maxAngle(maxAngle){}
 		Delaunay(const Mat &pts, const vector<Vec3b> &colors, 
-			float minAngle = COS30, float maxAngle = COS180);
+			double minAngle = COS30, double maxAngle = COS180);
 		Delaunay(const Mat &pts, const Mat &colors, 
-			float minAngle = COS30, float maxAngle = COS180);
+			double minAngle = COS30, double maxAngle = COS180);
 
 		void computeDelaunay();				// 计算Delaunay三角
 		void saveTriangles(char* file);		// 保存当前划分出的三角形到文件
@@ -94,7 +94,7 @@ namespace Triangulation
 	private:
 		VertexVector m_vertices;		// 点集
 		int m_preSize;					// 记录下一次compute之前有多少点
-		float m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制
+		double m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制
 		enum {k = 20, u = 5};			// k个邻近点，u倍最小距离内的点去除
 
 		void computeDelaunay(const VertexVector &verSet, 

@@ -243,26 +243,26 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 
 	if (hasCuda)
 	{
-		GpuMat imgsColorGpu0, imgsColorGpu1;
-		GpuMat imgsGpu0, imgsGpu1;
-		imgsColorGpu0.upload(objColorImg);
-		imgsColorGpu1.upload(modColorImg);
-		cvtColor(imgsColorGpu0, imgsGpu0, CV_BGR2GRAY);
-		cvtColor(imgsColorGpu1, imgsGpu1, CV_BGR2GRAY);
-
-		SURF_GPU surfGpu;
-		GpuMat keyPointsGpu0, keyPointsGpu1;
-		GpuMat desGpu0, desGpu1;
-		surfGpu(imgsGpu0, GpuMat(), keyPointsGpu0, desGpu0);
-		surfGpu(imgsGpu1, GpuMat(), keyPointsGpu1, desGpu1);
-
-		BFMatcher_GPU matcher;
-		GpuMat trainIdx, distance;
-		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
-
-		surfGpu.downloadKeypoints(keyPointsGpu0, keyPoints[0]);
-		surfGpu.downloadKeypoints(keyPointsGpu1, keyPoints[1]);
-		BFMatcher_GPU::matchDownload(trainIdx, distance, matches);
+// 		GpuMat imgsColorGpu0, imgsColorGpu1;
+// 		GpuMat imgsGpu0, imgsGpu1;
+// 		imgsColorGpu0.upload(objColorImg);
+// 		imgsColorGpu1.upload(modColorImg);
+// 		cvtColor(imgsColorGpu0, imgsGpu0, CV_BGR2GRAY);
+// 		cvtColor(imgsColorGpu1, imgsGpu1, CV_BGR2GRAY);
+// 
+// 		SURF_GPU surfGpu;
+// 		GpuMat keyPointsGpu0, keyPointsGpu1;
+// 		GpuMat desGpu0, desGpu1;
+// 		surfGpu(imgsGpu0, GpuMat(), keyPointsGpu0, desGpu0);
+// 		surfGpu(imgsGpu1, GpuMat(), keyPointsGpu1, desGpu1);
+// 
+// 		BFMatcher_GPU matcher;
+// 		GpuMat trainIdx, distance;
+// 		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
+// 
+// 		surfGpu.downloadKeypoints(keyPointsGpu0, keyPoints[0]);
+// 		surfGpu.downloadKeypoints(keyPointsGpu1, keyPoints[1]);
+// 		BFMatcher_GPU::matchDownload(trainIdx, distance, matches);
 	}
 	else
 	{
@@ -371,7 +371,8 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 
 void getFeaturePoints(xn::DepthGenerator dg,				
 	const Mat &colorImgNow, const Mat &depthImgNow,		
-	const Mat &colorImgPre, const Mat &depthImgPre,		
+	const Mat &colorImgPre, const Mat &depthImgPre,
+	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,
 	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask)
 {
 	Mat colorImgs[2], keyPointsImgs[2], descriptors[2];
@@ -383,26 +384,26 @@ void getFeaturePoints(xn::DepthGenerator dg,
 
 	if (hasCuda)
 	{
-		GpuMat imgsColorGpu0, imgsColorGpu1;
-		GpuMat imgsGpu0, imgsGpu1;
-		imgsColorGpu0.upload(colorImgNow);
-		imgsColorGpu1.upload(colorImgPre);
-		cvtColor(imgsColorGpu0, imgsGpu0, CV_BGR2GRAY);
-		cvtColor(imgsColorGpu1, imgsGpu1, CV_BGR2GRAY);
-
-		SURF_GPU surfGpu;
-		GpuMat keyPointsGpu0, keyPointsGpu1;
-		GpuMat desGpu0, desGpu1;
-		surfGpu(imgsGpu0, GpuMat(), keyPointsGpu0, desGpu0);
-		surfGpu(imgsGpu1, GpuMat(), keyPointsGpu1, desGpu1);
-
-		BFMatcher_GPU matcher;
-		GpuMat trainIdx, distance;
-		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
-
-		surfGpu.downloadKeypoints(keyPointsGpu0, keyPoints[0]);
-		surfGpu.downloadKeypoints(keyPointsGpu1, keyPoints[1]);
-		BFMatcher_GPU::matchDownload(trainIdx, distance, matches);
+// 		GpuMat imgsColorGpu0, imgsColorGpu1;
+// 		GpuMat imgsGpu0, imgsGpu1;
+// 		imgsColorGpu0.upload(colorImgNow);
+// 		imgsColorGpu1.upload(colorImgPre);
+// 		cvtColor(imgsColorGpu0, imgsGpu0, CV_BGR2GRAY);
+// 		cvtColor(imgsColorGpu1, imgsGpu1, CV_BGR2GRAY);
+// 
+// 		SURF_GPU surfGpu;
+// 		GpuMat keyPointsGpu0, keyPointsGpu1;
+// 		GpuMat desGpu0, desGpu1;
+// 		surfGpu(imgsGpu0, GpuMat(), keyPointsGpu0, desGpu0);
+// 		surfGpu(imgsGpu1, GpuMat(), keyPointsGpu1, desGpu1);
+// 
+// 		BFMatcher_GPU matcher;
+// 		GpuMat trainIdx, distance;
+// 		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
+// 
+// 		surfGpu.downloadKeypoints(keyPointsGpu0, keyPoints[0]);
+// 		surfGpu.downloadKeypoints(keyPointsGpu1, keyPoints[1]);
+// 		BFMatcher_GPU::matchDownload(trainIdx, distance, matches);
 	}
 	else
 	{
@@ -509,6 +510,9 @@ void getFeaturePoints(xn::DepthGenerator dg,
 			projM[cnt].Y = (float)my;
 			projM[cnt].Z = (float)mz;
 			cnt++;
+
+			oldLoc.push_back(Vec2d(points1[i].x, points1[i].y));
+			newLoc.push_back(Vec2d(points0[i].x, points0[i].y));
 		}
 	}
 	dg.ConvertProjectiveToRealWorld(cnt, projO, realO);

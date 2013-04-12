@@ -10,9 +10,6 @@
     <ClCompile Include="abstracticp.cpp">
       <Filter>src files</Filter>
     </ClCompile>
-    <ClCompile Include="segment.cpp">
-      <Filter>src files</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>src files</Filter>
     </ClCompile>
@@ -26,6 +23,9 @@
       <Filter>src files</Filter>
     </ClCompile>
     <ClCompile Include="triangulation.cpp">
+      <Filter>src files</Filter>
+    </ClCompile>
+    <ClCompile Include="bundleadjustment.cpp">
       <Filter>src files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -42,9 +42,6 @@
     <ClInclude Include="emicp.h">
       <Filter>head files</Filter>
     </ClInclude>
-    <ClInclude Include="segment.h">
-      <Filter>head files</Filter>
-    </ClInclude>
     <ClInclude Include="features.h">
       <Filter>head files</Filter>
     </ClInclude>
@@ -55,6 +52,9 @@
       <Filter>head files</Filter>
     </ClInclude>
     <ClInclude Include="timer.h">
+      <Filter>head files</Filter>
+    </ClInclude>
+    <ClInclude Include="bundleadjustment.h">
       <Filter>head files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,9 +77,6 @@
       <Filter>cuda files</Filter>
     </CudaCompile>
     <CudaCompile Include="emicp.cu">
-      <Filter>cuda files</Filter>
-    </CudaCompile>
-    <CudaCompile Include="segment.cu">
       <Filter>cuda files</Filter>
     </CudaCompile>
     <CudaCompile Include="abstracticp.cu">

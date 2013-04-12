@@ -20,7 +20,7 @@
 #include <thrust/find.h>
 
 #include "ANN/ANN.h"
-#pragma comment(lib, "ANN.lib")
+#pragma comment(lib, "libs/ANN.lib")
 
 #include "timer.h"
 

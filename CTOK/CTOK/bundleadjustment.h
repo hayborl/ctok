@@ -4,6 +4,11 @@
 #include "opencv2/opencv.hpp"
 
 #include "Math/v3d_linear_utils.h"
+#include "Geometry/v3d_cameramatrix.h"
+
+#pragma comment(lib, "libs/colamd.lib")
+#pragma comment(lib, "libs/ldl.lib")
+#pragma comment(lib, "libs/SSBA.lib")
 
 using namespace V3D;
 using namespace cv;
@@ -14,7 +19,7 @@ public:
 	BundleAdjustment(){};
 
 	static void setIntrinsic(const Mat &intrinsicMat);
-	void runBundleAdjustment(Mat &cam, Mat &points, 
+	static void runBundleAdjustment(Mat &oldCam, Mat &newPoints, 
 		const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc);
 
 private:
@@ -22,6 +27,14 @@ private:
 
 	static Matrix3x3d m_intrinsic;	// ÄÚÓ¦¾ØÕó
 	static double m_f0;				// ½¹¾à
+
+	static void showErrorStatistics(double const f0,
+		StdDistortionFunction const& distortion,
+		vector<CameraMatrix> const& cams,
+		vector<Vector3d> const& Xs,
+		vector<Vector2d> const& measurements,
+		vector<int> const& correspondingView,
+		vector<int> const& correspondingPoint);
 };
 
 #endif

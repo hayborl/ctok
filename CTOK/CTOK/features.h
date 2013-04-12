@@ -42,6 +42,7 @@ void getSurfPointsSet(const Mat &objColorImg, const Mat &objPointCloud,
 void getFeaturePoints(xn::DepthGenerator dg,				// OpenNI，用以将点转换成真实世界的点
 	const Mat &colorImgNow, const Mat &depthImgNow,			// 当前帧的彩色图与深度图
 	const Mat &colorImgPre, const Mat &depthImgPre,			// 前一帧的彩色图与深度图
+	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,			// 新一帧的点云在前一帧和当前帧的2D图的位置。
 	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask);	// 依次为当前帧的特征点集，前一帧的特征点集，
 															// 匹配转换后当前帧的特征点集，当前帧相比前一帧多出的部分
 

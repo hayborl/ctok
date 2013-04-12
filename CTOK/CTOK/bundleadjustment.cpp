@@ -2,7 +2,7 @@
 
 #include "Math/v3d_linear.h"
 #include "Geometry/v3d_metricbundle.h"
-#include "Geometry/v3d_cameramatrix.h"
+#include "Math/v3d_optimization.h"
 
 #include <iostream>
 
@@ -23,17 +23,19 @@ void BundleAdjustment::setIntrinsic( const Mat &intrinsicMat )
 	m_f0 = m_intrinsic[0][0];
 }
 
-void BundleAdjustment::runBundleAdjustment( Mat &cam, Mat &points, 
+void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints, 
 	const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc )
 {
-	assert(points.rows == oldLoc.size());
+	assert(newPoints.rows == oldLoc.size());
 	assert(oldLoc.size() == newLoc.size());
 
 	int N = CAM_NUM;
-	int M = points.rows;
+	int M = newPoints.rows;
 	int K = 2 * M;
 
 	double r_f0 = 1.0 / m_f0;
+
+	StdDistortionFunction distortion;
 
 	Matrix3x3d KNorm = m_intrinsic;
 	// Normalize the intrinsic to have unit focal length.
@@ -43,37 +45,34 @@ void BundleAdjustment::runBundleAdjustment( Mat &cam, Mat &points,
 	vector<Vector3d> pts(M);
 	for (int i = 0; i < M; i++)
 	{
-		Vec3d v = points.at<Vec3d>(i, 0);
+		Vec3d v = newPoints.at<Vec3d>(i, 0);
 		pts[i][0] = v[0];
 		pts[i][1] = v[1];
 		pts[i][2] = v[2];
 	}
-	cout << "Read the 3D points." << endl;
-
-	vector<int> camIdFwdMap(N);
-	map<int, int> camIdBwdMap;
+/*	cout << "Read the 3D points." << endl;*/
 
 	vector<CameraMatrix> cams(N);
 
 	Matrix3x3d R;
 	makeIdentityMatrix(R);
-	Vector3d T;
-	cams[0].setIntrinsic(KNorm);
-	cams[0].setRotation(R);
-	cams[0].setTranslation(T);
+	Vector3d T = makeVector3(0.0, 0.0, 0.0);
+	cams[1].setIntrinsic(KNorm);
+	cams[1].setRotation(R);
+	cams[1].setTranslation(T);
 
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			R[i][j] = cam.at<double>(i, j);
+			R[i][j] = oldCam.at<double>(i, j);
 		}
-		T[i] = cam.at<double>(i, 3);
+		T[i] = oldCam.at<double>(i, 3);
 	}
-	cams[1].setIntrinsic(KNorm);
-	cams[1].setRotation(R);
-	cams[1].setTranslation(T);
-	cout << "Read the cameras." << endl;
+	cams[0].setIntrinsic(KNorm);
+	cams[0].setRotation(R);
+	cams[0].setTranslation(T);
+/*	cout << "Read the cameras." << endl;*/
 
 	vector<Vector2d> measurements(K);
 	vector<int> correspondingView(K);
@@ -105,28 +104,64 @@ void BundleAdjustment::runBundleAdjustment( Mat &cam, Mat &points,
 		correspondingView[idx] = 1;
 		correspondingPoint[idx] = i;
 	}
-	cout << "Read " << K << " valid 2D measurements." << endl;
+/*	cout << "Read " << K << " valid 2D measurements." << endl;*/
 
 	const double inlierThreshold = 2.0 / m_f0;
 
-	StdMetricBundleOptimizer opt(inlierThreshold, cams, pts, 
+	Matrix3x3d K0 = cams[0].getIntrinsic();
+
+// 	showErrorStatistics(m_f0, distortion, cams, pts, measurements, 
+// 		correspondingView, correspondingPoint);
+
+// 	V3D::optimizerVerbosenessLevel = 1;
+	CommonInternalsMetricBundleOptimizer opt(FULL_BUNDLE_FOCAL_LENGTH_PP,
+		inlierThreshold, K0, distortion, cams, pts, 
 		measurements, correspondingView, correspondingPoint);
 	opt.maxIterations = 50;
 	opt.minimize();
+// 	cout << "optimizer status = " << opt.status << endl;
+// 
+// 	showErrorStatistics(m_f0, distortion, cams, pts, measurements, 
+// 		correspondingView, correspondingPoint);
 
 	for (int i = 0; i < M; i++)
 	{
-		Vec3d v = points.at<Vec3d>(i, 0);
+		Vec3d v;
 		v[0] = pts[i][0];
 		v[1] = pts[i][1];
 		v[2] = pts[i][2];
+		newPoints.at<Vec3d>(i, 0) = v;
 	}
-	Matrix3x4d RT = cams[1].getOrientation();
+	Matrix3x4d RT = cams[0].getOrientation();
 	for (int i = 0; i < 3; i++)
 	{
 		for (int j = 0; j < 4; j++)
 		{
-			cam.at<double>(i, j) = RT[i][j];
+			oldCam.at<double>(i, j) = RT[i][j];
 		}
 	}
+}
+
+void BundleAdjustment::showErrorStatistics( double const f0, 
+	StdDistortionFunction const& distortion,
+	vector<CameraMatrix> const& cams, 
+	vector<Vector3d> const& Xs, 
+	vector<Vector2d> const& measurements, 
+	vector<int> const& correspondingView, 
+	vector<int> const& correspondingPoint )
+{
+	
+	int const K = (int)measurements.size();
+
+	double meanReprojectionError = 0.0;
+	for (int k = 0; k < K; ++k)
+	{
+		int const i = correspondingView[k];
+		int const j = correspondingPoint[k];
+		Vector2d p = cams[i].projectPoint(distortion, Xs[j]);
+
+		double reprojectionError = norm_L2(f0 * (p - measurements[k]));
+		meanReprojectionError += reprojectionError;
+	}
+	cout << "mean reprojection error (in pixels): " << meanReprojectionError/K << endl;
 }

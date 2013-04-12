@@ -6,6 +6,7 @@
 #include "features.h"
 #include "camera.h"
 #include "triangulation.h"
+#include "bundleadjustment.h"
 
 using namespace std;
 using namespace cv;
@@ -32,6 +33,9 @@ int glWinPosX = 30, glWinPosY = 30;
 int width = 640, height = 480;
 bool breakScan = false;
 
+XnDouble baseline;				// 基线长度(mm)
+XnUInt64 focalLengthInPixel;	// 焦距(pixel)
+
 Camera userCamera;
 bool hasCuda = true;
 
@@ -40,7 +44,7 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);
 
-char* videoFile = "ttt.oni";
+char* videoFile = "3281.oni";
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -360,6 +364,31 @@ int main(int argc, char** argv)
 	checkOpenNIError(rc, "Create Depth Generator"); 
 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);
 
+	// 获得像素大小
+	XnDouble pixelSize = 0;
+	rc = depthGenerator.GetRealProperty("ZPPS", pixelSize);
+	checkOpenNIError(rc, "ZPPS");
+	pixelSize *= 2.0;
+
+	// 获得焦距（mm）
+	XnUInt64 zeroPlanDistance;
+	rc = depthGenerator.GetIntProperty("ZPD", zeroPlanDistance);
+	checkOpenNIError(rc, "ZPD");
+
+	// 获得基线长度(mm)
+	rc = depthGenerator.GetRealProperty("LDDIS", baseline);
+	checkOpenNIError(rc, "LDDIS");
+	baseline *= 10;
+
+	// 获得焦距(pixel)
+	focalLengthInPixel = (XnUInt64)((double)zeroPlanDistance / (double)pixelSize);
+
+	double K[9] = {(double)focalLengthInPixel, 0.0, 320,
+				   0.0, -(double)focalLengthInPixel, 240,
+				   0.0, 0.0, 1};
+	Mat intrinsic(3, 3, CV_64FC1, K);
+	BundleAdjustment::setIntrinsic(intrinsic);
+
 	// 开始获取并显示 Kinect 图像
 	rc = context.StartGeneratingAll();
 	rc = context.WaitNoneUpdateAll();
@@ -421,9 +450,10 @@ int main(int argc, char** argv)
 			else
 			{
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
+				vector<Vec2d> oldLoc, newLoc;
 				RUNANDTIME(global_timer, getFeaturePoints(depthGenerator, 
 					colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
-					objSet, modSet, objSetAT, mask), 
+					oldLoc, newLoc, objSet, modSet, objSetAT, mask), 
 					OUTPUT, "get feature points.");
 
 				/*ICP i(objSet, modSet);*/
@@ -431,7 +461,11 @@ int main(int argc, char** argv)
 
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
-				tr = i.getFinalTransformMat().clone() * tr;
+				Mat curMat = i.getFinalTransformMat();
+// 				RUNANDTIME(global_timer, 
+// 					BundleAdjustment::runBundleAdjustment(curMat, 
+// 					objSet, oldLoc, newLoc), OUTPUT, "bundle adjustment.");
+				tr = curMat * tr;
 
 				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 					depthImg, colorImg, mask, pointCloud, pointColors), 
@@ -447,14 +481,14 @@ int main(int argc, char** argv)
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
 
-// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-// 				pointColors, false), OUTPUT, "load data");
+			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+				pointColors, false), OUTPUT, "load data");
 /*			waitKey();*/
-			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-				pointColors), OUTPUT, "load data");
-			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-				OUTPUT, "delaunay");
-			cout << delaunay.m_triangles.size() << endl;
+// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+// 				pointColors), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+// 				OUTPUT, "delaunay");
+// 			cout << delaunay.m_triangles.size() << endl;
 /*			delaunay.saveTriangles("triangles.tri");*/
 		}
 

@@ -19,7 +19,7 @@ public:
 	BundleAdjustment(){};
 
 	static void setIntrinsic(const Mat &intrinsicMat);
-	static void runBundleAdjustment(Mat &oldCam, Mat &newPoints, 
+	static void runBundleAdjustment(Mat &oldCam, Mat &newCam, Mat &points, 
 		const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc);
 
 private:

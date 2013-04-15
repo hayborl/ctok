@@ -93,9 +93,6 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	vector<Vec3b> colors;
 	Mat tmpDepthImg;
 	depthImg.copyTo(tmpDepthImg, mask);
-	Mat show;
-	tmpDepthImg.convertTo(show, CV_8UC1, 255.0 / 5000.0);
-	imshow("mask", show);
 	for (int y = 0; y < rows; y++)
 	{
 		for (int x = 0; x < cols; x++)
@@ -116,7 +113,7 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	dg.ConvertProjectiveToRealWorld(index, proj, real);
 
 	realPointCloud = Mat(index, 1, DataType<Point3d>::type, Scalar::all(0));
-#pragma omp parallel for
+// #pragma omp parallel for
 	for (int i = 0; i < index; i++)
 	{
 		realPointCloud.at<Point3d>(i, 0) = Point3d(
@@ -461,11 +458,12 @@ int main(int argc, char** argv)
 
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
-				Mat curMat = i.getFinalTransformMat();
-// 				RUNANDTIME(global_timer, 
-// 					BundleAdjustment::runBundleAdjustment(curMat, 
-// 					objSet, oldLoc, newLoc), OUTPUT, "bundle adjustment.");
-				tr = curMat * tr;
+				Mat tmpMat = Mat::eye(4, 4, CV_64FC1);
+				Mat curMat = i.getFinalTransformMat().inv();
+				RUNANDTIME(global_timer, 
+					BundleAdjustment::runBundleAdjustment(tmpMat, curMat,
+					modSet, oldLoc, newLoc), OUTPUT, "bundle adjustment.");
+				tr = curMat.inv() * (tr * tmpMat);
 
 				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 					depthImg, colorImg, mask, pointCloud, pointColors), 
@@ -480,7 +478,6 @@ int main(int argc, char** argv)
 
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-
 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
 				pointColors, false), OUTPUT, "load data");
 /*			waitKey();*/

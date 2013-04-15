@@ -23,19 +23,23 @@ void BundleAdjustment::setIntrinsic( const Mat &intrinsicMat )
 	m_f0 = m_intrinsic[0][0];
 }
 
-void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints, 
-	const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc )
+void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newCam, 
+	Mat &points, const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc )
 {
-	assert(newPoints.rows == oldLoc.size());
+	assert(points.rows == oldLoc.size());
 	assert(oldLoc.size() == newLoc.size());
 
 	int N = CAM_NUM;
-	int M = newPoints.rows;
+	int M = points.rows;
 	int K = 2 * M;
 
 	double r_f0 = 1.0 / m_f0;
 
 	StdDistortionFunction distortion;
+// 	distortion.k1 = -0.1296;
+// 	distortion.k2 = 0.45;
+// 	distortion.p1 = -0.0005;
+// 	distortion.p2 = -0.002;
 
 	Matrix3x3d KNorm = m_intrinsic;
 	// Normalize the intrinsic to have unit focal length.
@@ -43,9 +47,10 @@ void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints,
 	KNorm[2][2] = 1.0;
 
 	vector<Vector3d> pts(M);
+#pragma omp parallel for
 	for (int i = 0; i < M; i++)
 	{
-		Vec3d v = newPoints.at<Vec3d>(i, 0);
+		Vec3d v = points.at<Vec3d>(i, 0);
 		pts[i][0] = v[0];
 		pts[i][1] = v[1];
 		pts[i][2] = v[2];
@@ -55,11 +60,7 @@ void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints,
 	vector<CameraMatrix> cams(N);
 
 	Matrix3x3d R;
-	makeIdentityMatrix(R);
-	Vector3d T = makeVector3(0.0, 0.0, 0.0);
-	cams[1].setIntrinsic(KNorm);
-	cams[1].setRotation(R);
-	cams[1].setTranslation(T);
+	Vector3d T;
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -72,6 +73,18 @@ void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints,
 	cams[0].setIntrinsic(KNorm);
 	cams[0].setRotation(R);
 	cams[0].setTranslation(T);
+
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			R[i][j] = newCam.at<double>(i, j);
+		}
+		T[i] = oldCam.at<double>(i, 3);
+	}
+	cams[1].setIntrinsic(KNorm);
+	cams[1].setRotation(R);
+	cams[1].setTranslation(T);
 /*	cout << "Read the cameras." << endl;*/
 
 	vector<Vector2d> measurements(K);
@@ -124,13 +137,14 @@ void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints,
 // 	showErrorStatistics(m_f0, distortion, cams, pts, measurements, 
 // 		correspondingView, correspondingPoint);
 
+#pragma omp parallel for
 	for (int i = 0; i < M; i++)
 	{
 		Vec3d v;
 		v[0] = pts[i][0];
 		v[1] = pts[i][1];
 		v[2] = pts[i][2];
-		newPoints.at<Vec3d>(i, 0) = v;
+		points.at<Vec3d>(i, 0) = v;
 	}
 	Matrix3x4d RT = cams[0].getOrientation();
 	for (int i = 0; i < 3; i++)
@@ -138,6 +152,14 @@ void BundleAdjustment::runBundleAdjustment( Mat &oldCam, Mat &newPoints,
 		for (int j = 0; j < 4; j++)
 		{
 			oldCam.at<double>(i, j) = RT[i][j];
+		}
+	}
+	RT = cams[1].getOrientation();
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			newCam.at<double>(i, j) = RT[i][j];
 		}
 	}
 }

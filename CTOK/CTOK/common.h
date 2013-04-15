@@ -33,7 +33,7 @@ using namespace gpu;
 #define DISTANCE_MAX 100000000
 #define DISTANCE_RANGE 100
 #define DISTANCE_THRE 1500
-#define OUTPUT	true
+#define OUTPUT	false
 
 typedef unsigned int uint;
 

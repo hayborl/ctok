@@ -405,13 +405,13 @@ void get2DFeaturePoints( const Mat &colorImg,
 	}
 }
 
-void pairwiseMatch( const int &i, const int &j,
+void pairwiseMatch( const int &indexNow, const int &indexPre,
 	const vector<vector<KeyPoint>> &keypoints, const vector<Mat> &descriptors, 
-	Mat &H, vector<vector<Point2f>> &matchesPoints )
+	Mat &H, vector<pair<int, int>> &matchesPoints )
 {
-	assert(i < keypoints.size() && j < keypoints.size());
+	assert(indexNow < keypoints.size() && indexPre < keypoints.size());
 	assert(keypoints.size() == descriptors.size());
-	assert(i > j);
+	assert(indexNow > indexPre);
 	matchesPoints.clear();
 
 	vector<DMatch> matches;
@@ -429,19 +429,20 @@ void pairwiseMatch( const int &i, const int &j,
 	else
 	{
 		DescriptorMatcher* matcher = new FlannBasedMatcher;
-		matcher->match(descriptors[i], descriptors[j], matches);
+		matcher->match(descriptors[indexNow], descriptors[indexPre], matches);
 	}
 
 	int ptCount = (int)matches.size();
+	vector<pair<int, int>> matchesIndex;
 	vector<Point2f> points0;
 	vector<Point2f> points1;
 	double minDist = 100000;
 	double maxDist = 0;
 
 	// 求最大最小距离
-	for (int k = 0; k < ptCount; k++)
+	for (int i = 0; i < ptCount; i++)
 	{
-		double dist = matches[k].distance;
+		double dist = matches[i].distance;
 		if (dist < minDist)
 		{
 			minDist = dist;
@@ -452,47 +453,50 @@ void pairwiseMatch( const int &i, const int &j,
 		}
 	}
 	// 去除距离过大的特征点
-	for (int k = 0; k < ptCount; k++)
+	for (int i = 0; i < ptCount; i++)
 	{
-		double dist = matches[k].distance;
+		double dist = matches[i].distance;
 		if (dist < (minDist + maxDist) / 2)
 		{
-			points0.push_back(keypoints[i][matches[k].queryIdx].pt);
-			points1.push_back(keypoints[j][matches[k].trainIdx].pt);
+			points0.push_back(keypoints[indexNow][matches[i].queryIdx].pt);
+			points1.push_back(keypoints[indexPre][matches[i].trainIdx].pt);
+			matchesIndex.push_back(
+				make_pair(matches[i].queryIdx, matches[i].trainIdx));
 		}
 	}
 	// 用RANSAC方法计算基本矩阵
 	vector<uchar> ransacStatus;
 	H = findHomography(points0, points1, ransacStatus, CV_RANSAC);
 
-	matchesPoints.resize(2);
-	for (int k = 0; k < (int)points0.size(); k++)
+	for (int i = 0; i < (int)points0.size(); i++)
 	{
-		if (ransacStatus[k] != 0)
+		if (ransacStatus[i] != 0)
 		{
-			matchesPoints[0].push_back(points0[k]);
-			matchesPoints[1].push_back(points1[k]);
+			matchesPoints.push_back(matchesIndex[i]);
 		}
 	}
 }
 
 void convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 
 	const Mat &depthImgNow, const Mat &depthImgPre, 
-	const vector<vector<Point2f>> &matchesPoints, 
-	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc, 
+	const int &indexNow, const int &indexPre,
+	const vector<vector<KeyPoint>> &keypoints,
+	const vector<pair<int, int>> &matchesPoints,
+	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,
 	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask )
 {
-	assert(matchesPoints[0].size() == matchesPoints[1].size());
-	oldLoc.clear();
-	newLoc.clear();
-
+	assert(indexNow < keypoints.size() && indexPre < keypoints.size());
+	assert(indexNow > indexPre);
+	assert(matchesPoints.size() > 0);
 	// 将特征点通过基本矩阵转换
+	vector<Point2f> points0;
 	vector<Point2f> transPoints;
-	perspectiveTransform(matchesPoints[0], transPoints, H);
+	KeyPoint::convert(keypoints[indexNow], points0);
+	perspectiveTransform(points0, transPoints, H);
 
 	int rows = depthImgNow.rows;
 	int cols = depthImgNow.cols;
-	int size = (int)matchesPoints[0].size();
+	int size = (int)matchesPoints.size();
 
 	Mat tmpMask;
 	depthImgPre.convertTo(tmpMask, CV_8UC1, -255.0, 255.0);
@@ -510,8 +514,8 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 	int cnt = 0;
 	for (int i = 0; i < size; i++)
 	{
-		Point2f op = matchesPoints[0][i];
-		Point2f mp = matchesPoints[1][i];
+		Point2f op = keypoints[indexNow][matchesPoints[i].first].pt;
+		Point2f mp = keypoints[indexPre][matchesPoints[i].second].pt;
 		int ox = (int)(op.x);
 		int oy = (int)(op.y);
 		int mx = (int)(mp.x);
@@ -524,7 +528,7 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 			projO[cnt].Y = (float)oy;
 			projO[cnt].Z = (float)oz;
 
-			Point2f p2d = transPoints[i];
+			Point2f p2d = transPoints[matchesPoints[i].first];
 			projAT[cnt].X = p2d.x;
 			projAT[cnt].Y = p2d.y;
 			projAT[cnt].Z = (float)oz;
@@ -533,8 +537,9 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 			projM[cnt].Y = (float)my;
 			projM[cnt].Z = (float)mz;
 
-			oldLoc.push_back(Vec2d(mp.x, mp.y));
-			newLoc.push_back(Vec2d(op.x, op.y));
+			oldLoc.push_back(Vec2d(mx, my));
+			newLoc.push_back(Vec2d(ox, oy));
+
 			cnt++;
 		}
 	}
@@ -552,5 +557,53 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 		modSet.at<Point3d>(i, 0) = Point3d(realM[i].X, realM[i].Y, realM[i].Z);
 		objSetAT.at<Point3d>(i, 0) = Point3d(
 			realAT[i].X, realAT[i].Y, realAT[i].Z);
+	}
+}
+
+void convert2DTo3D( xn::DepthGenerator dg, 
+	const Mat &depthImg, const vector<KeyPoint> &keypoints, Mat &points )
+{
+	assert(keypoints.size() > 0);
+	int size = keypoints.size();
+	vector<Point3d> tmpSet;
+	Ptr<XnPoint3D> proj = new XnPoint3D[size];
+	Ptr<XnPoint3D> real = new XnPoint3D[size];
+#pragma omp parallel for
+	for (int i = 0; i < size; i++)
+	{
+		Point2f p = keypoints[i].pt;
+		int x = (int)(p.x);
+		int y = (int)(p.y);
+		ushort z = depthImg.at<ushort>(y, x);
+		proj[i].X = (float)x;
+		proj[i].Y = (float)y;
+		proj[i].Z = (float)z;
+	}
+	dg.ConvertProjectiveToRealWorld(size, proj, real);
+
+	points = Mat(size, 1, DataType<Point3d>::type);
+#pragma omp parallel for
+	for (int i = 0; i < size; i++)
+	{
+		points.at<Point3d>(i, 0) = Point3d(real[i].X, real[i].Y, real[i].Z);
+	}
+}
+
+void fullMatch( const int &index, 
+	const vector<Mat> &descriptors, 
+	const vector<vector<KeyPoint>> &keypoints, 
+	vector<vector<pair<int, int>>> &matches )
+{
+	assert(index > 0);
+	matches.clear();
+	matches.resize(index);
+
+#pragma omp parallel for
+	for (int i = 0; i < index; i++)
+	{
+		Mat H;
+		vector<pair<int, int>> matchesPairs;
+		pairwiseMatch(index, i, keypoints, descriptors, H, matchesPairs);
+		matches[i] = matchesPairs;
 	}
 }

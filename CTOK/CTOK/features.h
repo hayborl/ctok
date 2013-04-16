@@ -42,16 +42,26 @@ void getSurfPointsSet(const Mat &objColorImg, const Mat &objPointCloud,
 void get2DFeaturePoints(const Mat &colorImg,				// 彩色图
 	vector<KeyPoint> &keyPoints, Mat &descriptor);			// 提取出的特征点及其描述子
 
-void pairwiseMatch(const int &i, const int &j,				// 相匹配的两个的索引，i>j
+void pairwiseMatch(const int &indexNow, const int &indexPre,// 相匹配的两个的索引，indexNow>indexPre
 	const vector<vector<KeyPoint>> &keypoints,				// 特征点集
 	const vector<Mat> &descriptors, Mat &H,					// 描述子集，Homography矩阵
-	vector<vector<Point2f>> &matchesPoints);				// 相匹配的点集，size = 2
+	vector<pair<int, int>> &matchesPoints);					// 相匹配的点集
 
 void convert2DTo3D(xn::DepthGenerator dg, const Mat &H,		// OpenNI，用以将点转换成真实世界的点，Homography矩阵
 	const Mat &depthImgNow, const Mat &depthImgPre,			// 当前帧、前一帧的深度图
-	const vector<vector<Point2f>> &matchesPoints,			// 相匹配的点集，size = 2
-	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,			// 新一帧的点云在前一帧和当前帧的2D图的位置。
+	const int &indexNow, const int &indexPre,				// 相匹配的两个的索引，indexNow>indexPre
+	const vector<vector<KeyPoint>> &keypoints,				// 特征点集
+	const vector<pair<int, int>> &matchesPoints,			// 相匹配的点集
+	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,			// 在前一帧、当前帧图像上对应的位置
 	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask);	// 依次为当前帧的特征点集，前一帧的特征点集，
 															// 匹配转换后当前帧的特征点集，当前帧相比前一帧多出的部分
+
+void convert2DTo3D(xn::DepthGenerator dg, const Mat &depthImg, 
+	const vector<KeyPoint> &keypoints, Mat &points);
+
+void fullMatch(const int &index, 
+	const vector<Mat> &descriptors,
+	const vector<vector<KeyPoint>> &keypoints,
+	vector<vector<pair<int, int>>> &matches);
 
 #endif //FEATURES_H

@@ -44,7 +44,7 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);
 
-char* videoFile = "ttt.oni";
+char* videoFile = "3281.oni";
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -464,37 +464,56 @@ int main(int argc, char** argv)
 				descriptors.push_back(descriptor);
 
 				Mat H;
-				vector<vector<Point2f>> matchesPoints;
+				vector<pair<int, int>> matchesPoints;
 				RUNANDTIME(global_timer, pairwiseMatch(recordCnt, 
 					recordCnt - 1, keyPoints, descriptors, H, matchesPoints), 
 					OUTPUT, "pairwise matches.");
 				RUNANDTIME(global_timer, convert2DTo3D(depthGenerator, H, 
-					depthImgNow, depthImgPre, matchesPoints, oldLoc, newLoc,
-					objSet, modSet, objSetAT, mask), 
-					OUTPUT, "get 3D feature points.");
+					depthImgNow, depthImgPre, recordCnt, recordCnt - 1, 
+					keyPoints, matchesPoints, oldLoc, newLoc, objSet, 
+					modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
 
 				/*ICP i(objSet, modSet);*/
 				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
 
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
+// 				Mat incMat = i.getFinalTransformMat();
+// 				pose = camPoses[recordCnt - 1].clone();
+// 				pose = pose * incMat;
+// 				camPoses.push_back(pose);
+// 				recordCnt++;
+
 				Mat tmpMat = Mat::eye(4, 4, CV_64FC1);
 				Mat incMat = i.getFinalTransformMat().inv();
 				RUNANDTIME(global_timer, 
 					BundleAdjustment::runBundleAdjustment(tmpMat, incMat,
 					modSet, oldLoc, newLoc), OUTPUT, "bundle adjustment.");
-
 				pose = camPoses[recordCnt - 1].clone();
-				pose = incMat.inv() * (pose * tmpMat);
+				pose = pose * tmpMat * incMat.inv();
 				camPoses.push_back(pose);
 				recordCnt++;
 
-				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
-					depthImg, colorImg, mask, pointCloud, pointColors), 
-					OUTPUT, "read 3D points");
+
+// 				vector<vector<pair<int, int>>> matchesPairs;
+// 				RUNANDTIME(global_timer, 
+// 					fullMatch(recordCnt - 1, descriptors, 
+// 					keyPoints, matchesPairs), OUTPUT, "full match.");
+// 				Mat points;
+// 				RUNANDTIME(global_timer, 
+// 					convert2DTo3D(depthGenerator, depthImg, 
+// 					keyPoint, points), OUTPUT, "get 3D feature points.");
+// 				RUNANDTIME(global_timer, 
+// 					BundleAdjustment::runBundleAdjustment(camPoses, points, 
+// 					keyPoints, matchesPairs), OUTPUT, "bundle adjustment.");
+// 				pose = camPoses[recordCnt - 1].clone();
+
 				RUNANDTIME(global_timer, 
-					transformPointCloud(pointCloud, pointCloud, pose, hasCuda), 
-					OUTPUT, "transform point cloud.");
+					read3DPoints(depthGenerator, depthImg, colorImg, mask, 
+					pointCloud, pointColors), OUTPUT, "read 3D points");
+				RUNANDTIME(global_timer, 
+					transformPointCloud(pointCloud, pointCloud, 
+					pose, hasCuda), OUTPUT, "transform point cloud.");
 
 /*				waitKey();*/
 			}
@@ -502,14 +521,14 @@ int main(int argc, char** argv)
 
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-				pointColors, false), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+// 				pointColors, false), OUTPUT, "load data");
 /*			waitKey();*/
-// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-// 				pointColors), OUTPUT, "load data");
-// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-// 				OUTPUT, "delaunay");
-// 			cout << delaunay.m_triangles.size() << endl;
+			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+				pointColors), OUTPUT, "load data");
+			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+				OUTPUT, "delaunay");
+			cout << delaunay.m_triangles.size() << endl;
 /*			delaunay.saveTriangles("triangles.tri");*/
 		}
 

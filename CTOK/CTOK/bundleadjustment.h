@@ -18,11 +18,12 @@ class BundleAdjustment
 public:
 	BundleAdjustment(){};
 
-	static void setIntrinsic(const Mat &intrinsicMat);
+	static void setIntrinsic(const Mat &intrinsicMat);						//ÉèÖÃÄÚ²Î¾ØÕó
 	static void runBundleAdjustment(Mat &oldCam, Mat &newCam, Mat &points, 
 		const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc);
-	static void runBundleAdjustment(vector<Mat> &camPoses, Mat points, 
-		const vector<vector<KeyPoint>> &keypoints);
+	static void runBundleAdjustment(vector<Mat> &camPoses, const Mat &points,
+		const vector<vector<KeyPoint>> &keypoints, 
+		const vector<vector<pair<int, int>>> &matches);
 
 private:
 	enum {CAM_NUM = 2};

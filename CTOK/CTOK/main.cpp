@@ -44,7 +44,7 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);
 
-char* videoFile = "3281.oni";
+char* videoFile = "ttt.oni";
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -93,6 +93,9 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	vector<Vec3b> colors;
 	Mat tmpDepthImg;
 	depthImg.copyTo(tmpDepthImg, mask);
+// 	Mat show;
+// 	tmpDepthImg.convertTo(show, CV_8UC1, 255.0 / 6000.0);
+// 	imshow("show", show);
 	for (int y = 0; y < rows; y++)
 	{
 		for (int x = 0; x < cols; x++)
@@ -391,22 +394,22 @@ int main(int argc, char** argv)
 	rc = context.WaitNoneUpdateAll();
 
 	Mat colorImgPre, colorImgNow, depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
-	Mat tr = Mat::eye(4, 4, CV_64FC1);
 	Mat mask;
 	pair<Mat, Mat> desPre, desNow;
 
-	XnUInt32 frameCnt = 1;
+	XnUInt32 frameCnt = 0;
+
+	int recordCnt = 0;
+	vector<Mat> camPoses;				// 记录每一帧的相机姿势
+	vector<vector<KeyPoint>> keyPoints;	// 记录每一帧的特征点
+	vector<Mat>	descriptors;			// 记录每一帧的特征描述子
+
 	for (; ; frameCnt++) 
 	{
-		if (breakScan)
-		{
-			break;
-		}
-
 		rc = context.WaitOneUpdateAll(depthGenerator);
 		rc = context.WaitOneUpdateAll(imageGenerator);
 
-		if (depthGenerator.GetFrameID() < frameCnt)
+		if (breakScan || depthGenerator.GetFrameID() < frameCnt)
 		{
 			break;
 		}
@@ -423,17 +426,24 @@ int main(int argc, char** argv)
 		features.getHSVColorHistDes(colorImgNow, desNow.first);
 		features.getGLCMDes(colorImgNow, desNow.second);
 
-// 		RUNANDTIME(global_timer, simplifyPoints(realPointCloud, 
-// 			realPointCloud, 10, 0.9), OUTPUT, "simplify");
-
 		Mat pointCloud, pointColors;
-		if (frameCnt == 1)
+		vector<KeyPoint> keyPoint;
+		Mat descriptor, pose;
+		if (frameCnt == 0)
 		{
 			mask.create(colorImg.rows, colorImg.cols, CV_8UC1);
 			mask.setTo(Scalar::all(255));
 			RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 				depthImg, colorImg, mask, pointCloud, pointColors), 
 				OUTPUT, "read 3D points");
+			RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
+				descriptor), OUTPUT, "get feature points and descriptor.");
+			keyPoints.push_back(keyPoint);
+			descriptors.push_back(descriptor);
+
+			pose = Mat::eye(4, 4, CV_64FC1);
+			camPoses.push_back(pose);
+			recordCnt++;
 		}
 		else
 		{
@@ -448,10 +458,20 @@ int main(int argc, char** argv)
 			{
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				vector<Vec2d> oldLoc, newLoc;
-				RUNANDTIME(global_timer, getFeaturePoints(depthGenerator, 
-					colorImgNow, depthImgNow, colorImgPre, depthImgPre, 
-					oldLoc, newLoc, objSet, modSet, objSetAT, mask), 
-					OUTPUT, "get feature points.");
+				RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
+					descriptor), OUTPUT, "get feature points and descriptor.");
+				keyPoints.push_back(keyPoint);
+				descriptors.push_back(descriptor);
+
+				Mat H;
+				vector<vector<Point2f>> matchesPoints;
+				RUNANDTIME(global_timer, pairwiseMatch(recordCnt, 
+					recordCnt - 1, keyPoints, descriptors, H, matchesPoints), 
+					OUTPUT, "pairwise matches.");
+				RUNANDTIME(global_timer, convert2DTo3D(depthGenerator, H, 
+					depthImgNow, depthImgPre, matchesPoints, oldLoc, newLoc,
+					objSet, modSet, objSetAT, mask), 
+					OUTPUT, "get 3D feature points.");
 
 				/*ICP i(objSet, modSet);*/
 				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
@@ -459,17 +479,21 @@ int main(int argc, char** argv)
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
 				Mat tmpMat = Mat::eye(4, 4, CV_64FC1);
-				Mat curMat = i.getFinalTransformMat().inv();
+				Mat incMat = i.getFinalTransformMat().inv();
 				RUNANDTIME(global_timer, 
-					BundleAdjustment::runBundleAdjustment(tmpMat, curMat,
+					BundleAdjustment::runBundleAdjustment(tmpMat, incMat,
 					modSet, oldLoc, newLoc), OUTPUT, "bundle adjustment.");
-				tr = curMat.inv() * (tr * tmpMat);
+
+				pose = camPoses[recordCnt - 1].clone();
+				pose = incMat.inv() * (pose * tmpMat);
+				camPoses.push_back(pose);
+				recordCnt++;
 
 				RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 					depthImg, colorImg, mask, pointCloud, pointColors), 
 					OUTPUT, "read 3D points");
 				RUNANDTIME(global_timer, 
-					transformPointCloud(pointCloud, pointCloud, tr, hasCuda), 
+					transformPointCloud(pointCloud, pointCloud, pose, hasCuda), 
 					OUTPUT, "transform point cloud.");
 
 /*				waitKey();*/

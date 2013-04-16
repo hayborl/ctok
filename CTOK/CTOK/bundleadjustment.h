@@ -21,6 +21,8 @@ public:
 	static void setIntrinsic(const Mat &intrinsicMat);
 	static void runBundleAdjustment(Mat &oldCam, Mat &newCam, Mat &points, 
 		const vector<Vec2d> &oldLoc, const vector<Vec2d> &newLoc);
+	static void runBundleAdjustment(vector<Mat> &camPoses, Mat points, 
+		const vector<vector<KeyPoint>> &keypoints);
 
 private:
 	enum {CAM_NUM = 2};

@@ -369,41 +369,24 @@ void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud,
 	modSet = Mat(modTmpSet, true);
 }
 
-void getFeaturePoints(xn::DepthGenerator dg,				
-	const Mat &colorImgNow, const Mat &depthImgNow,		
-	const Mat &colorImgPre, const Mat &depthImgPre,
-	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,
-	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask)
+void get2DFeaturePoints( const Mat &colorImg, 
+	vector<KeyPoint> &keyPoints, Mat &descriptor )
 {
-	Mat colorImgs[2], keyPointsImgs[2], descriptors[2];
-	vector<KeyPoint> keyPoints[2];
-	vector<DMatch> matches;
-
-	colorImgs[0] = colorImgNow;
-	colorImgs[1] = colorImgPre;
-
+	keyPoints.clear();
 	if (hasCuda)
 	{
-// 		GpuMat imgsColorGpu0, imgsColorGpu1;
-// 		GpuMat imgsGpu0, imgsGpu1;
-// 		imgsColorGpu0.upload(colorImgNow);
-// 		imgsColorGpu1.upload(colorImgPre);
-// 		cvtColor(imgsColorGpu0, imgsGpu0, CV_BGR2GRAY);
-// 		cvtColor(imgsColorGpu1, imgsGpu1, CV_BGR2GRAY);
+// 		GpuMat imgsColorGpu;
+// 		GpuMat imgsGrayGpu;
+// 		imgsColorGpu.upload(colorImg);
+// 		cvtColor(imgsColorGpu, imgsGrayGpu, CV_BGR2GRAY);
 // 
 // 		SURF_GPU surfGpu;
-// 		GpuMat keyPointsGpu0, keyPointsGpu1;
-// 		GpuMat desGpu0, desGpu1;
-// 		surfGpu(imgsGpu0, GpuMat(), keyPointsGpu0, desGpu0);
-// 		surfGpu(imgsGpu1, GpuMat(), keyPointsGpu1, desGpu1);
-// 
-// 		BFMatcher_GPU matcher;
-// 		GpuMat trainIdx, distance;
-// 		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
-// 
-// 		surfGpu.downloadKeypoints(keyPointsGpu0, keyPoints[0]);
-// 		surfGpu.downloadKeypoints(keyPointsGpu1, keyPoints[1]);
-// 		BFMatcher_GPU::matchDownload(trainIdx, distance, matches);
+// 		GpuMat keyPointsGpu;
+// 		GpuMat desGpu;
+// 		surfGpu(imgsGpu, GpuMat(), keyPointsGpu, desGpu);
+//		
+//		surfGpu.downloadKeypoints(keyPointsGpu, keyPoints);
+//		desGpu.download(descriptor);
 	}
 	else
 	{
@@ -414,18 +397,39 @@ void getFeaturePoints(xn::DepthGenerator dg,
 		initModule_nonfree();
 		surf = Algorithm::create<Feature2D>("Feature2D.SIFT");
 
-#pragma omp parallel for
-		for (int i = 0; i < 2; i++)
-		{
-			// 检测关键点
-			surf->detect(colorImgs[i], keyPoints[i]);
+		// 检测关键点
+		surf->detect(colorImg, keyPoints);
 
-			// 计算特征描述子
-			surf->compute(colorImgs[i], keyPoints[i], descriptors[i]);
-		}
+		// 计算特征描述子
+		surf->compute(colorImg, keyPoints, descriptor);
+	}
+}
 
-		// 匹配描述子
-		matcher->match(descriptors[0], descriptors[1], matches);
+void pairwiseMatch( const int &i, const int &j,
+	const vector<vector<KeyPoint>> &keypoints, const vector<Mat> &descriptors, 
+	Mat &H, vector<vector<Point2f>> &matchesPoints )
+{
+	assert(i < keypoints.size() && j < keypoints.size());
+	assert(keypoints.size() == descriptors.size());
+	assert(i > j);
+	matchesPoints.clear();
+
+	vector<DMatch> matches;
+	if (hasCuda)
+	{
+// 		GpuMat desGpu0, desGpu1;
+// 		desGpu0.upload(descriptors[i]);
+// 		desGpu1.upload(descriptors[j]);
+// 		BFMatcher_GPU matcher;
+// 		GpuMat trainIdx, distance;
+// 		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
+// 
+// 		BFMatcher_GPU::matchDownload(trainIdx, distance, matches);
+	}
+	else
+	{
+		DescriptorMatcher* matcher = new FlannBasedMatcher;
+		matcher->match(descriptors[i], descriptors[j], matches);
 	}
 
 	int ptCount = (int)matches.size();
@@ -435,9 +439,9 @@ void getFeaturePoints(xn::DepthGenerator dg,
 	double maxDist = 0;
 
 	// 求最大最小距离
-	for (int i = 0; i < ptCount; i++)
+	for (int k = 0; k < ptCount; k++)
 	{
-		double dist = matches[i].distance;
+		double dist = matches[k].distance;
 		if (dist < minDist)
 		{
 			minDist = dist;
@@ -448,26 +452,47 @@ void getFeaturePoints(xn::DepthGenerator dg,
 		}
 	}
 	// 去除距离过大的特征点
-	for (int i = 0; i < ptCount; i++)
+	for (int k = 0; k < ptCount; k++)
 	{
-		double dist = matches[i].distance;
+		double dist = matches[k].distance;
 		if (dist < (minDist + maxDist) / 2)
 		{
-			points0.push_back(keyPoints[0][matches[i].queryIdx].pt);
-			points1.push_back(keyPoints[1][matches[i].trainIdx].pt);
+			points0.push_back(keypoints[i][matches[k].queryIdx].pt);
+			points1.push_back(keypoints[j][matches[k].trainIdx].pt);
 		}
 	}
 	// 用RANSAC方法计算基本矩阵
 	vector<uchar> ransacStatus;
-	Mat H = findHomography(points0, points1, ransacStatus, CV_RANSAC);
+	H = findHomography(points0, points1, ransacStatus, CV_RANSAC);
+
+	matchesPoints.resize(2);
+	for (int k = 0; k < (int)points0.size(); k++)
+	{
+		if (ransacStatus[k] != 0)
+		{
+			matchesPoints[0].push_back(points0[k]);
+			matchesPoints[1].push_back(points1[k]);
+		}
+	}
+}
+
+void convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 
+	const Mat &depthImgNow, const Mat &depthImgPre, 
+	const vector<vector<Point2f>> &matchesPoints, 
+	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc, 
+	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask )
+{
+	assert(matchesPoints[0].size() == matchesPoints[1].size());
+	oldLoc.clear();
+	newLoc.clear();
 
 	// 将特征点通过基本矩阵转换
 	vector<Point2f> transPoints;
-	perspectiveTransform(points0, transPoints, H);
+	perspectiveTransform(matchesPoints[0], transPoints, H);
 
-	int rows = colorImgNow.rows;
-	int cols = colorImgNow.cols;
-	int size = (int)points0.size();
+	int rows = depthImgNow.rows;
+	int cols = depthImgNow.cols;
+	int size = (int)matchesPoints[0].size();
 
 	Mat tmpMask;
 	depthImgPre.convertTo(tmpMask, CV_8UC1, -255.0, 255.0);
@@ -485,14 +510,12 @@ void getFeaturePoints(xn::DepthGenerator dg,
 	int cnt = 0;
 	for (int i = 0; i < size; i++)
 	{
-		if (ransacStatus[i] == 0)
-		{
-			continue;
-		}
-		int ox = (int)(points0[i].x);
-		int oy = (int)(points0[i].y);
-		int mx = (int)(points1[i].x);
-		int my = (int)(points1[i].y);
+		Point2f op = matchesPoints[0][i];
+		Point2f mp = matchesPoints[1][i];
+		int ox = (int)(op.x);
+		int oy = (int)(op.y);
+		int mx = (int)(mp.x);
+		int my = (int)(mp.y);
 		ushort oz = depthImgNow.at<ushort>(oy, ox);
 		ushort mz = depthImgPre.at<ushort>(my, mx);
 		if (oz != 0 && mz != 0)
@@ -509,10 +532,10 @@ void getFeaturePoints(xn::DepthGenerator dg,
 			projM[cnt].X = (float)mx;
 			projM[cnt].Y = (float)my;
 			projM[cnt].Z = (float)mz;
-			cnt++;
 
-			oldLoc.push_back(Vec2d(points1[i].x, points1[i].y));
-			newLoc.push_back(Vec2d(points0[i].x, points0[i].y));
+			oldLoc.push_back(Vec2d(mp.x, mp.y));
+			newLoc.push_back(Vec2d(op.x, op.y));
+			cnt++;
 		}
 	}
 	dg.ConvertProjectiveToRealWorld(cnt, projO, realO);

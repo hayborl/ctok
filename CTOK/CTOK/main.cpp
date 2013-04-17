@@ -30,6 +30,8 @@ bool breakScan = false;
 Camera userCamera;
 
 //---OpenNI
+#define CONFIG_PATH "SamplesConfig.xml"
+
 char* videoFile = "3281.oni";
 XnStatus rc = XN_STATUS_OK;
 Context context;							// 上下文对象
@@ -67,20 +69,21 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 	rows = depthMD.YRes();
 
 	//OpenCV output
-	Mat imgDepth16U(rows, cols, CV_16UC1, (void*)depthMD.Data());
-	medianBlur(imgDepth16U, imgDepth16U, 5);
+	depthImg.create(rows, cols, CV_16UC1);
+	const XnDepthPixel* pDepthMap = depthMD.Data();
+	memcpy(depthImg.data, pDepthMap, cols * rows * sizeof(XnDepthPixel));
+	medianBlur(depthImg, depthImg, 5);
 
 	double min, max;
-	minMaxLoc(imgDepth16U, &min, &max);
+	minMaxLoc(depthImg, &min, &max);
 
-	imgDepth16U.convertTo(depthImageShow, CV_8UC1, 255.0 / max);
+	depthImg.convertTo(depthImageShow, CV_8UC1, 255.0 / max);
 	Mat imgRGB(rows, cols, CV_8UC3, (void*)imageMD.Data());
 	cvtColor(imgRGB, colorImageShow, CV_RGB2BGR);
 	imshow("depth", depthImageShow);
 	imshow("image", colorImageShow);
 
 	colorImg = colorImageShow.clone();
-	depthImg = imgDepth16U.clone();
 }
 
 // 根据深度图，彩色图，mask获取真实世界的点的坐标与颜色信息
@@ -321,10 +324,23 @@ void reshape (int w, int h)
 void initOpenNI()
 {
 	// OpenNI 对象
-	rc = context.Init();			// 上下文对象初始化 
-	checkOpenNIError(rc, "initialize context");
-// 	context.SetGlobalMirror(true);	// 设置镜像
+// 	EnumerationErrors errors;
+// 	rc = context.InitFromXmlFile(CONFIG_PATH, &errors);
+// 	if (rc == XN_STATUS_NO_NODE_PRESENT)
+// 	{
+// 		XnChar strError[1024];
+// 		errors.ToString(strError, 1024);
+// 		printf("%s\n", strError);
+// 		exit(-1);
+// 	}
+// 	else if (rc != XN_STATUS_OK)
+// 	{
+// 		printf("Open failed: %s\n", xnGetStatusString(rc));
+// 		exit(-1);
+// 	}
 
+	rc = context.Init();
+	checkOpenNIError(rc, "Init context");
 	Player player;
 	rc = context.OpenFileRecording(videoFile, player);						// 打开已有的oni文件
 	checkOpenNIError(rc, "Open File Recording");
@@ -333,11 +349,6 @@ void initOpenNI()
 	checkOpenNIError(rc, "Create Image Generator");   
 	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		// 获取oni文件中的depth节点
 	checkOpenNIError(rc, "Create Depth Generator"); 
-// 	rc = imageGenerator.Create(context);										// 创建image generator
-// 	checkOpenNIError(rc, "Create Image Generator");
-// 	rc = depthGenerator.Create(context);										// 创建depth generator
-// 	checkOpenNIError(rc, "Create Depth Generator");
-// 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);	// 校正视角
 
 	// 获得像素大小
 	XnDouble pixelSize = 0;

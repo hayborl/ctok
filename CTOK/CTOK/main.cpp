@@ -120,7 +120,7 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	for (int i = 0; i < index; i++)
 	{
 		realPointCloud.at<Point3d>(i, 0) = Point3d(
-			real[i].X, real[i].Y, real[i].Z);
+			real[i].X / 1000.0, real[i].Y / 1000.0, real[i].Z / 1000.0);
 	}
 
 	pointColors = Mat(colors, true).clone();
@@ -171,9 +171,9 @@ void drawPoints()
 	{
 		glColor3d(pointColorData[i][0] / 255.0, 
 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = pointCloudData[i][0];
-		y = pointCloudData[i][1];
-		z = pointCloudData[i][2];
+		x = pointCloudData[i][0] * 1000.0;
+		y = pointCloudData[i][1] * 1000.0;
+		z = pointCloudData[i][2] * 1000.0;
 		glVertex3d(x, y, z);
 	}
 	glEnd();
@@ -348,21 +348,35 @@ int main(int argc, char** argv)
 
 	// OpenNI 对象
 	XnStatus rc = XN_STATUS_OK;
-	Context context;				//创建上下文对象
-	rc = context.Init();			//上下文对象初始化 
+	Context context;				// 创建上下文对象
+	rc = context.Init();			// 上下文对象初始化 
 	checkOpenNIError(rc, "initialize context");
+	context.SetGlobalMirror(true);	// 设置镜像
 
 	Player player;
-	rc = context.OpenFileRecording(videoFile, player);						//打开已有的oni文件
-	checkOpenNIError(rc, "Open File Recording");
-
-	ImageGenerator imageGenerator;											//创建image generator
-	rc = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator);		//获取oni文件中的image节点
-	checkOpenNIError(rc, "Create Image Generator");   
-	DepthGenerator depthGenerator;											//创建depth generator
-	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		//获取oni文件中的depth节点
-	checkOpenNIError(rc, "Create Depth Generator"); 
-	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);
+// 	rc = context.OpenFileRecording(videoFile, player);						// 打开已有的oni文件
+// 	checkOpenNIError(rc, "Open File Recording");
+// 
+// 	ImageGenerator imageGenerator;											// 创建image generator
+// 	rc = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator);		// 获取oni文件中的image节点
+// 	checkOpenNIError(rc, "Create Image Generator");   
+// 	DepthGenerator depthGenerator;											// 创建depth generator
+// 	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		// 获取oni文件中的depth节点
+// 	checkOpenNIError(rc, "Create Depth Generator"); 
+// 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);
+	XnMapOutputMode xmode;		// 定义图像的输出模式
+	xmode.nXRes = 640;			// x方向分辨率
+	xmode.nYRes = 480;			// y方向分辨率
+	xmode.nFPS = 30;			// 帧率
+	ImageGenerator imageGenerator;
+	DepthGenerator depthGenerator;
+	rc = imageGenerator.Create(context);										// 创建image generator
+	checkOpenNIError(rc, "Create Image Generator");
+	imageGenerator.SetMapOutputMode(xmode);
+	rc = depthGenerator.Create(context);										// 创建depth generator
+	checkOpenNIError(rc, "Create Depth Generator");
+	depthGenerator.SetMapOutputMode(xmode);
+	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);	// 校正视角
 
 	// 获得像素大小
 	XnDouble pixelSize = 0;
@@ -391,7 +405,9 @@ int main(int argc, char** argv)
 
 	// 开始获取并显示 Kinect 图像
 	rc = context.StartGeneratingAll();
+	checkOpenNIError(rc, "Start generating");
 	rc = context.WaitNoneUpdateAll();
+	checkOpenNIError(rc, "Update data");
 
 	Mat colorImgPre, colorImgNow, depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
 	Mat mask;
@@ -494,7 +510,6 @@ int main(int argc, char** argv)
 				camPoses.push_back(pose);
 				recordCnt++;
 
-
 // 				vector<vector<pair<int, int>>> matchesPairs;
 // 				RUNANDTIME(global_timer, 
 // 					fullMatch(recordCnt - 1, descriptors, 
@@ -521,14 +536,14 @@ int main(int argc, char** argv)
 
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-// 				pointColors, false), OUTPUT, "load data");
+			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+				pointColors, false), OUTPUT, "load data");
 /*			waitKey();*/
-			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-				pointColors), OUTPUT, "load data");
-			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-				OUTPUT, "delaunay");
-			cout << delaunay.m_triangles.size() << endl;
+// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+// 				pointColors), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+// 				OUTPUT, "delaunay");
+// 			cout << delaunay.m_triangles.size() << endl;
 /*			delaunay.saveTriangles("triangles.tri");*/
 		}
 

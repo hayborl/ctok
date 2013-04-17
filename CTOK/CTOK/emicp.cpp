@@ -7,8 +7,8 @@ EMICP::EMICP(const Mat &objSet, const Mat &modSet,
 	assert(objSet.cols == 1 && modSet.cols == 1);
 	assert(!objSet.empty() && !modSet.empty());
 
-	m_objSet = objSet.clone() / 1000.0;
-	m_modSet = modSet.clone() / 1000.0;
+	m_objSet = objSet.clone();
+	m_modSet = modSet.clone();
 	m_tr = Mat::eye(4, 4, CV_64FC1);
 	m_sigma_p2 = sigma_p2;
 	m_sigma_inf = sigma_inf;
@@ -27,7 +27,7 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 	}
 	else
 	{
-		objSet = initObjSet.getMat() / 1000.0;
+		objSet = initObjSet.getMat();
 	}
 
 // 	plotTwoPoint3DSet(objSet, m_modSet);
@@ -69,7 +69,6 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 
 		m_sigma_p2 *= m_sigma_factor;
 	}while (m_sigma_p2 > m_sigma_inf);
-	tr.t *= 1000.0;
 	m_tr = getTransformMat(tr);
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/

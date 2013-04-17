@@ -553,10 +553,10 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 #pragma omp parallel for
 	for (int i = 0; i < cnt; i++)
 	{
-		objSet.at<Point3d>(i, 0) = Point3d(realO[i].X, realO[i].Y, realO[i].Z);
-		modSet.at<Point3d>(i, 0) = Point3d(realM[i].X, realM[i].Y, realM[i].Z);
+		objSet.at<Point3d>(i, 0) = Point3d(realO[i].X / 1000.0, realO[i].Y / 1000.0, realO[i].Z / 1000.0);
+		modSet.at<Point3d>(i, 0) = Point3d(realM[i].X / 1000.0, realM[i].Y / 1000.0, realM[i].Z / 1000.0);
 		objSetAT.at<Point3d>(i, 0) = Point3d(
-			realAT[i].X, realAT[i].Y, realAT[i].Z);
+			realAT[i].X / 1000.0, realAT[i].Y / 1000.0, realAT[i].Z / 1000.0);
 	}
 }
 

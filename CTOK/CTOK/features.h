@@ -47,7 +47,7 @@ void pairwiseMatch(const int &indexNow, const int &indexPre,// ÏàÆ¥ÅäµÄÁ½¸öµÄË÷Ò
 	const vector<Mat> &descriptors, Mat &H,					// ÃèÊö×Ó¼¯£¬Homography¾ØÕó
 	vector<pair<int, int>> &matchesPoints);					// ÏàÆ¥ÅäµÄµã¼¯
 
-void convert2DTo3D(xn::DepthGenerator dg, const Mat &H,		// OpenNI£¬ÓÃÒÔ½«µã×ª»»³ÉÕæÊµÊÀ½çµÄµã£¬Homography¾ØÕó
+bool convert2DTo3D(xn::DepthGenerator dg, const Mat &H,		// OpenNI£¬ÓÃÒÔ½«µã×ª»»³ÉÕæÊµÊÀ½çµÄµã£¬Homography¾ØÕó
 	const Mat &depthImgNow, const Mat &depthImgPre,			// µ±Ç°Ö¡¡¢Ç°Ò»Ö¡µÄÉî¶ÈÍ¼
 	const int &indexNow, const int &indexPre,				// ÏàÆ¥ÅäµÄÁ½¸öµÄË÷Òı£¬indexNow>indexPre
 	const vector<vector<KeyPoint>> &keypoints,				// ÌØÕ÷µã¼¯

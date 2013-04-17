@@ -21,30 +21,34 @@ void checkOpenNIError(XnStatus result, string status)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////
-//
 //---OpenGL 全局变量
-vector<Vec3d> pointCloudData;
-vector<Vec3b> pointColorData;
-size_t pointNumber = 0;
-
 int glWinWidth = 640, glWinHeight = 480;
 int glWinPosX = 30, glWinPosY = 30;
 int width = 640, height = 480;
 bool breakScan = false;
 
-XnDouble baseline;				// 基线长度(mm)
-XnUInt64 focalLengthInPixel;	// 焦距(pixel)
-
 Camera userCamera;
-bool hasCuda = true;
+
+//---OpenNI
+char* videoFile = "3281.oni";
+XnStatus rc = XN_STATUS_OK;
+Context context;							// 上下文对象
+XnDouble baseline;							// 基线长度(mm)
+XnUInt64 focalLengthInPixel;				// 焦距(pixel)
+ImageGenerator imageGenerator;				// image generator
+DepthGenerator depthGenerator;				// depth generator
+
+//----CTOK
+bool hasCuda = true;						// 有没有cuda
+
+vector<Vec3d> pointCloudData;
+vector<Vec3b> pointColorData;
+size_t pointNumber = 0;
 
 Features features;							// 用以获取特征比较相似度
 #define SIMILARITY_THRESHOLD 0.001			// 相似度阈值
 
-Triangulation::Delaunay delaunay(COS30);
-
-char* videoFile = "3281.oni";
+Triangulation::Delaunay delaunay(COS30);	// 三角化
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -196,7 +200,6 @@ void drawPoints()
 /*                       OpenGL响应函数                                 */
 /************************************************************************/
 
-//////////////////////////////////////////////////////////////////////////
 // 鼠标按键响应函数
 void mouse(int button, int state, int x, int y)
 {
@@ -213,12 +216,12 @@ void mouse(int button, int state, int x, int y)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////
 // 鼠标运动响应函数
 void motion(int x, int y)
 {
 }
 
+// 键盘按键响应函数
 void keyboard(uchar key, int x, int y)
 {
 	switch(key)
@@ -264,6 +267,7 @@ void keyboard(uchar key, int x, int y)
 	}
 }
 
+// 鼠标进出窗口响应函数
 void mouseEntry(int state)
 {
 	switch (state)
@@ -279,7 +283,6 @@ void mouseEntry(int state)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////
 // 三维图像显示响应函数
 void renderScene(void)
 {
@@ -289,9 +292,6 @@ void renderScene(void)
 	glLoadIdentity();   
 	// set the camera position
 	userCamera.look();
-
-	// 对点云数据进行三角化
-	// 参考自：http://www.codeproject.com/KB/openGL/OPENGLTG.aspx
 
 	drawPoints();
 
@@ -305,7 +305,6 @@ void renderScene(void)
 	glutSwapBuffers();
 }
 
-//////////////////////////////////////////////////////////////////////////
 // 窗口变化图像重构响应函数
 void reshape (int w, int h)
 {
@@ -318,65 +317,27 @@ void reshape (int w, int h)
 	glMatrixMode (GL_MODELVIEW);
 }
 
-/************************************************************************/
-/*                         主程序                                       */
-/************************************************************************/
-int main(int argc, char** argv)
+// 初始化OpenNI
+void initOpenNI()
 {
-	hasCuda = initCuda();
-	userCamera.positionCamera(0.0, 1.8, 100.0, 
-		0.0, 1.8, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
-
-	// OpenGL Window
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowPosition(glWinPosX, glWinPosY);
-	glutInitWindowSize(glWinWidth, glWinHeight);
-	glutCreateWindow("3D image");
-
-	glutReshapeFunc (reshape);			// 窗口变化时重绘图像
-	glutDisplayFunc(renderScene);		// 显示三维图像       
-	glutMouseFunc(mouse);				// 鼠标按键响应
-	glutEntryFunc(mouseEntry);			// 设置鼠标进入窗口的处理函数
-	glutMotionFunc(motion);				// 鼠标移动响应
-	glutKeyboardFunc(keyboard);			// 键盘按键响应
-	glutIdleFunc(renderScene);			// 空闲时重绘图像
-
-	// OpenCV Window
-	namedWindow("depth", CV_WINDOW_AUTOSIZE);  
-	namedWindow("image", CV_WINDOW_AUTOSIZE);  
-
 	// OpenNI 对象
-	XnStatus rc = XN_STATUS_OK;
-	Context context;				// 创建上下文对象
 	rc = context.Init();			// 上下文对象初始化 
 	checkOpenNIError(rc, "initialize context");
-	context.SetGlobalMirror(true);	// 设置镜像
+// 	context.SetGlobalMirror(true);	// 设置镜像
 
 	Player player;
-// 	rc = context.OpenFileRecording(videoFile, player);						// 打开已有的oni文件
-// 	checkOpenNIError(rc, "Open File Recording");
-// 
-// 	ImageGenerator imageGenerator;											// 创建image generator
-// 	rc = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator);		// 获取oni文件中的image节点
-// 	checkOpenNIError(rc, "Create Image Generator");   
-// 	DepthGenerator depthGenerator;											// 创建depth generator
-// 	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		// 获取oni文件中的depth节点
-// 	checkOpenNIError(rc, "Create Depth Generator"); 
-// 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);
-	XnMapOutputMode xmode;		// 定义图像的输出模式
-	xmode.nXRes = 640;			// x方向分辨率
-	xmode.nYRes = 480;			// y方向分辨率
-	xmode.nFPS = 30;			// 帧率
-	ImageGenerator imageGenerator;
-	DepthGenerator depthGenerator;
-	rc = imageGenerator.Create(context);										// 创建image generator
-	checkOpenNIError(rc, "Create Image Generator");
-	imageGenerator.SetMapOutputMode(xmode);
-	rc = depthGenerator.Create(context);										// 创建depth generator
-	checkOpenNIError(rc, "Create Depth Generator");
-	depthGenerator.SetMapOutputMode(xmode);
-	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);	// 校正视角
+	rc = context.OpenFileRecording(videoFile, player);						// 打开已有的oni文件
+	checkOpenNIError(rc, "Open File Recording");
+
+	rc = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator);		// 获取oni文件中的image节点
+	checkOpenNIError(rc, "Create Image Generator");   
+	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		// 获取oni文件中的depth节点
+	checkOpenNIError(rc, "Create Depth Generator"); 
+// 	rc = imageGenerator.Create(context);										// 创建image generator
+// 	checkOpenNIError(rc, "Create Image Generator");
+// 	rc = depthGenerator.Create(context);										// 创建depth generator
+// 	checkOpenNIError(rc, "Create Depth Generator");
+// 	depthGenerator.GetAlternativeViewPointCap().SetViewPoint(imageGenerator);	// 校正视角
 
 	// 获得像素大小
 	XnDouble pixelSize = 0;
@@ -397,19 +358,55 @@ int main(int argc, char** argv)
 	// 获得焦距(pixel)
 	focalLengthInPixel = (XnUInt64)((double)zeroPlanDistance / (double)pixelSize);
 
+	// 开始获取并显示 Kinect 图像
+	rc = context.StartGeneratingAll();
+	checkOpenNIError(rc, "Start generating");
+	context.WaitNoneUpdateAll();
+}
+
+// 初始化OpenGL
+void initOpenGL(int argc, char** argv)
+{
+	userCamera.positionCamera(0.0, 1.8, 100.0, 
+		0.0, 1.8, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
+
+	// OpenGL Window
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);
+	glutInitWindowPosition(glWinPosX, glWinPosY);
+	glutInitWindowSize(glWinWidth, glWinHeight);
+	glutCreateWindow("3D Scene");
+
+	glutReshapeFunc (reshape);			// 窗口变化时重绘图像
+	glutDisplayFunc(renderScene);		// 显示三维图像       
+	glutMouseFunc(mouse);				// 鼠标按键响应
+	glutEntryFunc(mouseEntry);			// 设置鼠标进入窗口的处理函数
+	glutMotionFunc(motion);				// 鼠标移动响应
+	glutKeyboardFunc(keyboard);			// 键盘按键响应
+	glutIdleFunc(renderScene);			// 空闲时重绘图像
+}
+
+/************************************************************************/
+/*                         主程序                                       */
+/************************************************************************/
+int main(int argc, char** argv)
+{
+	hasCuda = initCuda();
+
+	initOpenGL(argc, argv);
+	initOpenNI();
+
+	// OpenCV Window
+	namedWindow("depth", CV_WINDOW_AUTOSIZE);  
+	namedWindow("image", CV_WINDOW_AUTOSIZE);  
+
 	double K[9] = {(double)focalLengthInPixel, 0.0, 320,
 				   0.0, -(double)focalLengthInPixel, 240,
 				   0.0, 0.0, 1};
 	Mat intrinsic(3, 3, CV_64FC1, K);
 	BundleAdjustment::setIntrinsic(intrinsic);
 
-	// 开始获取并显示 Kinect 图像
-	rc = context.StartGeneratingAll();
-	checkOpenNIError(rc, "Start generating");
-	rc = context.WaitNoneUpdateAll();
-	checkOpenNIError(rc, "Update data");
-
-	Mat colorImgPre, colorImgNow, depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
+	Mat depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
 	Mat mask;
 	pair<Mat, Mat> desPre, desNow;
 
@@ -422,8 +419,11 @@ int main(int argc, char** argv)
 
 	for (; ; frameCnt++) 
 	{
-		rc = context.WaitOneUpdateAll(depthGenerator);
-		rc = context.WaitOneUpdateAll(imageGenerator);
+		rc = context.WaitAndUpdateAll();
+		if (rc != XN_STATUS_OK)
+		{
+			continue;
+		}
 
 		if (breakScan || depthGenerator.GetFrameID() < frameCnt)
 		{
@@ -433,14 +433,12 @@ int main(int argc, char** argv)
 		Mat colorImg, depthImg;
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			colorImg, depthImg), OUTPUT, "read one frame.");
-		colorImgPre = colorImgNow.clone();
 		depthImgPre = depthImgNow.clone();
-		colorImgNow = colorImg.clone();
 		depthImgNow = depthImg.clone();
 
 		desPre = desNow;
-		features.getHSVColorHistDes(colorImgNow, desNow.first);
-		features.getGLCMDes(colorImgNow, desNow.second);
+		features.getHSVColorHistDes(colorImg, desNow.first);
+		features.getGLCMDes(colorImg, desNow.second);
 
 		Mat pointCloud, pointColors;
 		vector<KeyPoint> keyPoint;
@@ -466,7 +464,6 @@ int main(int argc, char** argv)
 			double distance = computeDistance(desPre, desNow);
 			if (distance < SIMILARITY_THRESHOLD)	// 判断两帧的相似度，小于阈值则不匹配
 			{
-				colorImgNow = colorImgPre.clone();
 				depthImgNow = depthImgPre.clone();
 				desNow = desPre;
 			}
@@ -481,13 +478,20 @@ int main(int argc, char** argv)
 
 				Mat H;
 				vector<pair<int, int>> matchesPoints;
+				bool flag;
 				RUNANDTIME(global_timer, pairwiseMatch(recordCnt, 
 					recordCnt - 1, keyPoints, descriptors, H, matchesPoints), 
 					OUTPUT, "pairwise matches.");
-				RUNANDTIME(global_timer, convert2DTo3D(depthGenerator, H, 
-					depthImgNow, depthImgPre, recordCnt, recordCnt - 1, 
+				RUNANDTIME(global_timer, flag = convert2DTo3D(depthGenerator, 
+					H, depthImgNow, depthImgPre, recordCnt, recordCnt - 1, 
 					keyPoints, matchesPoints, oldLoc, newLoc, objSet, 
 					modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
+// 				if (!flag || objSet.empty() || modSet.empty() || objSetAT.empty())
+// 				{
+// 					glutPostRedisplay();	
+// 					glutMainLoopEvent();
+// 					continue;
+// 				}
 
 				/*ICP i(objSet, modSet);*/
 				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
@@ -566,23 +570,3 @@ int main(int argc, char** argv)
 	glutMainLoop();
 	return 0;
 }
-
-
-//int main()
-//{
-//	segment myseg;
-//	Mat ldimage = imread("./images/8.jpg",0);
-//	if(! ldimage.data) {
-//		cout<<"load image failed\n";
-//		system("pause");
-//		return 0;
-//	}
-//	myseg.setDepthImage(ldimage);
-//	RUNANDTIME(global_timer, myseg.oversegMyImage((uchar)10),
-//		OUTPUT, "seg time");
-//	//cout<<cos(1.57079632679489661923);
-//	cout<<"good bye";
-//
-//	system("pause");
-//	return 0;
-//}

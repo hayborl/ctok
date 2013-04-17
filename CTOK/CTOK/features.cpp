@@ -464,6 +464,10 @@ void pairwiseMatch( const int &indexNow, const int &indexPre,
 				make_pair(matches[i].queryIdx, matches[i].trainIdx));
 		}
 	}
+	if (matchesIndex.size() < 4)
+	{
+		return;
+	}
 	// 用RANSAC方法计算基本矩阵
 	vector<uchar> ransacStatus;
 	H = findHomography(points0, points1, ransacStatus, CV_RANSAC);
@@ -477,7 +481,7 @@ void pairwiseMatch( const int &indexNow, const int &indexPre,
 	}
 }
 
-void convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 
+bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 
 	const Mat &depthImgNow, const Mat &depthImgPre, 
 	const int &indexNow, const int &indexPre,
 	const vector<vector<KeyPoint>> &keypoints,
@@ -487,7 +491,11 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 {
 	assert(indexNow < keypoints.size() && indexPre < keypoints.size());
 	assert(indexNow > indexPre);
-	assert(matchesPoints.size() > 0);
+	
+	if (matchesPoints.size() == 0)
+	{
+		return false;
+	}
 	// 将特征点通过基本矩阵转换
 	vector<Point2f> points0;
 	vector<Point2f> transPoints;
@@ -558,13 +566,15 @@ void convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 		objSetAT.at<Point3d>(i, 0) = Point3d(
 			realAT[i].X / 1000.0, realAT[i].Y / 1000.0, realAT[i].Z / 1000.0);
 	}
+
+	return true;
 }
 
 void convert2DTo3D( xn::DepthGenerator dg, 
 	const Mat &depthImg, const vector<KeyPoint> &keypoints, Mat &points )
 {
 	assert(keypoints.size() > 0);
-	int size = keypoints.size();
+	int size = (int)keypoints.size();
 	vector<Point3d> tmpSet;
 	Ptr<XnPoint3D> proj = new XnPoint3D[size];
 	Ptr<XnPoint3D> real = new XnPoint3D[size];

@@ -48,7 +48,7 @@ vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 
 Features features;							// 用以获取特征比较相似度
-#define SIMILARITY_THRESHOLD 0.001			// 相似度阈值
+#define SIMILARITY_THRESHOLD 0.0001			// 相似度阈值
 
 Triangulation::Delaunay delaunay(COS30);	// 三角化
 
@@ -417,9 +417,10 @@ int main(int argc, char** argv)
 	Mat intrinsic(3, 3, CV_64FC1, K);
 	BundleAdjustment::setIntrinsic(intrinsic);
 
-	Mat depthImgPre, depthImgNow;		// 前后两帧的彩色图与深度图
+	Mat depthImgPre;					// 前一帧的深度图
 	Mat mask;
 	pair<Mat, Mat> desPre, desNow;
+	Mat dpre;
 
 	XnUInt32 frameCnt = 0;
 
@@ -444,23 +445,25 @@ int main(int argc, char** argv)
 		Mat colorImg, depthImg;
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			colorImg, depthImg), OUTPUT, "read one frame.");
-		depthImgPre = depthImgNow.clone();
-		depthImgNow = depthImg.clone();
 
-		desPre = desNow;
-		features.getHSVColorHistDes(colorImg, desNow.first);
-		features.getGLCMDes(colorImg, desNow.second);
+// 		desPre = desNow;
+// 		features.getHSVColorHistDes(colorImg, desNow.first);
+// 		features.getGLCMDes(colorImg, desNow.second);
+		Mat des;
+		features.getPHash(colorImg, des);
 
-		Mat pointCloud, pointColors;
-		vector<KeyPoint> keyPoint;
-		Mat descriptor, pose;
+		Mat pointCloud, pointColors, pose;
 		if (frameCnt == 0)
 		{
 			mask.create(colorImg.rows, colorImg.cols, CV_8UC1);
 			mask.setTo(Scalar::all(255));
+
 			RUNANDTIME(global_timer, read3DPoints(depthGenerator, 
 				depthImg, colorImg, mask, pointCloud, pointColors), 
 				OUTPUT, "read 3D points");
+
+			vector<KeyPoint> keyPoint;
+			Mat descriptor;
 			RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
 				descriptor), OUTPUT, "get feature points and descriptor.");
 			keyPoints.push_back(keyPoint);
@@ -469,32 +472,58 @@ int main(int argc, char** argv)
 			pose = Mat::eye(4, 4, CV_64FC1);
 			camPoses.push_back(pose);
 			recordCnt++;
+
+			depthImgPre = depthImg.clone();
+			dpre = des.clone();
 		}
 		else
 		{
-			double distance = computeDistance(desPre, desNow);
-			if (distance < SIMILARITY_THRESHOLD)	// 判断两帧的相似度，小于阈值则不匹配
+//			cout << hammingDistance(dpre, dnow) << endl;
+// 			int dist = hammingDistance(dpre, des);
+// 			cout << dist << endl;
+// 			if (dist > 5)
+// 			{
+//			}
+// 			waitKey();
+// 			continue;
+			vector<KeyPoint> keyPoint;
+			Mat descriptor, H;
+			RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
+				descriptor), OUTPUT, "get feature points and descriptor.");
+
+			vector<vector<KeyPoint>> tmpKpts;
+			vector<Mat> tmpDscrpts;
+			tmpKpts.push_back(keyPoints[recordCnt - 1]);
+			tmpKpts.push_back(keyPoint);
+			tmpDscrpts.push_back(descriptors[recordCnt - 1]);
+			tmpDscrpts.push_back(descriptor);
+
+			vector<pair<int, int>> matchesPoints;
+			double score;
+			RUNANDTIME(global_timer, score = pairwiseMatch(1, 
+				0, tmpKpts, tmpDscrpts, H, matchesPoints), 
+				OUTPUT, "pairwise matches.");
+			if (score < 0.55)
 			{
-				depthImgNow = depthImgPre.clone();
-				desNow = desPre;
-			}
-			else
-			{
-				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
-				vector<Vec2d> oldLoc, newLoc;
-				RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
-					descriptor), OUTPUT, "get feature points and descriptor.");
+// 				vector<KeyPoint> keyPoint;
+// 				Mat descriptor, H;
+// 				RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
+// 					descriptor), OUTPUT, "get feature points and descriptor.");
 				keyPoints.push_back(keyPoint);
 				descriptors.push_back(descriptor);
+// 
+// 				vector<pair<int, int>> matchesPoints;
+// 				double score;
+// 				RUNANDTIME(global_timer, score = pairwiseMatch(1, 
+// 					0, keyPoints, descriptors, H, matchesPoints), 
+// 					OUTPUT, "pairwise matches.");
 
-				Mat H;
-				vector<pair<int, int>> matchesPoints;
+				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
+				vector<Vec2d> oldLoc, newLoc;
+
 				bool flag;
-				RUNANDTIME(global_timer, pairwiseMatch(recordCnt, 
-					recordCnt - 1, keyPoints, descriptors, H, matchesPoints), 
-					OUTPUT, "pairwise matches.");
 				RUNANDTIME(global_timer, flag = convert2DTo3D(depthGenerator, 
-					H, depthImgNow, depthImgPre, recordCnt, recordCnt - 1, 
+					H, depthImg, depthImgPre, recordCnt, recordCnt - 1, 
 					keyPoints, matchesPoints, oldLoc, newLoc, objSet, 
 					modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
 // 				if (!flag || objSet.empty() || modSet.empty() || objSetAT.empty())
@@ -545,7 +574,8 @@ int main(int argc, char** argv)
 					transformPointCloud(pointCloud, pointCloud, 
 					pose, hasCuda), OUTPUT, "transform point cloud.");
 
-/*				waitKey();*/
+				depthImgPre = depthImg.clone();
+				dpre = des.clone();
 			}
 		}
 

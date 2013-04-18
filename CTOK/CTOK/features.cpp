@@ -214,9 +214,43 @@ void Features::getGLCM( const Mat &image, double* normGlcm,
 	}
 }
 
+void Features::getAvgHash( const Mat &image, Mat &descriptors )
+{
+	Mat img, gray;
+	resize(image, img, Size(8, 8));
+	cvtColor(img, gray, CV_BGR2GRAY);
+	double avg = mean(gray)[0];
+
+	descriptors.create(8, 8, CV_8UC1);
+	compare(gray, avg, descriptors, CMP_GE);
+}
+
+void Features::getPHash( const Mat &image, Mat &descriptors )
+{
+	Mat img, gray, floatGray, DCT, smallDCT;
+	resize(image, img, Size(32, 32));
+	cvtColor(img, gray, CV_BGR2GRAY);
+	gray.convertTo(floatGray, CV_64FC1);
+	dct(floatGray, DCT);
+	smallDCT = DCT(Rect(0, 0, 8, 8)).clone();
+
+	double avg = mean(smallDCT)[0];
+	descriptors.create(8, 8, CV_8UC1);
+	compare(smallDCT, avg, descriptors, CMP_GE);
+}
+
+int hammingDistance( const Mat &mat1, const Mat &mat2 )
+{
+	assert(mat1.rows == mat2.rows && mat1.cols == mat2.cols);
+	Mat rst(mat1.rows, mat1.cols, CV_8UC1);
+	compare(mat1, mat2, rst, CMP_NE);
+	return countNonZero(rst);
+}
+
 double bhattacharyyaDistance(const Mat &mat1, const Mat &mat2)
 {
 	assert(mat1.channels() == 1 && mat2.channels() == 1);
+	assert(mat1.cols == mat2.cols && mat1.rows == mat2.rows);
 	Mat tmp = mat1.mul(mat2);
 	sqrt(tmp, tmp);
 	return -log(sum(tmp)[0]);
@@ -226,7 +260,7 @@ double computeDistance(pair<Mat, Mat> des1, pair<Mat, Mat> des2)
 {
 	double dis1 = bhattacharyyaDistance(des1.first, des2.first);
 	double dis2 = bhattacharyyaDistance(des1.second, des2.second);
-	return (dis1 + dis2) * 0.5;
+	return dis2;
 }
 
 void getSurfPointsSet( const Mat &objColorImg, const Mat &objPointCloud, 
@@ -405,7 +439,7 @@ void get2DFeaturePoints( const Mat &colorImg,
 	}
 }
 
-void pairwiseMatch( const int &indexNow, const int &indexPre,
+double pairwiseMatch( const int &indexNow, const int &indexPre,
 	const vector<vector<KeyPoint>> &keypoints, const vector<Mat> &descriptors, 
 	Mat &H, vector<pair<int, int>> &matchesPoints )
 {
@@ -436,27 +470,21 @@ void pairwiseMatch( const int &indexNow, const int &indexPre,
 	vector<pair<int, int>> matchesIndex;
 	vector<Point2f> points0;
 	vector<Point2f> points1;
-	double minDist = 100000;
-	double maxDist = 0;
+	double meanDist = 0;
 
-	// 求最大最小距离
+	// 求平均距离
 	for (int i = 0; i < ptCount; i++)
 	{
 		double dist = matches[i].distance;
-		if (dist < minDist)
-		{
-			minDist = dist;
-		}
-		if (dist > maxDist)
-		{
-			maxDist = dist;
-		}
+		meanDist += dist;
 	}
+	meanDist /= (double)ptCount;
+
 	// 去除距离过大的特征点
 	for (int i = 0; i < ptCount; i++)
 	{
 		double dist = matches[i].distance;
-		if (dist < (minDist + maxDist) / 2)
+		if (dist < meanDist)
 		{
 			points0.push_back(keypoints[indexNow][matches[i].queryIdx].pt);
 			points1.push_back(keypoints[indexPre][matches[i].trainIdx].pt);
@@ -464,9 +492,12 @@ void pairwiseMatch( const int &indexNow, const int &indexPre,
 				make_pair(matches[i].queryIdx, matches[i].trainIdx));
 		}
 	}
+	double score = (double)matchesIndex.size() 
+		/ (double)keypoints[indexNow].size();
+	
 	if (matchesIndex.size() < 4)
 	{
-		return;
+		return 1.0;
 	}
 	// 用RANSAC方法计算基本矩阵
 	vector<uchar> ransacStatus;
@@ -479,6 +510,8 @@ void pairwiseMatch( const int &indexNow, const int &indexPre,
 			matchesPoints.push_back(matchesIndex[i]);
 		}
 	}
+	
+	return score;
 }
 
 bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 

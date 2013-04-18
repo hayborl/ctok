@@ -48,7 +48,7 @@ vector<Vec3b> pointColorData;
 size_t pointNumber = 0;
 
 Features features;							// 用以获取特征比较相似度
-#define SIMILARITY_THRESHOLD 0.0001			// 相似度阈值
+#define SIMILARITY_THRESHOLD 9				// 相似度阈值
 
 Triangulation::Delaunay delaunay(COS30);	// 三角化
 
@@ -415,12 +415,11 @@ int main(int argc, char** argv)
 				   0.0, -(double)focalLengthInPixel, 240,
 				   0.0, 0.0, 1};
 	Mat intrinsic(3, 3, CV_64FC1, K);
-	BundleAdjustment::setIntrinsic(intrinsic);
+	BundleAdjustment::setIntrinsic(intrinsic);	// 设置内参矩阵
 
 	Mat depthImgPre;					// 前一帧的深度图
+	Mat dscrptPre;						// 前一帧的描述子
 	Mat mask;
-	pair<Mat, Mat> desPre, desNow;
-	Mat dpre;
 
 	XnUInt32 frameCnt = 0;
 
@@ -446,11 +445,9 @@ int main(int argc, char** argv)
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			colorImg, depthImg), OUTPUT, "read one frame.");
 
-// 		desPre = desNow;
-// 		features.getHSVColorHistDes(colorImg, desNow.first);
-// 		features.getGLCMDes(colorImg, desNow.second);
-		Mat des;
-		features.getPHash(colorImg, des);
+		Mat dscrpt;
+		RUNANDTIME(global_timer, features.getPHash(colorImg, dscrpt),
+			OUTPUT, "get hash using pHash");
 
 		Mat pointCloud, pointColors, pose;
 		if (frameCnt == 0)
@@ -474,49 +471,24 @@ int main(int argc, char** argv)
 			recordCnt++;
 
 			depthImgPre = depthImg.clone();
-			dpre = des.clone();
+			dscrptPre = dscrpt.clone();
 		}
 		else
 		{
-//			cout << hammingDistance(dpre, dnow) << endl;
-// 			int dist = hammingDistance(dpre, des);
-// 			cout << dist << endl;
-// 			if (dist > 5)
-// 			{
-//			}
-// 			waitKey();
-// 			continue;
-			vector<KeyPoint> keyPoint;
-			Mat descriptor, H;
-			RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
-				descriptor), OUTPUT, "get feature points and descriptor.");
-
-			vector<vector<KeyPoint>> tmpKpts;
-			vector<Mat> tmpDscrpts;
-			tmpKpts.push_back(keyPoints[recordCnt - 1]);
-			tmpKpts.push_back(keyPoint);
-			tmpDscrpts.push_back(descriptors[recordCnt - 1]);
-			tmpDscrpts.push_back(descriptor);
-
-			vector<pair<int, int>> matchesPoints;
-			double score;
-			RUNANDTIME(global_timer, score = pairwiseMatch(1, 
-				0, tmpKpts, tmpDscrpts, H, matchesPoints), 
-				OUTPUT, "pairwise matches.");
-			if (score < 0.55)
+			int dist = hammingDistance(dscrptPre, dscrpt);
+			if (dist > SIMILARITY_THRESHOLD)
 			{
-// 				vector<KeyPoint> keyPoint;
-// 				Mat descriptor, H;
-// 				RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
-// 					descriptor), OUTPUT, "get feature points and descriptor.");
+				vector<KeyPoint> keyPoint;
+				Mat descriptor, H;
+				RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
+					descriptor), OUTPUT, "get feature points and descriptor.");
 				keyPoints.push_back(keyPoint);
 				descriptors.push_back(descriptor);
-// 
-// 				vector<pair<int, int>> matchesPoints;
-// 				double score;
-// 				RUNANDTIME(global_timer, score = pairwiseMatch(1, 
-// 					0, keyPoints, descriptors, H, matchesPoints), 
-// 					OUTPUT, "pairwise matches.");
+
+				vector<pair<int, int>> matchesPoints;
+				RUNANDTIME(global_timer, pairwiseMatch(recordCnt, 
+					recordCnt - 1, keyPoints, descriptors, H, matchesPoints), 
+					OUTPUT, "pairwise matches.");
 
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				vector<Vec2d> oldLoc, newLoc;
@@ -575,21 +547,19 @@ int main(int argc, char** argv)
 					pose, hasCuda), OUTPUT, "transform point cloud.");
 
 				depthImgPre = depthImg.clone();
-				dpre = des.clone();
+				dscrptPre = dscrpt.clone();
 			}
 		}
 
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-				pointColors, false), OUTPUT, "load data");
-/*			waitKey();*/
-// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-// 				pointColors), OUTPUT, "load data");
-// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-// 				OUTPUT, "delaunay");
-// 			cout << delaunay.m_triangles.size() << endl;
-/*			delaunay.saveTriangles("triangles.tri");*/
+// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+// 				pointColors, false), OUTPUT, "load data");
+			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+				pointColors), OUTPUT, "load data");
+			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+				OUTPUT, "delaunay");
+			cout << delaunay.m_triangles.size() << endl;
 		}
 
 		char key = waitKey(1);

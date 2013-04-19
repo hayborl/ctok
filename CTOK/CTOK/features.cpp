@@ -584,6 +584,10 @@ bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 			cnt++;
 		}
 	}
+	if (cnt == 0)
+	{
+		return false;
+	}
 	dg.ConvertProjectiveToRealWorld(cnt, projO, realO);
 	dg.ConvertProjectiveToRealWorld(cnt, projM, realM);
 	dg.ConvertProjectiveToRealWorld(cnt, projAT, realAT);

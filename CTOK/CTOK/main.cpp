@@ -178,9 +178,9 @@ void drawPoints()
 	{
 		glColor3d(pointColorData[i][0] / 255.0, 
 			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = pointCloudData[i][0] * 1000.0;
-		y = pointCloudData[i][1] * 1000.0;
-		z = pointCloudData[i][2] * 1000.0;
+		x = pointCloudData[i][0] * 100.0;
+		y = pointCloudData[i][1] * 100.0;
+		z = pointCloudData[i][2] * 100.0;
 		glVertex3d(x, y, z);
 	}
 	glEnd();
@@ -378,7 +378,7 @@ void initOpenNI()
 // 初始化OpenGL
 void initOpenGL(int argc, char** argv)
 {
-	userCamera.positionCamera(0.0, 1.8, 100.0, 
+	userCamera.positionCamera(0.0, 1.8, 10.0, 
 		0.0, 1.8, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
 
 	// OpenGL Window
@@ -493,17 +493,19 @@ int main(int argc, char** argv)
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				vector<Vec2d> oldLoc, newLoc;
 
-				bool flag;
-				RUNANDTIME(global_timer, flag = convert2DTo3D(depthGenerator, 
+				bool success;
+				RUNANDTIME(global_timer, success = convert2DTo3D(depthGenerator, 
 					H, depthImg, depthImgPre, recordCnt, recordCnt - 1, 
 					keyPoints, matchesPoints, oldLoc, newLoc, objSet, 
 					modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
-// 				if (!flag || objSet.empty() || modSet.empty() || objSetAT.empty())
-// 				{
-// 					glutPostRedisplay();	
-// 					glutMainLoopEvent();
-// 					continue;
-// 				}
+				if (!success)
+				{
+					keyPoints.erase(keyPoints.end() - 1);
+					descriptors.erase(descriptors.end() - 1);
+					glutPostRedisplay();	
+					glutMainLoopEvent();
+					continue;
+				}
 
 				/*ICP i(objSet, modSet);*/
 				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
@@ -553,13 +555,13 @@ int main(int argc, char** argv)
 
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-// 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-// 				pointColors, false), OUTPUT, "load data");
-			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-				pointColors), OUTPUT, "load data");
-			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-				OUTPUT, "delaunay");
-			cout << delaunay.m_triangles.size() << endl;
+			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
+				pointColors, false), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+// 				pointColors), OUTPUT, "load data");
+// 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
+// 				OUTPUT, "delaunay");
+// 			cout << delaunay.m_triangles.size() << endl;
 		}
 
 		char key = waitKey(1);

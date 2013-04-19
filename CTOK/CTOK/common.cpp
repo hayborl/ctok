@@ -49,7 +49,7 @@ void saveData(const char* filename, const Mat &mat, int flag)
 			for(int x = 0; x < mat.cols; x++)
 			{
 				Vec3d point = mat.at<Vec3d>(y, x);   // Vec3d 是 template 类定义
-				fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+				fprintf(fp, "%f,%f,%f\n", point[0], point[1], point[2]);
 			}
 		}
 		break;
@@ -71,7 +71,7 @@ void saveData(const char* filename, const vector<Vec3d> pts)
 	for (int i = 0; i < pts.size(); i++)
 	{
 		Vec3d point = pts[i];
-		fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+		fprintf(fp, "%f,%f,%f\n", point[0], point[1], point[2]);
 	}
 	fclose(fp);
 }

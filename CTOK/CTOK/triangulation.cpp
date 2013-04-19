@@ -201,6 +201,7 @@ bool Triangle::operator==( const Triangle &t ) const
 			if (m_vertices[i] == t.m_vertices[j])
 			{
 				cnt++;
+				break;
 			}
 		}
 	}
@@ -402,11 +403,7 @@ void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
 	int cnt = m_preSize;
 	for (int i = 0; i < pts.rows; i++)
 	{
-// 		if ((double)rand() / (double)RAND_MAX > 0.5)
-// 		{
-// 			continue;
-// 		}
-		Vec3d xyz = pts.at<Vec3d>(i, 0);
+		Vec3d xyz = pts.at<Vec3d>(i, 0) * 1000.0;
 		Vec3b color = colors[i];
 
 		m_vertices.push_back(Vertex(xyz, cnt, color));
@@ -423,11 +420,7 @@ void Delaunay::addVertices( const Mat &pts, const Mat &colors )
 	int cnt = m_preSize;
 	for (int i = 0; i < pts.rows; i++)
 	{
-// 		if ((double)rand() / (double)RAND_MAX > 0.5)
-// 		{
-// 			continue;
-// 		}
-		Vec3d xyz = pts.at<Vec3d>(i, 0);
+		Vec3d xyz = pts.at<Vec3d>(i, 0) * 1000.0;
 		Vec3b color = colors.at<Vec3b>(i, 0);
 
 		m_vertices.push_back(Vertex(xyz, cnt, color));

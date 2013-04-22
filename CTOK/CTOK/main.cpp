@@ -7,6 +7,7 @@
 #include "camera.h"
 #include "triangulation.h"
 #include "bundleadjustment.h"
+/*#include "ballpivoting.h"*/
 
 using namespace std;
 using namespace cv;
@@ -32,7 +33,7 @@ Camera userCamera;
 //---OpenNI
 #define CONFIG_PATH "SamplesConfig.xml"
 
-char* videoFile = "3281.oni";
+char* videoFile = "ttt.oni";
 XnStatus rc = XN_STATUS_OK;
 Context context;							// 上下文对象
 XnDouble baseline;							// 基线长度(mm)
@@ -51,6 +52,8 @@ Features features;							// 用以获取特征比较相似度
 #define SIMILARITY_THRESHOLD 9				// 相似度阈值
 
 Triangulation::Delaunay delaunay(COS30);	// 三角化
+
+/*MyMesh m;*/
 
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
@@ -196,6 +199,17 @@ void drawPoints()
 			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 		}
 	}
+// 	MyMesh::FaceIterator fi = m.face.begin();
+// 	for (; fi != m.face.end(); ++fi)
+// 	{
+// 		for (int i = 0; i < 3; i++)
+// 		{
+// 			MyMesh::VertexPointer v = fi->V(i);
+// 			vcg::Color4b c = v->C();
+// 			glColor3d(c[0], c[1], c[2]);
+// 			glVertex3d(v->P()[0], v->P()[1], v->P()[2]);
+// 		}
+// 	}
 	glEnd(); 
 }
 
@@ -211,10 +225,12 @@ void mouse(int button, int state, int x, int y)
 		if (state == GLUT_DOWN)
 		{
 			userCamera.setMouseState(true);
+			glutSetCursor(GLUT_CURSOR_NONE);
 		}
 		else
 		{
 			userCamera.setMouseState(false);
+			glutSetCursor(GLUT_CURSOR_INHERIT);
 		}
 	}
 }
@@ -289,6 +305,9 @@ void mouseEntry(int state)
 // 三维图像显示响应函数
 void renderScene(void)
 {
+	glWinPosX = glutGet(GLUT_WINDOW_X);
+	glWinPosY = glutGet(GLUT_WINDOW_Y);
+
 	// clear screen and depth buffer
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	// Reset the coordinate system before modifying
@@ -303,6 +322,8 @@ void renderScene(void)
 
 	// 设置camera的新位置
 	userCamera.positionCamera(vPos, vView, Vec3d(0.0, 1.0, 0.0));
+
+	glEnable(GL_DEPTH_TEST);
 
 	glFlush();
 	glutSwapBuffers();
@@ -440,7 +461,6 @@ int main(int argc, char** argv)
 		{
 			break;
 		}
-
 		Mat colorImg, depthImg;
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			colorImg, depthImg), OUTPUT, "read one frame.");
@@ -482,30 +502,50 @@ int main(int argc, char** argv)
 				Mat descriptor, H;
 				RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
 					descriptor), OUTPUT, "get feature points and descriptor.");
-				keyPoints.push_back(keyPoint);
-				descriptors.push_back(descriptor);
 
 				vector<pair<int, int>> matchesPoints;
-				RUNANDTIME(global_timer, pairwiseMatch(recordCnt, 
-					recordCnt - 1, keyPoints, descriptors, H, matchesPoints), 
+				double score;
+				int last = (int)keyPoints.size() - 1;
+				RUNANDTIME(global_timer, score = pairwiseMatch(keyPoint, 
+					keyPoints[last], descriptor, descriptors[last], H, matchesPoints), 
 					OUTPUT, "pairwise matches.");
+				cout << score << endl;
+
+// 				int j;
+// 				for (j = last - 1; j >= 0; j--)
+// 				{
+// 					Mat tmpH;
+// 					vector<pair<int, int>> tmpMatchesPoints;
+// 					double tmpScore = pairwiseMatch(keyPoint, keyPoints[j], descriptor, descriptors[j], tmpH, tmpMatchesPoints);
+// 					cout << tmpScore << endl;
+// 					if (tmpScore > score)
+// 					{
+// 						break;
+// 					}
+// 				}
+// 				if (j >= 0)
+// 				{
+// 					glutPostRedisplay();	
+// 					glutMainLoopEvent();
+// 					continue;
+// 				}
 
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				vector<Vec2d> oldLoc, newLoc;
 
 				bool success;
-				RUNANDTIME(global_timer, success = convert2DTo3D(depthGenerator, 
-					H, depthImg, depthImgPre, recordCnt, recordCnt - 1, 
-					keyPoints, matchesPoints, oldLoc, newLoc, objSet, 
+				RUNANDTIME(global_timer, success = convert2DTo3D(
+					depthGenerator, H, depthImg, depthImgPre, keyPoint, 
+					keyPoints[last], matchesPoints, oldLoc, newLoc, objSet, 
 					modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
 				if (!success)
 				{
-					keyPoints.erase(keyPoints.end() - 1);
-					descriptors.erase(descriptors.end() - 1);
 					glutPostRedisplay();	
 					glutMainLoopEvent();
 					continue;
 				}
+				keyPoints.push_back(keyPoint);
+				descriptors.push_back(descriptor);
 
 				/*ICP i(objSet, modSet);*/
 				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
@@ -557,6 +597,10 @@ int main(int argc, char** argv)
 		{
 			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
 				pointColors, false), OUTPUT, "load data");
+// 			waitKey();
+// 			RUNANDTIME(global_timer, runBallPivoting(m, pointCloud, 
+// 				pointColors), OUTPUT, "ball pivoting");
+// 			waitKey();
 // 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
 // 				pointColors), OUTPUT, "load data");
 // 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 

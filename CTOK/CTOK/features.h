@@ -46,16 +46,16 @@ void getSurfPointsSet(const Mat &objColorImg, const Mat &objPointCloud,
 void get2DFeaturePoints(const Mat &colorImg,					// 彩色图
 	vector<KeyPoint> &keyPoints, Mat &descriptor);				// 提取出的特征点及其描述子
 
-double pairwiseMatch(const int &indexNow, const int &indexPre,	// 相匹配的两个的索引，indexNow>indexPre
-	const vector<vector<KeyPoint>> &keypoints,					// 特征点集
-	const vector<Mat> &descriptors, Mat &H,						// 描述子集，Homography矩阵
-	vector<pair<int, int>> &matchesPoints);						// 相匹配的点集
+double pairwiseMatch(const vector<KeyPoint> &queryKeypoints,	// 查找的特征点集
+	const vector<KeyPoint> &trainKeypoints,						// 训练的特征点集
+	const Mat &queryDescriptors, const Mat &trainDescriptors,	// 两个描述子集
+	Mat &H,	vector<pair<int, int>> &matchesPoints);				// Homography矩阵,相匹配的点集
 																// 返回两张图匹配的score
 
 bool convert2DTo3D(xn::DepthGenerator dg, const Mat &H,			// OpenNI，用以将点转换成真实世界的点，Homography矩阵
 	const Mat &depthImgNow, const Mat &depthImgPre,				// 当前帧、前一帧的深度图
-	const int &indexNow, const int &indexPre,					// 相匹配的两个的索引，indexNow>indexPre
-	const vector<vector<KeyPoint>> &keypoints,					// 特征点集
+	const vector<KeyPoint> &keypointsNow,						// 当前帧的特征点集
+	const vector<KeyPoint> &keypointsPre,						// 前一帧的特征点集
 	const vector<pair<int, int>> &matchesPoints,				// 相匹配的点集
 	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,				// 在前一帧、当前帧图像上对应的位置
 	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask);		// 依次为当前帧的特征点集，前一帧的特征点集，

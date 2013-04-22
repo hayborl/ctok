@@ -439,21 +439,18 @@ void get2DFeaturePoints( const Mat &colorImg,
 	}
 }
 
-double pairwiseMatch( const int &indexNow, const int &indexPre,
-	const vector<vector<KeyPoint>> &keypoints, const vector<Mat> &descriptors, 
-	Mat &H, vector<pair<int, int>> &matchesPoints )
+double pairwiseMatch(const vector<KeyPoint> &queryKeypoints, 
+	const vector<KeyPoint> &trainKeypoints, const Mat &queryDescriptors, 
+	const Mat &trainDescriptors, Mat &H, vector<pair<int, int>> &matchesPoints)
 {
-	assert(indexNow < keypoints.size() && indexPre < keypoints.size());
-	assert(keypoints.size() == descriptors.size());
-	assert(indexNow > indexPre);
 	matchesPoints.clear();
 
 	vector<DMatch> matches;
 	if (hasCuda)
 	{
 // 		GpuMat desGpu0, desGpu1;
-// 		desGpu0.upload(descriptors[i]);
-// 		desGpu1.upload(descriptors[j]);
+// 		desGpu0.upload(queryDescriptors);
+// 		desGpu1.upload(trainDescriptors);
 // 		BFMatcher_GPU matcher;
 // 		GpuMat trainIdx, distance;
 // 		matcher.matchSingle(desGpu0, desGpu1, trainIdx, distance);
@@ -463,7 +460,7 @@ double pairwiseMatch( const int &indexNow, const int &indexPre,
 	else
 	{
 		DescriptorMatcher* matcher = new FlannBasedMatcher;
-		matcher->match(descriptors[indexNow], descriptors[indexPre], matches);
+		matcher->match(queryDescriptors, trainDescriptors, matches);
 	}
 
 	int ptCount = (int)matches.size();
@@ -486,14 +483,12 @@ double pairwiseMatch( const int &indexNow, const int &indexPre,
 		double dist = matches[i].distance;
 		if (dist < meanDist)
 		{
-			points0.push_back(keypoints[indexNow][matches[i].queryIdx].pt);
-			points1.push_back(keypoints[indexPre][matches[i].trainIdx].pt);
+			points0.push_back(queryKeypoints[matches[i].queryIdx].pt);
+			points1.push_back(trainKeypoints[matches[i].trainIdx].pt);
 			matchesIndex.push_back(
 				make_pair(matches[i].queryIdx, matches[i].trainIdx));
 		}
 	}
-	double score = (double)matchesIndex.size() 
-		/ (double)keypoints[indexNow].size();
 	
 	if (matchesIndex.size() < 4)
 	{
@@ -510,21 +505,21 @@ double pairwiseMatch( const int &indexNow, const int &indexPre,
 			matchesPoints.push_back(matchesIndex[i]);
 		}
 	}
+
+	double score = (double)matchesPoints.size() 
+		/ (double)matches.size();
 	
 	return score;
 }
 
 bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 
 	const Mat &depthImgNow, const Mat &depthImgPre, 
-	const int &indexNow, const int &indexPre,
-	const vector<vector<KeyPoint>> &keypoints,
+	const vector<KeyPoint> &keypointsNow,
+	const vector<KeyPoint> &keypointsPre, 
 	const vector<pair<int, int>> &matchesPoints,
 	vector<Vec2d> &oldLoc, vector<Vec2d> &newLoc,
 	Mat &objSet, Mat &modSet, Mat &objSetAT, Mat &mask )
-{
-	assert(indexNow < keypoints.size() && indexPre < keypoints.size());
-	assert(indexNow > indexPre);
-	
+{	
 	if (matchesPoints.size() == 0)
 	{
 		return false;
@@ -532,7 +527,7 @@ bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 	// 将特征点通过基本矩阵转换
 	vector<Point2f> points0;
 	vector<Point2f> transPoints;
-	KeyPoint::convert(keypoints[indexNow], points0);
+	KeyPoint::convert(keypointsNow, points0);
 	perspectiveTransform(points0, transPoints, H);
 
 	int rows = depthImgNow.rows;
@@ -555,8 +550,8 @@ bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H,
 	int cnt = 0;
 	for (int i = 0; i < size; i++)
 	{
-		Point2f op = keypoints[indexNow][matchesPoints[i].first].pt;
-		Point2f mp = keypoints[indexPre][matchesPoints[i].second].pt;
+		Point2f op = keypointsNow[matchesPoints[i].first].pt;
+		Point2f mp = keypointsPre[matchesPoints[i].second].pt;
 		int ox = (int)(op.x);
 		int oy = (int)(op.y);
 		int mx = (int)(mp.x);
@@ -650,7 +645,8 @@ void fullMatch( const int &index,
 	{
 		Mat H;
 		vector<pair<int, int>> matchesPairs;
-		pairwiseMatch(index, i, keypoints, descriptors, H, matchesPairs);
+		pairwiseMatch(keypoints[index], keypoints[i], 
+			descriptors[index], descriptors[i], H, matchesPairs);
 		matches[i] = matchesPairs;
 	}
 }

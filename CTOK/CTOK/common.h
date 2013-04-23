@@ -22,6 +22,8 @@
 #include "ANN/ANN.h"
 #pragma comment(lib, "libs/ANN.lib")
 
+#include "triangulation.h"
+
 #include "timer.h"
 
 using namespace cv;
@@ -33,12 +35,13 @@ using namespace gpu;
 #define DISTANCE_MAX 100000000
 #define DISTANCE_RANGE 100
 #define DISTANCE_THRE 1500
-#define OUTPUT	true
+#define OUTPUT	false
 
 typedef unsigned int uint;
 
 void saveData(const char* filename, const Mat &mat, int flag = 3);
 void saveData(const char* filename, const vector<Vec3d> pts);
+void saveData(const char* filename, const Triangulation::VertexVector pts);
 
 bool initCuda();
 

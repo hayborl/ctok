@@ -13,6 +13,19 @@ using namespace std;
 using namespace cv;
 using namespace xn;
 
+//---OpenGL 全局变量
+int glWinWidth = 640, glWinHeight = 480;
+int glWinPosX = 30, glWinPosY = 30;
+int width = 640, height = 480;
+bool breakScan = false;
+enum DrawType{TYPE_POINT = 0, TYPE_TRIANGLES = 1};
+DrawType drawType = TYPE_POINT;
+
+Camera userCamera;
+
+//---OpenNI
+#define CONFIG_PATH "SamplesConfig.xml"
+
 void checkOpenNIError(XnStatus result, string status)  
 {   
 	if (result != XN_STATUS_OK)
@@ -22,18 +35,7 @@ void checkOpenNIError(XnStatus result, string status)
 	}
 }
 
-//---OpenGL 全局变量
-int glWinWidth = 640, glWinHeight = 480;
-int glWinPosX = 30, glWinPosY = 30;
-int width = 640, height = 480;
-bool breakScan = false;
-
-Camera userCamera;
-
-//---OpenNI
-#define CONFIG_PATH "SamplesConfig.xml"
-
-char* videoFile = "ttt.oni";
+char* videoFile = "3281.oni";
 XnStatus rc = XN_STATUS_OK;
 Context context;							// 上下文对象
 XnDouble baseline;							// 基线长度(mm)
@@ -43,10 +45,6 @@ DepthGenerator depthGenerator;				// depth generator
 
 //----CTOK
 bool hasCuda = true;						// 有没有cuda
-
-vector<Vec3d> pointCloudData;
-vector<Vec3b> pointColorData;
-size_t pointNumber = 0;
 
 Features features;							// 用以获取特征比较相似度
 #define SIMILARITY_THRESHOLD 9				// 相似度阈值
@@ -136,68 +134,39 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	pointColors = Mat(colors, true).clone();
 }
 
-// 载入3D坐标数据及其颜色数据
-void loadPointCloudAndTexture(const Mat &pointCloud, 
-	const Mat &pointColor, bool clear = false)
-{
-	assert(pointCloud.rows == pointColor.rows && 
-		pointCloud.cols == pointColor.cols);
-	assert(pointCloud.cols == 1);
-	if (clear)
-	{
-		pointCloudData.clear();
-		pointColorData.clear();
-		pointNumber = 0;
-	}
-
-	Vec3d p;
-	Vec3b color;
-	for (int i = 0; i < pointCloud.rows; i ++/*= SAMPLE_INTERVAL*/)
-	{
-		p = pointCloud.at<Vec3d>(i, 0);
-		if (p != Vec3d(0, 0, 0)/* && (double)rand() / (double)RAND_MAX < 0.5*/)
-		{
-			p[2] = -p[2];
-			pointCloudData.push_back(p);
-			color = pointColor.at<Vec3b>(i, 0);
-			pointColorData.push_back(
-				Vec3b(color[2], color[1], color[0]));
-		}
-	}
-
-	pointNumber = pointCloudData.size();
-
-	cout << pointNumber << " OK" << endl;
-}
-
 // 绘制点云
 void drawPoints()
 {
-	double x,y,z;
-	// 绘制图像点云
-	glPointSize(1.0);
-	glBegin(GL_POINTS);
-	for (int i = 0; i < pointCloudData.size(); i++)
+	if (drawType == TYPE_POINT)
 	{
-		glColor3d(pointColorData[i][0] / 255.0, 
-			pointColorData[i][1] / 255.0, pointColorData[i][2] / 255.0);
-		x = pointCloudData[i][0] * 100.0;
-		y = pointCloudData[i][1] * 100.0;
-		z = pointCloudData[i][2] * 100.0;
-		glVertex3d(x, y, z);
-	}
-	glEnd();
-	glBegin(GL_TRIANGLES);
-	for (int i = 0; i < delaunay.m_triangles.size(); i++)
-	{
-		Triangulation::Triangle t = delaunay.m_triangles[i];
-		for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+		// 绘制图像点云
+		glPointSize(1.0);
+		glBegin(GL_POINTS);
+		for (int i = 0; i < delaunay.m_vertices.size(); i++)
 		{
-			Triangulation::Vertex v = t.m_vertices[j];
+			Triangulation::Vertex v = delaunay.m_vertices[i];
 			glColor3d(v.m_color[2] / 255.0, 
 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+			glVertex3d(v.m_xyz[0] / 10.0, 
+				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 		}
+		glEnd();
+	}
+	else if (drawType == TYPE_TRIANGLES)
+	{
+		glBegin(GL_TRIANGLES);
+		for (int i = 0; i < delaunay.m_triangles.size(); i++)
+		{
+			Triangulation::Triangle t = delaunay.m_triangles[i];
+			for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+			{
+				Triangulation::Vertex v = t.m_vertices[j];
+				glColor3d(v.m_color[2] / 255.0, 
+					v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+				glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+			}
+		}
+		glEnd(); 
 	}
 // 	MyMesh::FaceIterator fi = m.face.begin();
 // 	for (; fi != m.face.end(); ++fi)
@@ -210,7 +179,6 @@ void drawPoints()
 // 			glVertex3d(v->P()[0], v->P()[1], v->P()[2]);
 // 		}
 // 	}
-	glEnd(); 
 }
 
 /************************************************************************/
@@ -270,7 +238,7 @@ void keyboard(uchar key, int x, int y)
 		break;
 	case 'p':
 	case 'P':
-		saveData("real.xyz", pointCloudData);
+		saveData("real.xyz", delaunay.m_vertices);
 		cout << "save points" << endl;
 		break;
 	case 'r':
@@ -418,6 +386,16 @@ void initOpenGL(int argc, char** argv)
 	glutIdleFunc(renderScene);			// 空闲时重绘图像
 }
 
+// 初始化BundleAdjustment的照相机内参
+void initBundleAdjustment()
+{
+	double K[9] = {(double)focalLengthInPixel, 0.0, 320,
+		0.0, -(double)focalLengthInPixel, 240,
+		0.0, 0.0, 1};
+	Mat intrinsic(3, 3, CV_64FC1, K);
+	BundleAdjustment::setIntrinsic(intrinsic);	// 设置内参矩阵
+}
+
 /************************************************************************/
 /*                         主程序                                       */
 /************************************************************************/
@@ -427,16 +405,11 @@ int main(int argc, char** argv)
 
 	initOpenGL(argc, argv);
 	initOpenNI();
+	initBundleAdjustment();
 
 	// OpenCV Window
 	namedWindow("depth", CV_WINDOW_AUTOSIZE);  
 	namedWindow("image", CV_WINDOW_AUTOSIZE);  
-
-	double K[9] = {(double)focalLengthInPixel, 0.0, 320,
-				   0.0, -(double)focalLengthInPixel, 240,
-				   0.0, 0.0, 1};
-	Mat intrinsic(3, 3, CV_64FC1, K);
-	BundleAdjustment::setIntrinsic(intrinsic);	// 设置内参矩阵
 
 	Mat depthImgPre;					// 前一帧的深度图
 	Mat dscrptPre;						// 前一帧的描述子
@@ -461,6 +434,7 @@ int main(int argc, char** argv)
 		{
 			break;
 		}
+
 		Mat colorImg, depthImg;
 		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
 			colorImg, depthImg), OUTPUT, "read one frame.");
@@ -504,31 +478,58 @@ int main(int argc, char** argv)
 					descriptor), OUTPUT, "get feature points and descriptor.");
 
 				vector<pair<int, int>> matchesPoints;
-				double score;
+				pair<double, double> scoreDiff;
 				int last = (int)keyPoints.size() - 1;
-				RUNANDTIME(global_timer, score = pairwiseMatch(keyPoint, 
+				RUNANDTIME(global_timer, scoreDiff = pairwiseMatch(keyPoint, 
 					keyPoints[last], descriptor, descriptors[last], H, matchesPoints), 
 					OUTPUT, "pairwise matches.");
-				cout << score << endl;
 
-// 				int j;
-// 				for (j = last - 1; j >= 0; j--)
+// 				if (last - 2 >= 0)
 // 				{
 // 					Mat tmpH;
 // 					vector<pair<int, int>> tmpMatchesPoints;
-// 					double tmpScore = pairwiseMatch(keyPoint, keyPoints[j], descriptor, descriptors[j], tmpH, tmpMatchesPoints);
-// 					cout << tmpScore << endl;
+// 					double tmpScore = pairwiseMatch(keyPoint, keyPoints[last - 1], 
+// 						descriptor, descriptors[last - 1], tmpH, tmpMatchesPoints);
+// 					cout << score << " " << tmpScore << endl;
 // 					if (tmpScore > score)
 // 					{
-// 						break;
+// 						glutPostRedisplay();	
+// 						glutMainLoopEvent();
+// 						continue;
 // 					}
 // 				}
-// 				if (j >= 0)
+// 				if (last > 1)
 // 				{
-// 					glutPostRedisplay();	
-// 					glutMainLoopEvent();
-// 					continue;
-// 				}
+// 					Mat tmpH;
+// 					vector<pair<int, int>> tmpMatchesPoints;
+// 					pair<double, double> tmpScoreDiff = 
+// 						pairwiseMatch(keyPoint, keyPoints[0], 
+// 						descriptor, descriptors[0], tmpH, tmpMatchesPoints);
+// 					cout << tmpScoreDiff.first << " " << tmpScoreDiff.second << endl;waitKey();
+// 					if (tmpScore < 0.02)
+// 					{
+// 						Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
+// 						vector<Vec2d> oldLoc, newLoc;
+// 
+// 						bool success;
+// 						RUNANDTIME(global_timer, success = convert2DTo3D(
+// 							depthGenerator, H, depthImg, depthImgPre, keyPoint, 
+// 							keyPoints[last], matchesPoints, oldLoc, newLoc, objSet, 
+// 							modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
+// 						if (!success)
+// 						{
+// 							glutPostRedisplay();	
+// 							glutMainLoopEvent();
+// 							continue;
+// 						}
+// 						EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
+// 
+// 						RUNANDTIME(global_timer, 
+// 							i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
+// 						cout << i.getFinalTransformMat() << endl;waitKey();
+// 					}
+//				}
+/*				waitKey();*/
 
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				vector<Vec2d> oldLoc, newLoc;
@@ -552,11 +553,6 @@ int main(int argc, char** argv)
 
 				RUNANDTIME(global_timer, 
 					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
-// 				Mat incMat = i.getFinalTransformMat();
-// 				pose = camPoses[recordCnt - 1].clone();
-// 				pose = pose * incMat;
-// 				camPoses.push_back(pose);
-// 				recordCnt++;
 
 				Mat tmpMat = Mat::eye(4, 4, CV_64FC1);
 				Mat incMat = i.getFinalTransformMat().inv();
@@ -567,19 +563,6 @@ int main(int argc, char** argv)
 				pose = pose * tmpMat * incMat.inv();
 				camPoses.push_back(pose);
 				recordCnt++;
-
-// 				vector<vector<pair<int, int>>> matchesPairs;
-// 				RUNANDTIME(global_timer, 
-// 					fullMatch(recordCnt - 1, descriptors, 
-// 					keyPoints, matchesPairs), OUTPUT, "full match.");
-// 				Mat points;
-// 				RUNANDTIME(global_timer, 
-// 					convert2DTo3D(depthGenerator, depthImg, 
-// 					keyPoint, points), OUTPUT, "get 3D feature points.");
-// 				RUNANDTIME(global_timer, 
-// 					BundleAdjustment::runBundleAdjustment(camPoses, points, 
-// 					keyPoints, matchesPairs), OUTPUT, "bundle adjustment.");
-// 				pose = camPoses[recordCnt - 1].clone();
 
 				RUNANDTIME(global_timer, 
 					read3DPoints(depthGenerator, depthImg, colorImg, mask, 
@@ -595,14 +578,12 @@ int main(int argc, char** argv)
 
 		if (pointCloud.rows > 0 && pointColors.rows > 0)
 		{
-			RUNANDTIME(global_timer, loadPointCloudAndTexture(pointCloud, 
-				pointColors, false), OUTPUT, "load data");
 // 			waitKey();
 // 			RUNANDTIME(global_timer, runBallPivoting(m, pointCloud, 
 // 				pointColors), OUTPUT, "ball pivoting");
 // 			waitKey();
-// 			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-// 				pointColors), OUTPUT, "load data");
+			RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
+				pointColors), OUTPUT, "load data");
 // 			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
 // 				OUTPUT, "delaunay");
 // 			cout << delaunay.m_triangles.size() << endl;
@@ -623,7 +604,7 @@ int main(int argc, char** argv)
 	context.StopGeneratingAll();
 	context.Release();
 
-	cout << pointNumber << endl;
+	cout << delaunay.m_vertices.size() << endl;
 	glutMainLoop();
 	return 0;
 }

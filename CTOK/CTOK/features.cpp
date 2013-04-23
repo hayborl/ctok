@@ -439,7 +439,7 @@ void get2DFeaturePoints( const Mat &colorImg,
 	}
 }
 
-double pairwiseMatch(const vector<KeyPoint> &queryKeypoints, 
+pair<double, double> pairwiseMatch(const vector<KeyPoint> &queryKeypoints, 
 	const vector<KeyPoint> &trainKeypoints, const Mat &queryDescriptors, 
 	const Mat &trainDescriptors, Mat &H, vector<pair<int, int>> &matchesPoints)
 {
@@ -492,24 +492,40 @@ double pairwiseMatch(const vector<KeyPoint> &queryKeypoints,
 	
 	if (matchesIndex.size() < 4)
 	{
-		return 1.0;
+		return make_pair(1.0, MAX_AREA_DIFF);
 	}
 	// 用RANSAC方法计算基本矩阵
 	vector<uchar> ransacStatus;
 	H = findHomography(points0, points1, ransacStatus, CV_RANSAC);
 
+	vector<Point> tmpPoint0, tmpPoint1;
 	for (int i = 0; i < (int)points0.size(); i++)
 	{
 		if (ransacStatus[i] != 0)
 		{
 			matchesPoints.push_back(matchesIndex[i]);
+			Point2f sp = points0[i];
+			Point dp((int)sp.x, (int)sp.y);
+			tmpPoint0.push_back(dp);
+			sp = points1[i];
+			dp = Point((int)sp.x, (int)sp.y);
+			tmpPoint1.push_back(dp);
 		}
 	}
 
-	double score = (double)matchesPoints.size() 
-		/ (double)matches.size();
-	
-	return score;
+	vector<vector<Point>> hull(2), approx(2);
+	convexHull(tmpPoint0, hull[0]);
+	convexHull(tmpPoint1, hull[1]);
+
+	double area0 = contourArea(hull[0]);
+	double area1 = contourArea(hull[1]);
+	double areaDiff = abs(area1 - area0);
+	double score = matchShapes(hull[0], hull[1], CV_CONTOURS_MATCH_I1, 0);
+	if (area0 < DBL_EPSILON || area1 < DBL_EPSILON)
+	{
+		score = 1.0;
+	}
+	return make_pair(score, areaDiff);
 }
 
 bool convert2DTo3D( xn::DepthGenerator dg, const Mat &H, 

@@ -75,7 +75,8 @@ namespace Triangulation
 	class Delaunay
 	{
 	public:
-		TriangleVector m_triangles;	// 三角形集合
+		TriangleVector m_triangles;			// 三角形集合
+		VertexVector m_vertices;			// 点集
 
 		Delaunay(double minAngle = COS30, double maxAngle = COS180) 
 			: m_minAngle(minAngle), m_maxAngle(maxAngle){}
@@ -92,7 +93,6 @@ namespace Triangulation
 			const Mat &colors);				// 加入点以及对应的颜色
 
 	private:
-		VertexVector m_vertices;		// 点集
 		int m_preSize;					// 记录下一次compute之前有多少点
 		double m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制
 		enum {k = 20, u = 5};			// k个邻近点，u倍最小距离内的点去除

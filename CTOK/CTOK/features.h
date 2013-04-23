@@ -14,6 +14,9 @@ using namespace std;
 #define ORIENTATION_90	2
 #define ORIENTATION_135	3
 
+#define MAX_AREA_DIFF 307200	//640*480
+#define AREA_DIFF_THRESHOLD 2500
+
 class Features
 {
 public:
@@ -46,7 +49,8 @@ void getSurfPointsSet(const Mat &objColorImg, const Mat &objPointCloud,
 void get2DFeaturePoints(const Mat &colorImg,					// 彩色图
 	vector<KeyPoint> &keyPoints, Mat &descriptor);				// 提取出的特征点及其描述子
 
-double pairwiseMatch(const vector<KeyPoint> &queryKeypoints,	// 查找的特征点集
+pair<double, double> pairwiseMatch(
+	const vector<KeyPoint> &queryKeypoints,						// 查找的特征点集
 	const vector<KeyPoint> &trainKeypoints,						// 训练的特征点集
 	const Mat &queryDescriptors, const Mat &trainDescriptors,	// 两个描述子集
 	Mat &H,	vector<pair<int, int>> &matchesPoints);				// Homography矩阵,相匹配的点集

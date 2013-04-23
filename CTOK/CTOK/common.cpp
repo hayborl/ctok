@@ -76,6 +76,20 @@ void saveData(const char* filename, const vector<Vec3d> pts)
 	fclose(fp);
 }
 
+void saveData(const char* filename, const Triangulation::VertexVector pts)
+{
+	FILE* fp;
+	fopen_s(&fp, filename, "wt");
+	fprintf(fp, "%d\n", pts.size());
+	for (int i = 0; i < pts.size(); i++)
+	{
+		Triangulation::Vertex point = pts[i];
+		fprintf(fp, "%f,%f,%f\n", point.m_xyz[0], 
+			point.m_xyz[1], point.m_xyz[2]);
+	}
+	fclose(fp);
+}
+
 //CUDA³õÊ¼»¯
 bool initCuda()
 {

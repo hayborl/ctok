@@ -409,7 +409,7 @@ void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
 		m_vertices.push_back(Vertex(xyz, cnt, color));
 		cnt++;
 	}
-	cout << m_vertices.size() << endl;
+	cout << "Points total number:" << m_vertices.size() << endl;
 }
 
 void Delaunay::addVertices( const Mat &pts, const Mat &colors )
@@ -426,7 +426,7 @@ void Delaunay::addVertices( const Mat &pts, const Mat &colors )
 		m_vertices.push_back(Vertex(xyz, cnt, color));
 		cnt++;
 	}
-	cout << m_vertices.size() << endl;
+	cout << "Points total number:" << m_vertices.size() << endl;
 }
 
 void Delaunay::addBounding( const VertexVector &verSet, 

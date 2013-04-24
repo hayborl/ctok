@@ -40,6 +40,11 @@ struct transform_functor
 void transformPointCloud(const Mat &input, Mat &output, 
 	const Mat &transformMat, bool withCuda)
 {
+	if (isIdentity(transformMat))
+	{
+		output = input.clone();
+		return;
+	}
 	Mat m_R = transformMat(Rect(0, 0, 3, 3)).clone();
 	Mat m_T = transformMat(Rect(3, 0, 1, 3)).clone();
 

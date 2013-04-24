@@ -14,8 +14,11 @@ using namespace std;
 #define ORIENTATION_90	2
 #define ORIENTATION_135	3
 
-#define MAX_AREA_DIFF 307200	//640*480
-#define AREA_DIFF_THRESHOLD 2500
+#define SIMILARITY_THRESHOLD_PHASH 9		// pHash的相似度阈值
+#define SIMILARITY_THRESHOLD_HULL 0.015		// 特征点凸包的相似度阈值
+
+#define MAX_AREA_DIFF_PERCENT 1.0			// 特征点凸包的相差比例最大值
+#define AREA_DIFF_THRESHOLD 0.01			// 特征点凸包的相差比例阈值
 
 class Features
 {

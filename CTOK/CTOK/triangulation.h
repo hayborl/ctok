@@ -34,6 +34,7 @@ namespace Triangulation
 		Vertex& operator=(const Vertex &v);
 		bool operator==(const Vertex &v)const;
 		bool operator<(const Vertex &v)const;
+		operator Vec3d(){return m_xyz;};
 
 		double distance2(const Vertex &v);	// 求点之间的距离，返回距离平方
 
@@ -79,7 +80,7 @@ namespace Triangulation
 		VertexVector m_vertices;			// 点集
 
 		Delaunay(double minAngle = COS30, double maxAngle = COS180) 
-			: m_minAngle(minAngle), m_maxAngle(maxAngle){}
+			: m_minAngle(minAngle), m_maxAngle(maxAngle), m_curIndex(0){}
 		Delaunay(const Mat &pts, const vector<Vec3b> &colors, 
 			double minAngle = COS30, double maxAngle = COS180);
 		Delaunay(const Mat &pts, const Mat &colors, 
@@ -87,12 +88,11 @@ namespace Triangulation
 
 		void computeDelaunay();				// 计算Delaunay三角
 		void saveTriangles(char* file);		// 保存当前划分出的三角形到文件
-		void addVertices(const Mat &pts, 
-			const vector<Vec3b> &colors);	// 加入点以及对应的颜色
-		void addVertices(const Mat &pts, 
-			const Mat &colors);				// 加入点以及对应的颜色
+		void addVertices(InputArray _pts,
+			InputArray _colors);			// 加入点以及对应的颜色
 
 	private:
+		int m_curIndex;					// 当前计算到哪个点
 		int m_preSize;					// 记录下一次compute之前有多少点
 		double m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制
 		enum {k = 20, u = 5};			// k个邻近点，u倍最小距离内的点去除

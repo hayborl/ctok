@@ -223,21 +223,25 @@ size_t Triangulation::hash_value( const Triangle &t )
 
 Delaunay::Delaunay( const Mat &pts, const vector<Vec3b> &colors,
 	double minAngle, double maxAngle)
-	: m_minAngle(minAngle), m_maxAngle(maxAngle)
+	: m_minAngle(minAngle), m_maxAngle(maxAngle), m_curIndex(0)
 {
 	addVertices(pts, colors);
 }
 
 Delaunay::Delaunay( const Mat &pts, const Mat &colors,
 	double minAngle, double maxAngle)
-	: m_minAngle(minAngle), m_maxAngle(maxAngle)
+	: m_minAngle(minAngle), m_maxAngle(maxAngle), m_curIndex(0)
 {
 	addVertices(pts, colors);
 }
 
 void Delaunay::computeDelaunay()
 {
-	assert(m_vertices.size() > 0);
+	if (m_vertices.size() == 0)
+	{
+		return;
+	}
+	m_preSize = m_curIndex;
 
 	// 构建kdtree
 	ANNpointArray verticesData = annAllocPts((int)m_vertices.size(), 3);
@@ -252,12 +256,12 @@ void Delaunay::computeDelaunay()
 
 	TriangleSet triSet;
 	// 依次遍历每个点，寻找最近邻，进行三角化
-	for (int i = m_preSize; i < m_vertices.size(); i++)
+	for (; m_curIndex < m_vertices.size(); m_curIndex++)
 	{
-		Vertex v = m_vertices[i];
+		Vertex v = m_vertices[m_curIndex];
 		ANNidx idxs[k];
 		ANNdist dists[k];
-		int cnt = kdtree->annkFRSearch(verticesData[i], 
+		int cnt = kdtree->annkFRSearch(verticesData[m_curIndex], 
 			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
 		if (cnt < 4)	// 最近邻小于4个，不能构成三角形
 		{
@@ -323,7 +327,7 @@ void Delaunay::computeDelaunay()
 		}
 
 		// 将切平面转换为x-y平面进行三角形计算
-		vVector.push_back(Vertex(Vec3d(0, 0, 0), i));	// 原点
+		vVector.push_back(Vertex(Vec3d(0, 0, 0), m_curIndex));	// 原点
 		Vec3d vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
 		vx = normalize(vx);
 		for (j = 0; j < tmpvVector.size(); j++)
@@ -395,33 +399,28 @@ void Delaunay::saveTriangles( const TriangleVector &triSet, char* file )
 	}
 }
 
-void Delaunay::addVertices( const Mat &pts, const vector<Vec3b> &colors )
+void Delaunay::addVertices( InputArray _pts, InputArray _colors )
 {
-	assert(pts.rows == colors.size());
-	m_preSize = (int)m_vertices.size();
-
-	int cnt = m_preSize;
-	for (int i = 0; i < pts.rows; i++)
+	if (_pts.total() == 0 || _colors.total() == 0)
 	{
-		Vec3d xyz = pts.at<Vec3d>(i, 0) * 1000.0;
-		Vec3b color = colors[i];
-
-		m_vertices.push_back(Vertex(xyz, cnt, color));
-		cnt++;
+		return;
 	}
-	cout << "Points total number:" << m_vertices.size() << endl;
-}
 
-void Delaunay::addVertices( const Mat &pts, const Mat &colors )
-{
-	assert(pts.rows == colors.rows);
-	m_preSize = (int)m_vertices.size();
+	Mat pts = _pts.getMat();
+	Mat colors = _colors.getMat();
+	assert(pts.type() == CV_64FC3 && colors.type() == CV_8UC3);
+	assert(pts.total() == colors.total());
+	int total = (int)pts.total();
+	
+	assert(pts.isContinuous() && colors.isContinuous());
+	Vec3d* ptsPtr = (Vec3d*)pts.data;
+	Vec3b* colorsPtr = (Vec3b*)colors.data;
 
-	int cnt = m_preSize;
-	for (int i = 0; i < pts.rows; i++)
+	int cnt = (int)m_vertices.size();
+	for (int i = 0; i < total; i++)
 	{
-		Vec3d xyz = pts.at<Vec3d>(i, 0) * 1000.0;
-		Vec3b color = colors.at<Vec3b>(i, 0);
+		Vec3d xyz = ptsPtr[i] * 1000.0;
+		Vec3b color = colorsPtr[i];
 
 		m_vertices.push_back(Vertex(xyz, cnt, color));
 		cnt++;

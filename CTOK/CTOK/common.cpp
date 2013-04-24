@@ -2,75 +2,21 @@
 
 #include "common.h"
 
-void saveData(const char* filename, const Mat &mat, int flag)      
+void saveData(const char* filename, InputArray _pts)
 {
+	Mat pts = _pts.getMat();
+	assert(pts.type() == CV_64FC3);
+	assert(pts.isContinuous());
+	int total = pts.total();
+
+	Vec3d* ptr = (Vec3d*)pts.data;
+
 	FILE* fp;
 	fopen_s(&fp, filename, "wt");
-	if (3 != flag)
+	fprintf(fp, "%d\n", total);
+	for (int i = 0; i < total; i++)
 	{
-		fprintf(fp, "%02d\n", mat.rows);
-		fprintf(fp, "%02d\n", mat.cols);
-	}
-	switch (flag)
-	{
-	case 0:
-		for(int y = 0; y < mat.rows; y++)
-		{
-			for(int x = 0; x < mat.cols; x++)
-			{
-				short depth = mat.at<short>(y, x);   
-				fprintf(fp, "%d\n", depth);
-			}
-		}
-		break;
-	case 1:
-		for(int y = 0; y < mat.rows; y++)
-		{
-			for(int x = 0; x < mat.cols; x++)
-			{
-				uchar disp = mat.at<uchar>(y,x);
-				fprintf(fp, "%d\n", disp);
-			}
-		}
-		break;
-	case 2:
-		for(int y = 0; y < mat.rows; y++)
-		{
-			for(int x = 0; x < mat.cols; x++)
-			{
-				double disp = mat.at<double>(y,x);
-				fprintf(fp, "%10.4f\n", disp);
-			}
-		}
-		break;
-	case 3:
-		for(int y = 0; y < mat.rows; y++)
-		{
-			for(int x = 0; x < mat.cols; x++)
-			{
-				Vec3d point = mat.at<Vec3d>(y, x);   // Vec3d 是 template 类定义
-				fprintf(fp, "%f,%f,%f\n", point[0], point[1], point[2]);
-			}
-		}
-		break;
-	case 4:
-		imwrite(filename, mat);
-		break;
-	default:
-		break;
-	}
-
-	fclose(fp);
-}
-
-void saveData(const char* filename, const vector<Vec3d> pts)
-{
-	FILE* fp;
-	fopen_s(&fp, filename, "wt");
-	fprintf(fp, "%d\n", pts.size());
-	for (int i = 0; i < pts.size(); i++)
-	{
-		Vec3d point = pts[i];
+		Vec3d point = ptr[i];
 		fprintf(fp, "%f,%f,%f\n", point[0], point[1], point[2]);
 	}
 	fclose(fp);
@@ -88,6 +34,18 @@ void saveData(const char* filename, const Triangulation::VertexVector pts)
 			point.m_xyz[1], point.m_xyz[2]);
 	}
 	fclose(fp);
+}
+
+bool isIdentity( const Mat &mat )
+{
+	if (mat.rows != mat.cols)
+	{
+		return false;
+	}
+	Mat identityMat = Mat::eye(mat.size(), mat.type());
+	Mat cmp;
+	compare(mat, identityMat, cmp, CMP_NE);
+	return countNonZero(cmp) == 0;
 }
 
 //CUDA初始化

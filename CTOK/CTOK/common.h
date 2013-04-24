@@ -39,11 +39,12 @@ using namespace gpu;
 
 typedef unsigned int uint;
 
-void saveData(const char* filename, const Mat &mat, int flag = 3);
-void saveData(const char* filename, const vector<Vec3d> pts);
+void saveData(const char* filename, InputArray _pts);
 void saveData(const char* filename, const Triangulation::VertexVector pts);
 
 bool initCuda();
+
+bool isIdentity(const Mat &mat);
 
 // 将m*n k通道转换为m*(n*k) 单通道
 Mat convertMat(const Mat &mat);

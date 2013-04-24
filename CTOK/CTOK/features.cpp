@@ -241,6 +241,10 @@ void Features::getPHash( const Mat &image, Mat &descriptors )
 
 int hammingDistance( const Mat &mat1, const Mat &mat2 )
 {
+	if (mat1.empty() || mat2.empty())
+	{
+		return 64;
+	}
 	assert(mat1.rows == mat2.rows && mat1.cols == mat2.cols);
 	Mat rst(mat1.rows, mat1.cols, CV_8UC1);
 	compare(mat1, mat2, rst, CMP_NE);
@@ -492,7 +496,7 @@ pair<double, double> pairwiseMatch(const vector<KeyPoint> &queryKeypoints,
 	
 	if (matchesIndex.size() < 4)
 	{
-		return make_pair(1.0, MAX_AREA_DIFF);
+		return make_pair(1.0, MAX_AREA_DIFF_PERCENT);
 	}
 	// 用RANSAC方法计算基本矩阵
 	vector<uchar> ransacStatus;
@@ -520,6 +524,7 @@ pair<double, double> pairwiseMatch(const vector<KeyPoint> &queryKeypoints,
 	double area0 = contourArea(hull[0]);
 	double area1 = contourArea(hull[1]);
 	double areaDiff = abs(area1 - area0);
+	areaDiff = areaDiff * 0.5 / (area0 + area1);
 	double score = matchShapes(hull[0], hull[1], CV_CONTOURS_MATCH_I1, 0);
 	if (area0 < DBL_EPSILON || area1 < DBL_EPSILON)
 	{

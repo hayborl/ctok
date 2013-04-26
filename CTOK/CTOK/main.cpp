@@ -50,6 +50,8 @@ Features features;							// 用以获取特征比较相似度
 
 Triangulation::Delaunay delaunay(COS30);	// 三角化
 
+const Mat identityMat4x4 = Mat::eye(4, 4, CV_64FC1);
+
 /*MyMesh m;*/
 
 // 读取每一帧的彩色图与深度图
@@ -416,16 +418,18 @@ int main(int argc, char** argv)
 	namedWindow("depth", CV_WINDOW_AUTOSIZE);  
 	namedWindow("image", CV_WINDOW_AUTOSIZE);  
 
-	Mat depthImgPre;					// 前一帧的深度图
-	Mat dscrptPre;						// 前一帧的描述子
-	Mat mask(height, width, CV_8UC1, Scalar::all(255));
+	Mat _depthImgPre;					// 前一帧的深度图
+	Mat _dscrptPre;						// 前一帧的描述子
+	Mat _mask(height, width, CV_8UC1, Scalar::all(255));
 
 	XnUInt32 frameCnt = 0;
-
 	int recordCnt = 0;
-	vector<Mat> camPoses;				// 记录每一帧的相机姿势
-	vector<vector<KeyPoint>> keyPoints;	// 记录每一帧的特征点
-	vector<Mat>	descriptors;			// 记录每一帧的特征描述子
+	vector<Mat> _camPoses;				// 记录每一帧的相机姿势
+	vector<Mat> _incPoses;				// 每一步的增量
+	vector<vector<KeyPoint>> _keyPoints;// 记录每一帧的特征点
+	vector<Mat>	_descriptors;			// 记录每一帧的特征描述子
+
+	Mat depthImg0;
 
 	for (; ; frameCnt++) 
 	{
@@ -441,31 +445,41 @@ int main(int argc, char** argv)
 		}
 
 		Mat colorImg, depthImg;
-		RUNANDTIME(global_timer, readFrame(imageGenerator, depthGenerator, 
-			colorImg, depthImg), OUTPUT, "read one frame.");
+		RUNANDTIME(global_timer, 
+			readFrame(imageGenerator, depthGenerator, colorImg, depthImg), 
+			OUTPUT, "read one frame.");
+
+		if (recordCnt == 0)
+		{
+			depthImg0 = depthImg.clone();
+		}
 
 		Mat dscrpt;
-		RUNANDTIME(global_timer, features.getPHash(colorImg, dscrpt),
+		RUNANDTIME(global_timer, 
+			features.getPHash(colorImg, dscrpt),
 			OUTPUT, "get hash using pHash");
 
 		Mat pointCloud, pointColors;
-		Mat pose = Mat::eye(4, 4, CV_64FC1);
-		int dist = hammingDistance(dscrptPre, dscrpt);
+		Mat pose = identityMat4x4.clone();
+		Mat incMat = identityMat4x4.clone();
+		int dist = hammingDistance(_dscrptPre, dscrpt);
 		if (dist > SIMILARITY_THRESHOLD_PHASH)
 		{
 			vector<KeyPoint> keyPoint;
 			Mat descriptor;
-			RUNANDTIME(global_timer, get2DFeaturePoints(colorImg, keyPoint, 
-				descriptor), OUTPUT, "get feature points and descriptor.");
+			RUNANDTIME(global_timer, 
+				get2DFeaturePoints(colorImg, keyPoint, descriptor), 
+				OUTPUT, "get feature points and descriptor.");
 			if (recordCnt > 0)
 			{
 				Mat H;
 				vector<pair<int, int>> matchesPoints;
 				pair<double, double> scoreDiff;
-				int last = (int)keyPoints.size() - 1;
-				RUNANDTIME(global_timer, scoreDiff = pairwiseMatch(keyPoint, 
-					keyPoints[last], descriptor, descriptors[last], H, 
-					matchesPoints), OUTPUT, "pairwise matches.");
+				int last = (int)_keyPoints.size() - 1;
+				RUNANDTIME(global_timer, 
+					scoreDiff = pairwiseMatch(keyPoint, _keyPoints[last], 
+						descriptor, _descriptors[last], H, matchesPoints), 
+					OUTPUT, "pairwise matches.");
 				if (scoreDiff.first < SIMILARITY_THRESHOLD_HULL &&
 					scoreDiff.second < AREA_DIFF_THRESHOLD)
 				{
@@ -476,12 +490,13 @@ int main(int argc, char** argv)
 
 				Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
 				vector<Vec2d> oldLoc, newLoc;
-
 				bool success;
-				RUNANDTIME(global_timer, success = convert2DTo3D(
-					depthGenerator, H, depthImg, depthImgPre, keyPoint, 
-					keyPoints[last], matchesPoints, oldLoc, newLoc, objSet, 
-					modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
+				RUNANDTIME(global_timer, 
+					success = convert2DTo3D(depthGenerator, 
+						H, depthImg, _depthImgPre, keyPoint, 
+						_keyPoints[last], matchesPoints, oldLoc, 
+						newLoc, objSet, modSet, objSetAT, _mask), 
+					OUTPUT, "get 3D feature points.");
 				if (!success)
 				{
 					glutPostRedisplay();	
@@ -490,35 +505,108 @@ int main(int argc, char** argv)
 				}
 
 				/*ICP i(objSet, modSet);*/
-				EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
+				EMICP icp(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
 
 				RUNANDTIME(global_timer, 
-					i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
+					icp.run(hasCuda, objSetAT), 
+					OUTPUT, "run ICP.");
+				incMat = icp.getFinalTransformMat();
 
-				Mat tmpMat = Mat::eye(4, 4, CV_64FC1);
-				Mat incMat = i.getFinalTransformMat().inv();
+				Mat tmpMat = identityMat4x4.clone();
+				Mat incMatInv = incMat.inv();
 				RUNANDTIME(global_timer, 
-					BundleAdjustment::runBundleAdjustment(tmpMat, incMat,
-					modSet, oldLoc, newLoc), OUTPUT, "bundle adjustment.");
-				pose = camPoses[recordCnt - 1].clone();
-				pose = pose * tmpMat * incMat.inv();
+					BundleAdjustment::runBundleAdjustment(
+					tmpMat, incMatInv, modSet, oldLoc, newLoc), 
+					OUTPUT, "bundle adjustment.");
+				incMat = tmpMat * incMatInv.inv();
+				pose = _camPoses[recordCnt - 1].clone();
+				pose = pose * incMat;
+
+				if (last == -2)
+				{
+					Mat tmpMask(height, width, CV_8UC1, Scalar::all(255));
+					vector<pair<int, int>> tmpMatchesPoints;
+					pair<double, double> tmpScoreDiff;
+					RUNANDTIME(global_timer, 
+						tmpScoreDiff = pairwiseMatch(keyPoint, _keyPoints[0], 
+							descriptor, _descriptors[0], H, tmpMatchesPoints),
+						OUTPUT, "pairwise match in closure check");
+					if (tmpScoreDiff.first < SIMILARITY_THRESHOLD_HULL && 
+						tmpScoreDiff.second < AREA_DIFF_THRESHOLD)
+					{	
+						oldLoc.clear(); newLoc.clear();
+						RUNANDTIME(global_timer, 
+							success = convert2DTo3D(depthGenerator, 
+								H, depthImg, depthImg0, keyPoint, 
+								_keyPoints[0], tmpMatchesPoints, oldLoc, 
+								newLoc, objSet, modSet, objSetAT, tmpMask), 
+							OUTPUT, "get 3D feature points in closure check.");
+
+						EMICP tmpIcp(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
+						RUNANDTIME(global_timer, 
+							tmpIcp.run(hasCuda, objSetAT), 
+							OUTPUT, "run ICP in closure check.");
+						incMat = tmpIcp.getFinalTransformMat().clone();
+
+// 						tmpMat = identityMat4x4.clone();
+// 						incMatInv = incMat.inv();
+// 						RUNANDTIME(global_timer, 
+// 							BundleAdjustment::runBundleAdjustment(
+// 								tmpMat, incMatInv, modSet, oldLoc, newLoc), 
+// 							OUTPUT, "bundle adjustment.");
+// 						pose = _camPoses[0] * tmpMat * incMatInv.inv();
+
+						Mat curPose = pose.clone();
+						for (int i = recordCnt - 1; i > 0; i--)
+						{
+							Mat beforePose = _camPoses[i].clone();
+							_camPoses[i] = curPose * _incPoses[i].inv();
+							curPose = _camPoses[i].clone();
+							Mat transformPose = curPose * beforePose.inv();	// 先将原来已经变换过的点变换回来，再做新的变换
+
+							Mat pts;
+							delaunay.getVertices(i, pts);
+							transformPointCloud(pts, 
+								pts, transformPose, hasCuda);
+							delaunay.updateVertices(i, pts);
+						}
+						waitKey();
+					}
+				}
 			}
 
-			keyPoints.push_back(keyPoint);
-			descriptors.push_back(descriptor);
+			_keyPoints.push_back(keyPoint);
+			_descriptors.push_back(descriptor);
 
 			RUNANDTIME(global_timer, 
-				read3DPoints(depthGenerator, depthImg, colorImg, mask, 
-				pointCloud, pointColors), OUTPUT, "read 3D points");
+				read3DPoints(depthGenerator, depthImg, 
+					colorImg, _mask, pointCloud, pointColors), 
+				OUTPUT, "read 3D points");
 
 			RUNANDTIME(global_timer, 
-				transformPointCloud(pointCloud, pointCloud, 
-				pose, hasCuda), OUTPUT, "transform point cloud.");
+				transformPointCloud(pointCloud, pointCloud, pose, hasCuda), 
+				OUTPUT, "transform point cloud.");
 
-			camPoses.push_back(pose);
+			_camPoses.push_back(pose);
+			_incPoses.push_back(incMat);
 			recordCnt++;
-			depthImgPre = depthImg.clone();
-			dscrptPre = dscrpt.clone();
+			_depthImgPre = depthImg.clone();
+			_dscrptPre = dscrpt.clone();
+
+// 			waitKey();
+// 			RUNANDTIME(global_timer, runBallPivoting(m, pointCloud, 
+// 				pointColors), OUTPUT, "ball pivoting");
+// 			waitKey();
+			RUNANDTIME(global_timer, 
+				delaunay.addVertices(pointCloud, pointColors), 
+				OUTPUT, "load data");
+			if (drawType == TYPE_TRIANGLES)
+			{
+				RUNANDTIME(global_timer, 
+					delaunay.computeDelaunay(), 
+					OUTPUT, "delaunay");
+				cout << delaunay.m_triangles.size() << endl;
+			}
 		}
 // 				if (last - 2 >= 0)
 // 				{
@@ -534,52 +622,7 @@ int main(int argc, char** argv)
 // 						continue;
 // 					}
 // 				}
-// 				if (last > 1)
-// 				{
-// 					Mat tmpH;
-// 					vector<pair<int, int>> tmpMatchesPoints;
-// 					pair<double, double> tmpScoreDiff = 
-// 						pairwiseMatch(keyPoint, keyPoints[0], 
-// 						descriptor, descriptors[0], tmpH, tmpMatchesPoints);
-// 					cout << tmpScoreDiff.first << " " << tmpScoreDiff.second << endl;waitKey();
-// 					if (tmpScoreDiff.first < SIMILARITY_THRESHOLD_HULL && 
-// 						tmpScoreDiff.second < AREA_DIFF_THRESHOLD)
-// 					{
-// 						Mat objSet, objSetAT, modSet;		// 依次为当前帧特征点集，经转换后当前帧特征点集，前一帧特征点集
-// 						vector<Vec2d> oldLoc, newLoc;
-// 
-// 						bool success;
-// 						RUNANDTIME(global_timer, success = convert2DTo3D(
-// 							depthGenerator, H, depthImg, depthImgPre, keyPoint, 
-// 							keyPoints[last], matchesPoints, oldLoc, newLoc, objSet, 
-// 							modSet, objSetAT, mask), OUTPUT, "get 3D feature points.");
-// 						if (!success)
-// 						{
-// 							glutPostRedisplay();	
-// 							glutMainLoopEvent();
-// 							continue;
-// 						}
-// 						EMICP i(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
-// 
-// 						RUNANDTIME(global_timer, 
-// 							i.run(hasCuda, objSetAT), OUTPUT, "run ICP.");
-// 						cout << i.getFinalTransformMat() << endl;waitKey();
-// 					}
-//				}
 /*				waitKey();*/
-
-// 		waitKey();
-// 		RUNANDTIME(global_timer, runBallPivoting(m, pointCloud, 
-// 			pointColors), OUTPUT, "ball pivoting");
-// 		waitKey();
-		RUNANDTIME(global_timer, delaunay.addVertices(pointCloud, 
-			pointColors), OUTPUT, "load data");
-		if (drawType == TYPE_TRIANGLES)
-		{
-			RUNANDTIME(global_timer, delaunay.computeDelaunay(), 
-				OUTPUT, "delaunay");
-			cout << delaunay.m_triangles.size() << endl;
-		}
 
 		char key = waitKey(1);
 		if (key == 27)

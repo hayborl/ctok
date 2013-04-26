@@ -265,6 +265,7 @@ void Delaunay::computeDelaunay()
 			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
 		if (cnt < 4)	// 最近邻小于4个，不能构成三角形
 		{
+			m_beginIndicesTri.push_back((int)triSet.size());
 			continue;
 		}
 		cnt = cnt > k ? k : cnt;
@@ -286,6 +287,7 @@ void Delaunay::computeDelaunay()
 		}
 		else	// 法向量为(0, 0, 0)，
 		{
+			m_beginIndicesTri.push_back((int)triSet.size());
 			continue;
 		}
 
@@ -323,6 +325,7 @@ void Delaunay::computeDelaunay()
 		}
 		if (tmpvVector.size() < 3)	// 少于3个不能构成三角形
 		{
+			m_beginIndicesTri.push_back((int)triSet.size());
 			continue;
 		}
 
@@ -351,6 +354,7 @@ void Delaunay::computeDelaunay()
 			t.m_vertices[2] = m_vertices[t.m_vertices[2].m_index];
 			triSet.insert(t);
 		}
+		m_beginIndicesTri.push_back((int)triSet.size());
 	}
 
 	for (TriangleSet::iterator iter = triSet.begin(); 
@@ -403,6 +407,7 @@ void Delaunay::addVertices( InputArray _pts, InputArray _colors )
 {
 	if (_pts.total() == 0 || _colors.total() == 0)
 	{
+		m_beginIndicesVer.push_back((int)m_vertices.size());
 		return;
 	}
 
@@ -417,6 +422,7 @@ void Delaunay::addVertices( InputArray _pts, InputArray _colors )
 	Vec3b* colorsPtr = (Vec3b*)colors.data;
 
 	int cnt = (int)m_vertices.size();
+	m_beginIndicesVer.push_back(cnt);
 	for (int i = 0; i < total; i++)
 	{
 		Vec3d xyz = ptsPtr[i] * 1000.0;
@@ -426,6 +432,64 @@ void Delaunay::addVertices( InputArray _pts, InputArray _colors )
 		cnt++;
 	}
 	cout << "Points total number:" << m_vertices.size() << endl;
+}
+
+void Delaunay::getVertices( const int &times, Mat &out )
+{
+	if (times < m_beginIndicesVer.size())
+	{
+		int beginIndex = m_beginIndicesVer[times];
+		int size;
+		if (times == m_beginIndicesVer.size() - 1)
+		{
+			size = (int)m_vertices.size() - beginIndex;
+		}
+		else
+		{
+			size = m_beginIndicesVer[times + 1] - beginIndex;
+		}
+
+		if (size > 0)
+		{
+			out.create(size, 1, CV_64FC3);
+#pragma omp parallel for
+			for (int i = 0; i < size; i++)
+			{
+				out.at<Vec3d>(i, 0) = m_vertices[beginIndex + i].m_xyz;
+			}
+		}
+	}
+}
+
+void Delaunay::updateVertices( const int &times, const Mat &in )
+{
+	if (times < m_beginIndicesVer.size())
+	{
+		int beginIndex = m_beginIndicesVer[times];
+		int size;
+		if (times == m_beginIndicesVer.size() - 1)
+		{
+			size = (int)m_vertices.size() - beginIndex;
+		}
+		else
+		{
+			size = m_beginIndicesVer[times + 1] - beginIndex;
+		}
+
+		if (size > 0 && size == in.rows)
+		{
+			for (int i = 0; i < size; i++)
+			{
+				m_vertices[beginIndex + i].m_xyz = in.at<Vec3d>(i, 0);
+			}
+			if (m_curIndex > beginIndex)
+			{
+				m_curIndex = beginIndex;
+				m_triangles.erase(m_triangles.begin() 
+					+ m_beginIndicesTri[times], m_triangles.end());
+			}
+		}
+	}
 }
 
 void Delaunay::addBounding( const VertexVector &verSet, 

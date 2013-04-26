@@ -9,7 +9,6 @@ ICP::ICP( const Mat &objSet, const Mat &modSet, int iterMax, double epsilon )
 	m_modSet = modSet.clone();
 	m_iterMax = iterMax;
 	m_epsilon = epsilon;
-	m_tr = Mat::eye(4, 4, CV_64FC1);
 
 	RUNANDTIME(global_timer, createKDTree(),
 		OUTPUT && SUBOUTPUT, "create kdTree");
@@ -49,7 +48,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 		RUNANDTIME(global_timer, tr = 
 			computeTransformation(tmpObjSet, tmpModSet, lambda), 
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		Mat transformMat = getTransformMat(tr);
+		Mat transformMat = tr.toMatrix();
 		RUNANDTIME(global_timer, transformPointCloud(
 			m_objSet, objSet, transformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
@@ -60,7 +59,7 @@ void ICP::run(bool withCuda, InputArray initObjSet)
 		iterCnt++;
 	} while (fabs(d_pre - d_now) > m_epsilon && iterCnt <= m_iterMax);
 
-	m_tr = getTransformMat(tr);
+	m_tr = tr;
 /*	waitKey();*/
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/

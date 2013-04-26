@@ -7,7 +7,7 @@ void saveData(const char* filename, InputArray _pts)
 	Mat pts = _pts.getMat();
 	assert(pts.type() == CV_64FC3);
 	assert(pts.isContinuous());
-	int total = pts.total();
+	int total = (int)pts.total();
 
 	Vec3d* ptr = (Vec3d*)pts.data;
 

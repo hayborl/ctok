@@ -86,12 +86,18 @@ namespace Triangulation
 		Delaunay(const Mat &pts, const Mat &colors, 
 			double minAngle = COS30, double maxAngle = COS180);
 
-		void computeDelaunay();				// 计算Delaunay三角
-		void saveTriangles(char* file);		// 保存当前划分出的三角形到文件
+		void computeDelaunay();					// 计算Delaunay三角
+		void saveTriangles(char* file);			// 保存当前划分出的三角形到文件
 		void addVertices(InputArray _pts,
-			InputArray _colors);			// 加入点以及对应的颜色
+			InputArray _colors);				// 加入点以及对应的颜色
+		void getVertices(const int &times, 
+			Mat &out);							// 得到第times次的点云数据
+		void updateVertices(const int &times,
+			const Mat &in);						// 替换第times次的点
 
 	private:
+		vector<int> m_beginIndicesVer;	// 每次加入的点的起始索引
+		vector<int> m_beginIndicesTri;	// 每个点生成的三角形的起始索引
 		int m_curIndex;					// 当前计算到哪个点
 		int m_preSize;					// 记录下一次compute之前有多少点
 		double m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制

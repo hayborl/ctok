@@ -215,23 +215,15 @@ void BundleAdjustment::runBundleAdjustment( vector<Mat> &camPoses,
 		Vector3d T;
 
 		cams[i].setIntrinsic(KNorm);
-		if (i == N - 1)
-		{
-			makeIdentityMatrix(R);
-			T = makeVector3(0.0, 0.0, 0.0);
-		}
-		else
-		{
-			Mat pose = camPoses[i].inv() * camPoses[N - 1];
+		Mat pose = camPoses[i];
 
-			for (int i = 0; i < 3; i++)
+		for (int m = 0; m < 3; m++)
+		{
+			for (int n = 0; n < 3; n++)
 			{
-				for (int j = 0; j < 3; j++)
-				{
-					R[i][j] = pose.at<double>(i, j);
-				}
-				T[i] = pose.at<double>(i, 3);
+				R[m][n] = pose.at<double>(m, n);
 			}
+			T[m] = pose.at<double>(m, 3);
 		}
 		cams[i].setRotation(R);
 		cams[i].setTranslation(T);
@@ -293,31 +285,23 @@ void BundleAdjustment::runBundleAdjustment( vector<Mat> &camPoses,
 // 	showErrorStatistics(m_f0, distortion, cams, pts, measurements, 
 // 		correspondingView, correspondingPoint);
 
-	vector<Mat> tmpPoses(N);
 #pragma omp parallel for
 	for (int i = 0; i < N; i++)
 	{
 		Matrix3x4d RT = cams[i].getOrientation();
-		tmpPoses[i].create(4, 4, CV_64FC1);
 		for (int j = 0; j < 16; j++)
 		{
 			int subi = j / 4;
 			int subj = j % 4;
 			if (subi < 3)
 			{
-				tmpPoses[i].at<double>(subi, subj) = RT[subi][subj];
+				camPoses[i].at<double>(subi, subj) = RT[subi][subj];
 			}
 			else
 			{
-				tmpPoses[i].at<double>(subi, subj) = 0;
+				camPoses[i].at<double>(subi, subj) = 0;
 			}
 		}
-		tmpPoses[i].at<double>(3, 3) = 1;
-	}
-#pragma omp parallel for
-	for (int i = 0; i < N; i++)
-	{
-		camPoses[i] = tmpPoses[0] * tmpPoses[i].inv();
 	}
 }
 

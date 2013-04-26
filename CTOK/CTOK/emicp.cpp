@@ -9,7 +9,6 @@ EMICP::EMICP(const Mat &objSet, const Mat &modSet,
 
 	m_objSet = objSet.clone();
 	m_modSet = modSet.clone();
-	m_tr = Mat::eye(4, 4, CV_64FC1);
 	m_sigma_p2 = sigma_p2;
 	m_sigma_inf = sigma_inf;
 	m_sigma_factor = sigma_factor;
@@ -62,14 +61,14 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 		RUNANDTIME(global_timer, tr = 
 			computeTransformation(tmpObjSet, modSetPrime, lambda),
 			OUTPUT && SUBOUTPUT, "compute transformation");
-		Mat transformMat = getTransformMat(tr);
+		Mat transformMat = tr.toMatrix();
 		RUNANDTIME(global_timer, transformPointCloud(
 			m_objSet, objSet, transformMat, withCuda), 
 			OUTPUT && SUBOUTPUT, "transform points.");
 
 		m_sigma_p2 *= m_sigma_factor;
 	}while (m_sigma_p2 > m_sigma_inf);
-	m_tr = getTransformMat(tr);
+	m_tr = tr;
 
 /*	plotTwoPoint3DSet(objSet, m_modSet);*/
 }

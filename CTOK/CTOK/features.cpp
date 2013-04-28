@@ -666,8 +666,13 @@ void fullMatch( const int &index,
 	{
 		Mat H;
 		vector<pair<int, int>> matchesPairs;
-		pairwiseMatch(keypoints[index], keypoints[i], 
-			descriptors[index], descriptors[i], H, matchesPairs);
+		pair<double, double> scoreDiff = pairwiseMatch(keypoints[index], 
+			keypoints[i], descriptors[index], descriptors[i], H, matchesPairs);
+		if (scoreDiff.first > SIMILARITY_THRESHOLD_HULL ||
+			scoreDiff.second > AREA_DIFF_THRESHOLD)
+		{
+			matchesPairs.clear();
+		}
 		matches[i] = matchesPairs;
 	}
 }

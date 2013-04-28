@@ -24,6 +24,9 @@ public:
 	static void runBundleAdjustment(vector<Mat> &camPoses, const Mat &points,
 		const vector<vector<KeyPoint>> &keypoints, 
 		const vector<vector<pair<int, int>>> &matches);
+	static void runBundleAdjustment(
+		vector<Mat> &camPoses, const vector<Vec3d> &points,
+		multimap<int, map<int, Point2f>> relations);
 
 private:
 	enum {CAM_NUM = 2};

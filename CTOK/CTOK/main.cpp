@@ -419,6 +419,7 @@ int main(int argc, char** argv)
 	namedWindow("image", CV_WINDOW_AUTOSIZE);  
 
 	Mat _depthImgPre;					// 前一帧的深度图
+	Mat _depthImgPre2;					// 前面第二帧的深度图
 	Mat _dscrptPre;						// 前一帧的描述子
 	Mat _mask(height, width, CV_8UC1, Scalar::all(255));
 
@@ -548,13 +549,13 @@ int main(int argc, char** argv)
 							OUTPUT, "run ICP in closure check.");
 						incMat = tmpIcp.getFinalTransformMat().clone();
 
-// 						tmpMat = identityMat4x4.clone();
-// 						incMatInv = incMat.inv();
-// 						RUNANDTIME(global_timer, 
-// 							BundleAdjustment::runBundleAdjustment(
-// 								tmpMat, incMatInv, modSet, oldLoc, newLoc), 
-// 							OUTPUT, "bundle adjustment.");
-// 						pose = _camPoses[0] * tmpMat * incMatInv.inv();
+						tmpMat = identityMat4x4.clone();
+						incMatInv = incMat.inv();
+						RUNANDTIME(global_timer, 
+							BundleAdjustment::runBundleAdjustment(
+								tmpMat, incMatInv, modSet, oldLoc, newLoc), 
+							OUTPUT, "bundle adjustment.");
+						pose = _camPoses[0] * tmpMat * incMatInv.inv();
 
 						Mat curPose = pose.clone();
 						for (int i = recordCnt - 1; i > 0; i--)
@@ -577,6 +578,9 @@ int main(int argc, char** argv)
 
 			_keyPoints.push_back(keyPoint);
 			_descriptors.push_back(descriptor);
+			_camPoses.push_back(pose);
+			_incPoses.push_back(incMat);
+			recordCnt++;
 
 			RUNANDTIME(global_timer, 
 				read3DPoints(depthGenerator, depthImg, 
@@ -586,10 +590,8 @@ int main(int argc, char** argv)
 			RUNANDTIME(global_timer, 
 				transformPointCloud(pointCloud, pointCloud, pose, hasCuda), 
 				OUTPUT, "transform point cloud.");
-
-			_camPoses.push_back(pose);
-			_incPoses.push_back(incMat);
-			recordCnt++;
+			
+			_depthImgPre2 = _depthImgPre.clone();
 			_depthImgPre = depthImg.clone();
 			_dscrptPre = dscrpt.clone();
 

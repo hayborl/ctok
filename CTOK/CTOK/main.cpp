@@ -17,7 +17,6 @@ using namespace xn;
 int glWinWidth = 640, glWinHeight = 480;
 int glWinPosX = 30, glWinPosY = 30;
 int width = 640, height = 480;
-bool breakScan = false;
 enum DrawType{TYPE_POINT = 0, TYPE_TRIANGLES = 1};
 DrawType drawType = TYPE_POINT;
 
@@ -45,6 +44,8 @@ DepthGenerator depthGenerator;				// depth generator
 
 //----CTOK
 bool hasCuda = true;						// 有没有cuda
+bool isStarted = false;						// 是否开始重构
+bool stopScan = false;						// 是否停止扫描
 
 Features features;							// 用以获取特征比较相似度
 
@@ -84,6 +85,7 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 	cvtColor(imgRGB, colorImageShow, CV_RGB2BGR);
 	imshow("depth", depthImageShow);
 	imshow("image", colorImageShow);
+	waitKey(1);							// 稍作延迟让OpenCV窗口能正常显示
 
 	colorImg = colorImageShow.clone();
 }
@@ -246,9 +248,13 @@ void keyboard(uchar key, int x, int y)
 	case 'R':
 		userCamera.reset();
 		break;
+	case 'o':
+	case 'O':
+		stopScan = true;
 	case 'b':
 	case 'B':
-		breakScan = true;
+		cout << "start" << endl;
+		isStarted = true;
 		break;
 	case '1':
 		drawType = TYPE_POINT;
@@ -431,7 +437,6 @@ int main(int argc, char** argv)
 	vector<Mat>	_descriptors;			// 记录每一帧的特征描述子
 
 	Mat depthImg0;
-
 	for (; ; frameCnt++) 
 	{
 		rc = context.WaitAndUpdateAll();
@@ -440,7 +445,7 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		if (breakScan || depthGenerator.GetFrameID() < frameCnt)
+		if (stopScan || depthGenerator.GetFrameID() < frameCnt)
 		{
 			break;
 		}
@@ -449,6 +454,11 @@ int main(int argc, char** argv)
 		RUNANDTIME(global_timer, 
 			readFrame(imageGenerator, depthGenerator, colorImg, depthImg), 
 			OUTPUT, "read one frame.");
+
+		if (!isStarted)
+		{
+			continue;
+		}
 
 		if (recordCnt == 0)
 		{
@@ -466,6 +476,27 @@ int main(int argc, char** argv)
 		int dist = hammingDistance(_dscrptPre, dscrpt);
 		if (dist > SIMILARITY_THRESHOLD_PHASH)
 		{
+// 			{
+// 				Mat pointCloud, pointColors;
+// 				RUNANDTIME(global_timer, 
+// 					read3DPoints(depthGenerator, depthImg, 
+// 					colorImg, _mask, pointCloud, pointColors), 
+// 					OUTPUT, "read 3D points");
+// 
+// 				cout << pointCloud.rows << endl;
+// 				RUNANDTIME(global_timer,
+// 					features.getVariational(pointCloud, 
+// 					pointColors, 1.5, pointCloud, pointColors),
+// 					true, "get surface variational feature points");
+// 				cout << pointCloud.rows << endl;
+// 
+// 				RUNANDTIME(global_timer, 
+// 					delaunay.addVertices(pointCloud, pointColors), 
+// 					OUTPUT, "load data");
+// 				waitKey();
+// 				continue;
+// 			}
+
 			vector<KeyPoint> keyPoint;
 			Mat descriptor;
 			RUNANDTIME(global_timer, 

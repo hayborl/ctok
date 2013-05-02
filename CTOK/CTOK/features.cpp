@@ -214,6 +214,66 @@ void Features::getGLCM( const Mat &image, double* normGlcm,
 	}
 }
 
+void Features::getVariational( const Mat &pts, Mat &variationals )
+{
+	if (pts.rows == 0)
+	{
+		return;
+	}
+
+	// ¹¹½¨kdtree
+	ANNpointArray ptsData = annAllocPts(pts.rows, 3);
+#pragma omp parallel for
+	for (int i = 0; i <pts.rows; i++)
+	{
+		Vec3d v = pts.at<Vec3d>(i, 0);
+		ptsData[i][0] = v[0];
+		ptsData[i][1] = v[1];
+		ptsData[i][2] = v[2];
+	}
+	ANNkd_tree* kdtree = new ANNkd_tree(ptsData, pts.rows, 3);
+
+	variationals.create(pts.rows, 1, CV_64FC1);
+	for (int i = 0; i < pts.rows; i++)
+	{
+		ANNidx idxs[MaxK];
+		ANNdist dists[MaxK];
+		kdtree->annkSearch(ptsData[i], MaxK, idxs, dists);
+
+		Mat neighbors(MaxK - 1, 1, CV_64FC3);
+#pragma omp parallel for
+		for (int j = 1; j < MaxK; j++)
+		{
+			neighbors.at<Vec3d>(j - 1) = pts.at<Vec3d>(idxs[j], 0);
+		}
+
+		Mat localVariationals(MaxK - MinK, 1, CV_64FC1);
+#pragma omp parallel for
+		for (int j = MinK; j < MaxK; j++)
+		{
+			Mat neighborsNx1 = neighbors(Rect(0, 0, 1, j));
+			Mat neighborsNx3 = convertMat(neighborsNx1);
+			Mat ones = Mat::ones(j, 1, CV_64FC1);
+			Mat meanPt = (neighborsNx3.t() * ones) / (double)j;
+			Mat ccMat = neighborsNx3.t() * neighborsNx3 / (double)j 
+				- meanPt * meanPt.t();
+
+			Mat eigenValues(3, 1, CV_64FC1);
+			eigen(ccMat, eigenValues);
+
+			double lambda0 = eigenValues.at<double>(2, 0);	// lambda0 < lambda1 < lambda2
+			double lambda1 = eigenValues.at<double>(1, 0);
+			double lambda2 = eigenValues.at<double>(0, 0);
+			localVariationals.at<double>(j - MinK, 0) = 
+				lambda0 / (lambda0 + lambda1 + lambda2);
+		}
+		double maxVariational = 0;
+		Point maxLoc;
+		minMaxLoc(localVariationals, 0, &maxVariational, 0, &maxLoc);
+		variationals.at<double>(i, 0) = maxVariational;
+	}
+}
+
 void Features::getAvgHash( const Mat &image, Mat &descriptors )
 {
 	Mat img, gray;
@@ -237,6 +297,28 @@ void Features::getPHash( const Mat &image, Mat &descriptors )
 	double avg = mean(smallDCT)[0];
 	descriptors.create(8, 8, CV_8UC1);
 	compare(smallDCT, avg, descriptors, CMP_GE);
+}
+
+void Features::getVariational(const Mat &inPts, 
+	const Mat &inColors, const double &alpha, Mat &outPts, Mat &outColors)
+{
+	Mat variationals;
+	getVariational(inPts, variationals);
+	double threshold = mean(variationals)[0] * alpha;
+
+	vector<Vec3d> outPtsVec;
+	vector<Vec3b> outColorsVec;
+	for (int i = 0; i < variationals.rows; i++)
+	{
+		double variational = variationals.at<double>(i, 0);
+		if (variational > threshold)
+		{
+			outPtsVec.push_back(inPts.at<Vec3d>(i, 0));
+			outColorsVec.push_back(inColors.at<Vec3b>(i, 0));
+		}
+	}
+	outPts = Mat(outPtsVec, true);
+	outColors = Mat(outColorsVec, true);
 }
 
 int hammingDistance( const Mat &mat1, const Mat &mat2 )

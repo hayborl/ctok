@@ -4,8 +4,13 @@
 #include "opencv2/gpu/gpu.hpp"
 #include "opencv2/opencv.hpp"
 #include "XnCppWrapper.h"
+
+#include "ANN/ANN.h"
+
 using namespace cv;
 using namespace std;
+
+extern Mat convertMat(const Mat &mat);
 
 #define GRAY_LEVEL 16
 
@@ -30,6 +35,9 @@ public:
 	void getGLCMDes(const Mat &image, Mat &descriptors);			// 灰度共生矩阵
 	void getAvgHash(const Mat &image, Mat &descriptors);			// 平均hash算法
 	void getPHash(const Mat &image, Mat &descriptors);				// pHash算法
+	
+	void getVariational(const Mat &inPts, const Mat &inColors,
+		const double &alpha, Mat &outPts, Mat &outColors);			// 得到曲面变分大于阈值的点。
 
 private:
 	int convertH(double h);
@@ -37,6 +45,10 @@ private:
 	int convertV(double v);
 	void getGLCM(const Mat &image, 
 		double* normGlcm, int orientation, int step);
+
+	void getVariational(const Mat &pts, Mat &variationals);			// 得到每个点的曲面变分
+
+	enum {MinK = 15 + 1, MaxK = 30 + 1};							// +1是因为搜索的结果包括自己
 };
 
 int hammingDistance(const Mat &mat1, const Mat &mat2);				// 计算汉明距离

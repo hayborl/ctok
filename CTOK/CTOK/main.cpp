@@ -47,9 +47,12 @@ bool hasCuda = true;						// 有没有cuda
 bool isStarted = false;						// 是否开始重构
 bool stopScan = false;						// 是否停止扫描
 
-Features features;							// 用以获取特征比较相似度
+Features global_features;					// 用以获取特征比较相似度
 
-Triangulation::Delaunay delaunay(COS30);	// 三角化
+Triangulation::Delaunay global_delaunay(COS30);	// 三角化
+Triangulation::Mesh global_mesh;				// 模型
+
+vector<Triangulation::Mesh> meshs;
 
 const Mat identityMat4x4 = Mat::eye(4, 4, CV_64FC1);
 
@@ -145,22 +148,34 @@ void drawPoints()
 		// 绘制图像点云
 		glPointSize(1.0);
 		glBegin(GL_POINTS);
-		for (int i = 0; i < delaunay.m_vertices.size(); i++)
+		for (int i = 0; i < global_mesh.m_vertices.size(); i++)
 		{
-			Triangulation::Vertex v = delaunay.m_vertices[i];
+			Triangulation::Vertex v = global_mesh.m_vertices[i];
 			glColor3d(v.m_color[2] / 255.0, 
 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
 			glVertex3d(v.m_xyz[0] / 10.0, 
 				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 		}
+// 		for (int i = 0; i < meshs.size(); i++)
+// 		{
+// 			Triangulation::VertexVector vs = meshs[i].m_vertices;
+// 			for (int j = 0; j < vs.size(); j++)
+// 			{
+// 				Triangulation::Vertex v = vs[j];
+// 				glColor3d(v.m_color[2] / 255.0, 
+// 					v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+// 				glVertex3d(v.m_xyz[0] / 10.0, 
+// 					v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+// 			}
+// 		}
 		glEnd();
 	}
 	else if (drawType == TYPE_TRIANGLES)
 	{
 		glBegin(GL_TRIANGLES);
-		for (int i = 0; i < delaunay.m_triangles.size(); i++)
+		for (int i = 0; i < global_mesh.m_triangles.size(); i++)
 		{
-			Triangulation::Triangle t = delaunay.m_triangles[i];
+			Triangulation::Triangle t = global_mesh.m_triangles[i];
 			for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
 			{
 				Triangulation::Vertex v = t.m_vertices[j];
@@ -241,7 +256,7 @@ void keyboard(uchar key, int x, int y)
 		break;
 	case 'p':
 	case 'P':
-		saveData("real.xyz", delaunay.m_vertices);
+		saveData("real.xyz", global_mesh.m_vertices);
 		cout << "save points" << endl;
 		break;
 	case 'r':
@@ -409,6 +424,39 @@ void initBundleAdjustment()
 	BundleAdjustment::setIntrinsic(intrinsic);	// 设置内参矩阵
 }
 
+void computeNormals(const Mat &pts, Mat &normals)
+{
+	const int k = 25;
+	// 构建kdtree
+	ANNpointArray verticesData = annAllocPts(pts.rows, 3);
+	for (int i = 0; i < pts.rows; i++)
+	{
+		Vec3d v = pts.at<Vec3d>(i, 0);
+		verticesData[i][0] = v[0];
+		verticesData[i][1] = v[1];
+		verticesData[i][2] = v[2];
+	}
+	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, pts.rows, 3);
+
+	normals.create(pts.rows, 1, CV_64FC3);
+	normals.setTo(Scalar::all(0));
+	for (int i = 0; i < pts.rows; i++)
+	{
+		Vec3d v = pts.at<Vec3d>(i, 0);
+		ANNidx idxs[k];
+		ANNdist dists[k];
+		int cnt = kdtree->annkFRSearch(verticesData[i], 
+			0.0005, k, idxs, dists);	// 其中idxs[0] = i;
+		if (cnt >= 3)	// 最近邻小于4个，不能构成三角形
+		{
+			cnt = cnt > k ? k : cnt;
+
+			Vec3d normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
+			normals.at<Vec3d>(i, 0) = normal;
+		}
+	}
+}
+
 /************************************************************************/
 /*                         主程序                                       */
 /************************************************************************/
@@ -437,6 +485,7 @@ int main(int argc, char** argv)
 	vector<Mat>	_descriptors;			// 记录每一帧的特征描述子
 
 	Mat depthImg0;
+	isStarted = true;
 	for (; ; frameCnt++) 
 	{
 		rc = context.WaitAndUpdateAll();
@@ -467,7 +516,7 @@ int main(int argc, char** argv)
 
 		Mat dscrpt;
 		RUNANDTIME(global_timer, 
-			features.getPHash(colorImg, dscrpt),
+			global_features.getPHash(colorImg, dscrpt),
 			OUTPUT, "get hash using pHash");
 
 		Mat pointCloud, pointColors;
@@ -476,27 +525,6 @@ int main(int argc, char** argv)
 		int dist = hammingDistance(_dscrptPre, dscrpt);
 		if (dist > SIMILARITY_THRESHOLD_PHASH)
 		{
-// 			{
-// 				Mat pointCloud, pointColors;
-// 				RUNANDTIME(global_timer, 
-// 					read3DPoints(depthGenerator, depthImg, 
-// 					colorImg, _mask, pointCloud, pointColors), 
-// 					OUTPUT, "read 3D points");
-// 
-// 				cout << pointCloud.rows << endl;
-// 				RUNANDTIME(global_timer,
-// 					features.getVariational(pointCloud, 
-// 					pointColors, 1.5, pointCloud, pointColors),
-// 					true, "get surface variational feature points");
-// 				cout << pointCloud.rows << endl;
-// 
-// 				RUNANDTIME(global_timer, 
-// 					delaunay.addVertices(pointCloud, pointColors), 
-// 					OUTPUT, "load data");
-// 				waitKey();
-// 				continue;
-// 			}
-
 			vector<KeyPoint> keyPoint;
 			Mat descriptor;
 			RUNANDTIME(global_timer, 
@@ -597,10 +625,10 @@ int main(int argc, char** argv)
 							Mat transformPose = curPose * beforePose.inv();	// 先将原来已经变换过的点变换回来，再做新的变换
 
 							Mat pts;
-							delaunay.getVertices(i, pts);
+							global_mesh.getVertices(i, pts);
 							transformPointCloud(pts, 
 								pts, transformPose, hasCuda);
-							delaunay.updateVertices(i, pts);
+							global_mesh.updateVertices(i, pts);
 						}
 						waitKey();
 					}
@@ -631,14 +659,14 @@ int main(int argc, char** argv)
 // 				pointColors), OUTPUT, "ball pivoting");
 // 			waitKey();
 			RUNANDTIME(global_timer, 
-				delaunay.addVertices(pointCloud, pointColors), 
+				global_mesh.addVertices(pointCloud, pointColors), 
 				OUTPUT, "load data");
 			if (drawType == TYPE_TRIANGLES)
 			{
 				RUNANDTIME(global_timer, 
-					delaunay.computeDelaunay(), 
+					global_delaunay.computeDelaunay(global_mesh), 
 					OUTPUT, "delaunay");
-				cout << delaunay.m_triangles.size() << endl;
+				cout << global_mesh.m_triangles.size() << endl;
 			}
 		}
 // 				if (last - 2 >= 0)
@@ -672,7 +700,66 @@ int main(int argc, char** argv)
 	context.StopGeneratingAll();
 	context.Release();
 
-	cout << delaunay.m_vertices.size() << endl;
+// 	{
+// 		Mat pointCloud;
+// 		pointCloud.create(global_mesh.m_vertices.size(), 1, CV_64FC3);
+// #pragma omp parallel for
+// 		for (int i = 0; i < global_mesh.m_vertices.size(); i++)
+// 		{
+// 			pointCloud.at<Vec3d>(i, 0) = global_mesh.m_vertices[i].m_xyz / 1000.0;
+// 		}
+// 
+// 		Mat normals;
+// 		RUNANDTIME(global_timer,
+// 			computeNormals(pointCloud, normals),
+// 			true, "compute normals");
+// 		Mat clusterData(pointCloud.rows, 6, CV_64FC1);
+// 		Mat roi = clusterData(Rect(0, 0, 3, pointCloud.rows));
+// 		convertMat(pointCloud).copyTo(roi);
+// 		roi = clusterData(Rect(3, 0, 3, pointCloud.rows));
+// 		convertMat(normals).copyTo(roi);
+// 		clusterData.convertTo(clusterData, CV_32FC1);
+// 
+// 		vector<int> labels;
+// 		int kNum = 5;
+// 		kmeans(clusterData, kNum, labels, 
+// 			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, kNum, 0.1), 
+// 			10, KMEANS_PP_CENTERS);
+// 
+// 		vector<Vec3b> colors(kNum);
+// 		for (int i = 0; i < kNum; i++)
+// 		{
+// 			colors[i] = Vec3b(rand() % 256, rand() % 256, rand() % 256);
+// 		}
+// 		vector<Triangulation::Mesh> tmpMeshs(kNum);
+// 		for (int i = 0; i < pointCloud.rows; i++)
+// 		{
+// 			Vec3d xyz = pointCloud.at<Vec3d>(i, 0);
+// 			Vec3b color = colors[labels[i]];
+// 			Vec3d normal = normals.at<Vec3d>(i, 0);
+// 			Triangulation::Vertex v(xyz, -1, color, normal);
+// 			tmpMeshs[labels[i]].addVertex(v);
+// 		}
+// 		for (int i = 0; i < kNum; i++)
+// 		{
+// 			cout << tmpMeshs[i].m_vertices.size() << endl;
+// 			meshs.push_back(tmpMeshs[i]);
+// 		}
+// 
+// // 				cout << pointCloud.rows << endl;
+// // 				RUNANDTIME(global_timer,
+// // 					features.getVariational(pointCloud, 
+// // 					pointColors, 1.5, pointCloud, pointColors),
+// // 					true, "get surface variational feature points");
+// // 				cout << pointCloud.rows << endl;
+// // 
+// // 				RUNANDTIME(global_timer, 
+// // 					mesh.addVertices(pointCloud, pointColors), 
+// // 					OUTPUT, "load data");
+// 		waitKey();
+// 	}
+
+	cout << global_mesh.m_vertices.size() << endl;
 	glutMainLoop();
 	return 0;
 }

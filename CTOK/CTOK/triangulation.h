@@ -23,13 +23,15 @@ namespace Triangulation
 	public:
 		Vec3d m_xyz;		// x、y、z坐标
 		Vec3b m_color;		// 颜色信息
+		Vec3d m_normal;		// 法向量
 		int m_index;		// 索引值
 
 		Vertex() : m_index(-1){}
 		Vertex(double x, double y, double z) 
 			: m_index(-1){ m_xyz = Vec3d(x, y, z);}
-		Vertex(Vec3d xyz, int index = -1, Vec3b color = Vec3b(0, 0, 0)) 
-			: m_xyz(xyz), m_index(index), m_color(color){}
+		Vertex(Vec3d xyz, int index = -1, 
+			Vec3b color = Vec3b(0, 0, 0), Vec3d normal = Vec3d(0, 0, 0)) 
+			: m_xyz(xyz), m_index(index), m_color(color), m_normal(normal){}
 
 		Vertex& operator=(const Vertex &v);
 		bool operator==(const Vertex &v)const;
@@ -64,6 +66,7 @@ namespace Triangulation
 		bool angleCriterion(const double &minCosAngle = 1.0f,
 			const double &maxCosAngle = -1.0f);	// 判断三角形是否符合最大、最小角限制
 
+		Triangle operator=(const Triangle &t);
 		bool operator==(const Triangle &t)const;
 	};
 	size_t hash_value(const Triangle &t);		// hash函数，用于boost库的set类
@@ -72,22 +75,18 @@ namespace Triangulation
 	typedef vector<Triangle> TriangleVector;
 	typedef boost::unordered::unordered_set<Triangle> TriangleSet;
 
-	// 进行2D delaunay三角划分的类
-	class Delaunay
+	// Mesh类
+	class Mesh
 	{
 	public:
-		TriangleVector m_triangles;			// 三角形集合
-		VertexVector m_vertices;			// 点集
+		int m_curIndex;							// 当前计算到哪个点
+		VertexVector m_vertices;				// 点集
+		TriangleVector m_triangles;				// 三角形集合
 
-		Delaunay(double minAngle = COS30, double maxAngle = COS180) 
-			: m_minAngle(minAngle), m_maxAngle(maxAngle), m_curIndex(0){}
-		Delaunay(const Mat &pts, const vector<Vec3b> &colors, 
-			double minAngle = COS30, double maxAngle = COS180);
-		Delaunay(const Mat &pts, const Mat &colors, 
-			double minAngle = COS30, double maxAngle = COS180);
+		Mesh(){m_curIndex = 0;}
+		Mesh(InputArray pts, InputArray colors);
 
-		void computeDelaunay();					// 计算Delaunay三角
-		void saveTriangles(char* file);			// 保存当前划分出的三角形到文件
+		void addVertex(const Vertex &v);
 		void addVertices(InputArray _pts,
 			InputArray _colors);				// 加入点以及对应的颜色
 		void getVertices(const int &times, 
@@ -95,10 +94,27 @@ namespace Triangulation
 		void updateVertices(const int &times,
 			const Mat &in);						// 替换第times次的点
 
+		void pushTriBeginIndex(const int &i)
+			{m_beginIndicesTri.push_back(i);}	// 将每个点生成三角形的起始索引压入
+		void saveTriangles(char* file);			// 保存当前划分出的三角形到文件
+
 	private:
-		vector<int> m_beginIndicesVer;	// 每次加入的点的起始索引
-		vector<int> m_beginIndicesTri;	// 每个点生成的三角形的起始索引
-		int m_curIndex;					// 当前计算到哪个点
+		vector<int> m_beginIndicesVer;			// 每次加入的点的起始索引
+		vector<int> m_beginIndicesTri;			// 每个点生成的三角形的起始索引
+	};
+
+	// 进行2D delaunay三角划分的类
+	class Delaunay
+	{
+	public:
+		Delaunay(double minAngle = COS30, double maxAngle = COS180) 
+			: m_minAngle(minAngle), m_maxAngle(maxAngle){}
+
+		void computeDelaunay(Mesh &mesh);		// 计算Delaunay三角
+
+		static void saveTriangles(const TriangleVector &triSet, char* file);	// 将指定三角形集合保存到文件
+
+	private:
 		int m_preSize;					// 记录下一次compute之前有多少点
 		double m_minAngle, m_maxAngle;	// 最大最小角的角度cos值限制
 		enum {k = 20, u = 5};			// k个邻近点，u倍最小距离内的点去除
@@ -116,8 +132,7 @@ namespace Triangulation
 
 		// ab为公共边，abc为原始三角形，abp为共边的三角形, 判断p是否在abc的外接圆内
 		bool inCircle(Vertex a, Vertex b, Vertex c, Vertex p);
-			
-		void saveTriangles(const TriangleVector &triSet, char* file);	// 将指定三角形集合保存到文件
+		
 		void drawTrianglesOnPlane(const TriangleVector &triSet);		// 显示指定的三角形集合
 	};
 }

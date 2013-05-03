@@ -11,6 +11,7 @@ Vertex& Vertex::operator=( const Vertex &v )
 {
 	m_xyz = v.m_xyz;
 	m_color = v.m_color;
+	m_normal = v.m_normal;
 	m_index = v.m_index;
 	return *this;
 }
@@ -191,6 +192,15 @@ bool Triangle::angleCriterion( const double &minCosAngle,
 	return minFlag && maxFlag;
 }
 
+Triangle Triangle::operator=( const Triangle &t )
+{
+	m_vertices[0] = t.m_vertices[0];
+	m_vertices[1] = t.m_vertices[1];
+	m_vertices[2] = t.m_vertices[2];
+
+	return *this;
+}
+
 bool Triangle::operator==( const Triangle &t ) const
 {
 	int cnt = 0;
@@ -221,189 +231,21 @@ size_t Triangulation::hash_value( const Triangle &t )
 	return seed;
 }
 
-Delaunay::Delaunay( const Mat &pts, const vector<Vec3b> &colors,
-	double minAngle, double maxAngle)
-	: m_minAngle(minAngle), m_maxAngle(maxAngle), m_curIndex(0)
+Mesh::Mesh( InputArray pts, InputArray colors )
 {
+	m_curIndex = 0;
 	addVertices(pts, colors);
 }
 
-Delaunay::Delaunay( const Mat &pts, const Mat &colors,
-	double minAngle, double maxAngle)
-	: m_minAngle(minAngle), m_maxAngle(maxAngle), m_curIndex(0)
+void Mesh::addVertex( const Vertex &v )
 {
-	addVertices(pts, colors);
+	Vertex _v = v;
+	_v.m_xyz *= 1000.0;
+	_v.m_index = (int)m_vertices.size();
+	m_vertices.push_back(_v);
 }
 
-void Delaunay::computeDelaunay()
-{
-	if (m_vertices.size() == 0)
-	{
-		return;
-	}
-	m_preSize = m_curIndex;
-
-	// 构建kdtree
-	ANNpointArray verticesData = annAllocPts((int)m_vertices.size(), 3);
-	for (int i = 0; i < m_vertices.size(); i++)
-	{
-		verticesData[i][0] = m_vertices[i].m_xyz[0];
-		verticesData[i][1] = m_vertices[i].m_xyz[1];
-		verticesData[i][2] = m_vertices[i].m_xyz[2];
-	}
-	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, 
-		(int)m_vertices.size(), 3);
-
-	TriangleSet triSet;
-	// 依次遍历每个点，寻找最近邻，进行三角化
-	for (; m_curIndex < m_vertices.size(); m_curIndex++)
-	{
-		Vertex v = m_vertices[m_curIndex];
-		ANNidx idxs[k];
-		ANNdist dists[k];
-		int cnt = kdtree->annkFRSearch(verticesData[m_curIndex], 
-			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
-		if (cnt < 4)	// 最近邻小于4个，不能构成三角形
-		{
-			m_beginIndicesTri.push_back((int)triSet.size());
-			continue;
-		}
-		cnt = cnt > k ? k : cnt;
-
-		Vec3d normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
-		int id = 2;
-		// 判断法向量哪个不为0，z->y->x
-		if (normal[2] != 0)		// z
-		{
-			id = 2;
-		}
-		else if (normal[1] != 0)// y
-		{
-			id = 1;
-		}
-		else if (normal[0] != 0)// x
-		{
-			id = 0;
-		}
-		else	// 法向量为(0, 0, 0)，
-		{
-			m_beginIndicesTri.push_back((int)triSet.size());
-			continue;
-		}
-
-		double minDistance = -1;
-		int j;
-		for (j = 0; j < cnt; j++)
-		{
-			if (dists[j] > 0)
-			{
-				minDistance = dists[j];
-				break;
-			}
-		}
-		VertexVector vVector, tmpvVector;
-		// 将最近邻点投射到该点的切平面上
-		for (; j < cnt; j++)
-		{
-			Vertex tmpv = m_vertices[idxs[j]];
-			if (dists[j] < u * minDistance ||		// 去除非常接近的点
-				(tmpv.m_index < v.m_index && tmpv.m_index >= m_preSize))	// 去除已遍历过的点
-			{
-				continue;
-			}
-			
-			Vec3d vv = tmpv.m_xyz - v.m_xyz;
-			double dist2 = dists[j] * 0.75f;	// sqrt
-			double alpha = vv.dot(normal);
-			alpha = alpha * alpha;
-			if (alpha > dist2)		// 去除与法向量夹角小于30度或大于150度的点
-			{
-				continue;
-			}
-			Vec3d proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
-			tmpvVector.push_back(Vertex(proj, idxs[j]));
-		}
-		if (tmpvVector.size() < 3)	// 少于3个不能构成三角形
-		{
-			m_beginIndicesTri.push_back((int)triSet.size());
-			continue;
-		}
-
-		// 将切平面转换为x-y平面进行三角形计算
-		vVector.push_back(Vertex(Vec3d(0, 0, 0), m_curIndex));	// 原点
-		Vec3d vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
-		vx = normalize(vx);
-		for (j = 0; j < tmpvVector.size(); j++)
-		{
-			Vec3d vv = tmpvVector[j].m_xyz - v.m_xyz;
-			double x = vv.dot(vx);
-			double y = vx.cross(vv)[id] / normal[id];
-			Vec3d proj(x, y, 0);
-			vVector.push_back(Vertex(proj, tmpvVector[j].m_index));
-		}
-
-		TriangleVector tVector;
-		computeDelaunay(vVector, tVector);
-// 		cout << vVector.size() << " " << tVector.size() << endl; 
-// 		drawTrianglesOnPlane(tVector);
-		for (j = 0; j < tVector.size(); j++)
-		{
-			Triangle t = tVector[j];
-			t.m_vertices[0] = m_vertices[t.m_vertices[0].m_index];
-			t.m_vertices[1] = m_vertices[t.m_vertices[1].m_index];
-			t.m_vertices[2] = m_vertices[t.m_vertices[2].m_index];
-			triSet.insert(t);
-		}
-		m_beginIndicesTri.push_back((int)triSet.size());
-	}
-
-	for (TriangleSet::iterator iter = triSet.begin(); 
-		iter != triSet.end(); iter++)
-	{
-		m_triangles.push_back(*iter);
-	}
-
-	annDeallocPts(verticesData);
-}
-
-void Delaunay::computeDelaunay( const VertexVector &verSet, 
-	TriangleVector &triSet )
-{
-	TriangleVector tmpTriSet;
-	addBounding(verSet, tmpTriSet);
-	for (int i = 0; i < verSet.size(); i++)
-	{
-/*		cout << verSet[i].m_xyz << endl;*/
-		insertVertex(tmpTriSet, verSet[i]);
-/*		drawTrianglesOnPlane(triSet);*/
-	}
-	removeBounding(tmpTriSet, triSet, verSet[0].m_index);
-}
-
-void Delaunay::saveTriangles( char* file )
-{
-	saveTriangles(m_triangles, file);
-}
-
-void Delaunay::saveTriangles( const TriangleVector &triSet, char* file )
-{
-	ofstream ofs(file);
-	if (ofs)
-	{
-		ofs << triSet.size() << endl;
-		for (int i = 0; i < triSet.size(); i++)
-		{
-			Triangle t = triSet[i];
-			for (int j = 0; j < Triangle::Vertex_Size; j++)
-			{
-				ofs << t.m_vertices[j].m_xyz;
-			}
-			ofs << endl;
-		}
-	}
-}
-
-void Delaunay::addVertices( InputArray _pts, InputArray _colors )
+void Mesh::addVertices( InputArray _pts, InputArray _colors )
 {
 	if (_pts.total() == 0 || _colors.total() == 0)
 	{
@@ -416,7 +258,7 @@ void Delaunay::addVertices( InputArray _pts, InputArray _colors )
 	assert(pts.type() == CV_64FC3 && colors.type() == CV_8UC3);
 	assert(pts.total() == colors.total());
 	int total = (int)pts.total();
-	
+
 	assert(pts.isContinuous() && colors.isContinuous());
 	Vec3d* ptsPtr = (Vec3d*)pts.data;
 	Vec3b* colorsPtr = (Vec3b*)colors.data;
@@ -434,7 +276,7 @@ void Delaunay::addVertices( InputArray _pts, InputArray _colors )
 	cout << "Points total number:" << m_vertices.size() << endl;
 }
 
-void Delaunay::getVertices( const int &times, Mat &out )
+void Mesh::getVertices( const int &times, Mat &out )
 {
 	if (times < m_beginIndicesVer.size())
 	{
@@ -461,7 +303,7 @@ void Delaunay::getVertices( const int &times, Mat &out )
 	}
 }
 
-void Delaunay::updateVertices( const int &times, const Mat &in )
+void Mesh::updateVertices( const int &times, const Mat &in )
 {
 	if (times < m_beginIndicesVer.size())
 	{
@@ -488,6 +330,175 @@ void Delaunay::updateVertices( const int &times, const Mat &in )
 				m_triangles.erase(m_triangles.begin() 
 					+ m_beginIndicesTri[times], m_triangles.end());
 			}
+		}
+	}
+}
+
+void Mesh::saveTriangles( char* file )
+{
+	Delaunay::saveTriangles(m_triangles, file);
+}
+
+void Delaunay::computeDelaunay(Mesh &mesh)
+{
+	int size = (int)mesh.m_vertices.size();
+	if (size == 0)
+	{
+		return;
+	}
+	m_preSize = mesh.m_curIndex;
+
+	// 构建kdtree
+	ANNpointArray verticesData = annAllocPts(size, 3);
+	for (int i = 0; i < size; i++)
+	{
+		Vertex v = mesh.m_vertices[i];
+		verticesData[i][0] = v.m_xyz[0];
+		verticesData[i][1] = v.m_xyz[1];
+		verticesData[i][2] = v.m_xyz[2];
+	}
+	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, size, 3);
+
+	TriangleSet triSet;
+	// 依次遍历每个点，寻找最近邻，进行三角化
+	for (; mesh.m_curIndex < size; mesh.m_curIndex++)
+	{
+		Vertex v = mesh.m_vertices[mesh.m_curIndex];
+		ANNidx idxs[k];
+		ANNdist dists[k];
+		int cnt = kdtree->annkFRSearch(verticesData[mesh.m_curIndex], 
+			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
+		if (cnt < 4)	// 最近邻小于4个，不能构成三角形
+		{
+			mesh.pushTriBeginIndex((int)triSet.size());
+			continue;
+		}
+		cnt = cnt > k ? k : cnt;
+
+		Vec3d normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
+		int id = 2;
+		// 判断法向量哪个不为0，z->y->x
+		if (normal[2] != 0)		// z
+		{
+			id = 2;
+		}
+		else if (normal[1] != 0)// y
+		{
+			id = 1;
+		}
+		else if (normal[0] != 0)// x
+		{
+			id = 0;
+		}
+		else	// 法向量为(0, 0, 0)，
+		{
+			mesh.pushTriBeginIndex((int)triSet.size());
+			continue;
+		}
+
+		double minDistance = -1;
+		int j;
+		for (j = 0; j < cnt; j++)
+		{
+			if (dists[j] > 0)
+			{
+				minDistance = dists[j];
+				break;
+			}
+		}
+		VertexVector vVector, tmpvVector;
+		// 将最近邻点投射到该点的切平面上
+		for (; j < cnt; j++)
+		{
+			Vertex tmpv = mesh.m_vertices[idxs[j]];
+			if (dists[j] < u * minDistance ||		// 去除非常接近的点
+				(tmpv.m_index < v.m_index && tmpv.m_index >= m_preSize))	// 去除已遍历过的点
+			{
+				continue;
+			}
+			
+			Vec3d vv = tmpv.m_xyz - v.m_xyz;
+			double dist2 = dists[j] * 0.75f;	// sqrt
+			double alpha = vv.dot(normal);
+			alpha = alpha * alpha;
+			if (alpha > dist2)		// 去除与法向量夹角小于30度或大于150度的点
+			{
+				continue;
+			}
+			Vec3d proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
+			tmpvVector.push_back(Vertex(proj, idxs[j]));
+		}
+		if (tmpvVector.size() < 3)	// 少于3个不能构成三角形
+		{
+			mesh.pushTriBeginIndex((int)triSet.size());
+			continue;
+		}
+
+		// 将切平面转换为x-y平面进行三角形计算
+		vVector.push_back(Vertex(Vec3d(0, 0, 0), mesh.m_curIndex));	// 原点
+		Vec3d vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
+		vx = normalize(vx);
+		for (j = 0; j < tmpvVector.size(); j++)
+		{
+			Vec3d vv = tmpvVector[j].m_xyz - v.m_xyz;
+			double x = vv.dot(vx);
+			double y = vx.cross(vv)[id] / normal[id];
+			Vec3d proj(x, y, 0);
+			vVector.push_back(Vertex(proj, tmpvVector[j].m_index));
+		}
+
+		TriangleVector tVector;
+		computeDelaunay(vVector, tVector);
+// 		cout << vVector.size() << " " << tVector.size() << endl; 
+// 		drawTrianglesOnPlane(tVector);
+		for (j = 0; j < tVector.size(); j++)
+		{
+			Triangle t = tVector[j];
+			t.m_vertices[0] = mesh.m_vertices[t.m_vertices[0].m_index];
+			t.m_vertices[1] = mesh.m_vertices[t.m_vertices[1].m_index];
+			t.m_vertices[2] = mesh.m_vertices[t.m_vertices[2].m_index];
+			triSet.insert(t);
+		}
+		mesh.pushTriBeginIndex((int)triSet.size());
+	}
+
+	for (TriangleSet::iterator iter = triSet.begin(); 
+		iter != triSet.end(); iter++)
+	{
+		mesh.m_triangles.push_back(*iter);
+	}
+
+	annDeallocPts(verticesData);
+}
+
+void Delaunay::computeDelaunay( const VertexVector &verSet, 
+	TriangleVector &triSet )
+{
+	TriangleVector tmpTriSet;
+	addBounding(verSet, tmpTriSet);
+	for (int i = 0; i < verSet.size(); i++)
+	{
+/*		cout << verSet[i].m_xyz << endl;*/
+		insertVertex(tmpTriSet, verSet[i]);
+/*		drawTrianglesOnPlane(triSet);*/
+	}
+	removeBounding(tmpTriSet, triSet, verSet[0].m_index);
+}
+
+void Delaunay::saveTriangles( const TriangleVector &triSet, char* file )
+{
+	ofstream ofs(file);
+	if (ofs)
+	{
+		ofs << triSet.size() << endl;
+		for (int i = 0; i < triSet.size(); i++)
+		{
+			Triangle t = triSet[i];
+			for (int j = 0; j < Triangle::Vertex_Size; j++)
+			{
+				ofs << t.m_vertices[j].m_xyz;
+			}
+			ofs << endl;
 		}
 	}
 }

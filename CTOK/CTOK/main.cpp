@@ -14,11 +14,12 @@ using namespace cv;
 using namespace xn;
 
 //---OpenGL 全局变量
-int glWinWidth = 640, glWinHeight = 480;
-int glWinPosX = 30, glWinPosY = 30;
+int glWinWidth = 1280, glWinHeight = 480;
+int glWinPosX = 0, glWinPosY = 0;
 int width = 640, height = 480;
 enum DrawType{TYPE_POINT = 0, TYPE_TRIANGLES = 1};
 DrawType drawType = TYPE_POINT;
+int mainWindow, subWindow1, subWindow2;
 
 Camera userCamera;
 
@@ -141,7 +142,7 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 }
 
 // 绘制点云
-void drawPoints()
+void drawPointsSub1()
 {
 	if (drawType == TYPE_POINT)
 	{
@@ -156,18 +157,6 @@ void drawPoints()
 			glVertex3d(v.m_xyz[0] / 10.0, 
 				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 		}
-// 		for (int i = 0; i < meshs.size(); i++)
-// 		{
-// 			Triangulation::VertexVector vs = meshs[i].m_vertices;
-// 			for (int j = 0; j < vs.size(); j++)
-// 			{
-// 				Triangulation::Vertex v = vs[j];
-// 				glColor3d(v.m_color[2] / 255.0, 
-// 					v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-// 				glVertex3d(v.m_xyz[0] / 10.0, 
-// 					v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
-// 			}
-// 		}
 		glEnd();
 	}
 	else if (drawType == TYPE_TRIANGLES)
@@ -197,6 +186,25 @@ void drawPoints()
 // 			glVertex3d(v->P()[0], v->P()[1], v->P()[2]);
 // 		}
 // 	}
+}
+
+void drawPointsSub2()
+{
+	glPointSize(1.0);
+	glBegin(GL_POINTS);
+	for (int i = 0; i < meshs.size(); i++)
+	{
+		Triangulation::VertexVector vs = meshs[i].m_vertices;
+		for (int j = 0; j < vs.size(); j++)
+		{
+			Triangulation::Vertex v = vs[j];
+			glColor3d(v.m_color[2] / 255.0, 
+				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+			glVertex3d(v.m_xyz[0] / 10.0, 
+				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+		}
+	}
+	glEnd();
 }
 
 /************************************************************************/
@@ -266,6 +274,7 @@ void keyboard(uchar key, int x, int y)
 	case 'o':
 	case 'O':
 		stopScan = true;
+		break;
 	case 'b':
 	case 'B':
 		cout << "start" << endl;
@@ -298,11 +307,19 @@ void mouseEntry(int state)
 	}
 }
 
-// 三维图像显示响应函数
 void renderScene(void)
 {
+	glutSetWindow(mainWindow);
 	glWinPosX = glutGet(GLUT_WINDOW_X);
 	glWinPosY = glutGet(GLUT_WINDOW_Y);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glutSwapBuffers();
+}
+
+// 三维图像显示响应函数
+void renderSceneSub1(void)
+{
+	glutSetWindow(subWindow1);
 
 	// clear screen and depth buffer
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -311,7 +328,7 @@ void renderScene(void)
 	// set the camera position
 	userCamera.look();
 
-	drawPoints();
+	drawPointsSub1();
 
 	Vec3d vPos = userCamera.position();
 	Vec3d vView = userCamera.view();
@@ -319,22 +336,79 @@ void renderScene(void)
 	// 设置camera的新位置
 	userCamera.positionCamera(vPos, vView, Vec3d(0.0, 1.0, 0.0));
 
-	glEnable(GL_DEPTH_TEST);
+	glFlush();
+	glutSwapBuffers();
+}
+
+void renderSceneSub2(void)
+{
+	glutSetWindow(subWindow2);
+
+	// clear screen and depth buffer
+	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	// Reset the coordinate system before modifying
+	glLoadIdentity();   
+	// set the camera position
+	userCamera.look();
+
+	drawPointsSub2();
+
+	Vec3d vPos = userCamera.position();
+	Vec3d vView = userCamera.view();
+
+	// 设置camera的新位置
+	userCamera.positionCamera(vPos, vView, Vec3d(0.0, 1.0, 0.0));
 
 	glFlush();
 	glutSwapBuffers();
 }
 
+void renderSceneAll()
+{
+	renderSceneSub1();
+	renderSceneSub2();
+}
+
+void setProjection(int w1, int h1)
+{
+	float ratio;
+	// Prevent a divide by zero, when window is too short
+	// (you cant make a window of zero width).
+	ratio = 1.0f * w1 / h1;
+	// Reset the coordinate system before modifying
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	// Set the viewport to be the entire window
+	glViewport(0, 0, w1, h1);
+
+	// Set the clipping volume
+	gluPerspective(45, ratio, 1.0, 15000.0);
+	glMatrixMode(GL_MODELVIEW);
+}
+
 // 窗口变化图像重构响应函数
 void reshape (int w, int h)
 {
+	if (h == 0)
+	{
+		h = 1;
+	}
 	glWinWidth = w;
 	glWinHeight = h;
-	glViewport (0, 0, (GLsizei)w, (GLsizei)h);
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-	gluPerspective (45, (GLdouble)w / (GLdouble)h, 1.0, 15000.0);   
-	glMatrixMode (GL_MODELVIEW);
+
+	glutSetWindow(subWindow1);
+	// resize and reposition the sub window
+	glutPositionWindow(glWinPosX, glWinPosY);
+	glutReshapeWindow(glWinWidth / 2, glWinHeight);
+	setProjection(glWinWidth / 2, glWinHeight);
+
+	// set subwindow 2 as the active window
+	glutSetWindow(subWindow2);
+	// resize and reposition the sub window
+	glutPositionWindow(glWinPosX + glWinWidth / 2, glWinPosY);
+	glutReshapeWindow(glWinWidth / 2, glWinHeight);
+	setProjection(glWinWidth / 2, glWinHeight);
 }
 
 // 初始化OpenNI
@@ -392,6 +466,14 @@ void initOpenNI()
 	context.WaitNoneUpdateAll();
 }
 
+void init()
+{
+	glutMouseFunc(mouse);				// 鼠标按键响应
+	glutEntryFunc(mouseEntry);			// 设置鼠标进入窗口的处理函数
+	glutMotionFunc(motion);				// 鼠标移动响应
+	glutKeyboardFunc(keyboard);			// 键盘按键响应
+}
+
 // 初始化OpenGL
 void initOpenGL(int argc, char** argv)
 {
@@ -403,15 +485,23 @@ void initOpenGL(int argc, char** argv)
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);
 	glutInitWindowPosition(glWinPosX, glWinPosY);
 	glutInitWindowSize(glWinWidth, glWinHeight);
-	glutCreateWindow("3D Scene");
-
+	mainWindow = glutCreateWindow("3D Scene");
 	glutReshapeFunc (reshape);			// 窗口变化时重绘图像
 	glutDisplayFunc(renderScene);		// 显示三维图像       
-	glutMouseFunc(mouse);				// 鼠标按键响应
-	glutEntryFunc(mouseEntry);			// 设置鼠标进入窗口的处理函数
-	glutMotionFunc(motion);				// 鼠标移动响应
-	glutKeyboardFunc(keyboard);			// 键盘按键响应
-	glutIdleFunc(renderScene);			// 空闲时重绘图像
+	glutIdleFunc(renderSceneAll);		// 空闲时重绘图像
+	init();
+
+	subWindow1 = glutCreateSubWindow(mainWindow, glWinPosX, 
+		glWinPosY, glWinWidth / 2, glWinHeight);
+	glutDisplayFunc(renderSceneSub1);
+	init();
+
+	subWindow2 = glutCreateSubWindow(mainWindow, glWinPosX + 
+		glWinWidth / 2, glWinPosY, glWinWidth / 2, glWinHeight);
+	glutDisplayFunc(renderSceneSub2);
+	init();
+
+	glEnable(GL_DEPTH_TEST);
 }
 
 // 初始化BundleAdjustment的照相机内参
@@ -700,64 +790,64 @@ int main(int argc, char** argv)
 	context.StopGeneratingAll();
 	context.Release();
 
-// 	{
-// 		Mat pointCloud;
-// 		pointCloud.create(global_mesh.m_vertices.size(), 1, CV_64FC3);
-// #pragma omp parallel for
-// 		for (int i = 0; i < global_mesh.m_vertices.size(); i++)
-// 		{
-// 			pointCloud.at<Vec3d>(i, 0) = global_mesh.m_vertices[i].m_xyz / 1000.0;
-// 		}
+	{
+		Mat pointCloud;
+		pointCloud.create(global_mesh.m_vertices.size(), 1, CV_64FC3);
+#pragma omp parallel for
+		for (int i = 0; i < global_mesh.m_vertices.size(); i++)
+		{
+			pointCloud.at<Vec3d>(i, 0) = global_mesh.m_vertices[i].m_xyz / 1000.0;
+		}
+
+		Mat normals;
+		RUNANDTIME(global_timer,
+			computeNormals(pointCloud, normals),
+			true, "compute normals");
+		Mat clusterData(pointCloud.rows, 6, CV_64FC1);
+		Mat roi = clusterData(Rect(0, 0, 3, pointCloud.rows));
+		convertMat(pointCloud).copyTo(roi);
+		roi = clusterData(Rect(3, 0, 3, pointCloud.rows));
+		convertMat(normals).copyTo(roi);
+		clusterData.convertTo(clusterData, CV_32FC1);
+
+		vector<int> labels;
+		int kNum = 10;
+		kmeans(clusterData, kNum, labels, 
+			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, kNum, 0.1), 
+			kNum, KMEANS_PP_CENTERS);
+
+		vector<Vec3b> colors(kNum);
+		for (int i = 0; i < kNum; i++)
+		{
+			colors[i] = Vec3b(rand() % 256, rand() % 256, rand() % 256);
+		}
+		vector<Triangulation::Mesh> tmpMeshs(kNum);
+		for (int i = 0; i < pointCloud.rows; i++)
+		{
+			Vec3d xyz = pointCloud.at<Vec3d>(i, 0);
+			Vec3b color = colors[labels[i]];
+			Vec3d normal = normals.at<Vec3d>(i, 0);
+			Triangulation::Vertex v(xyz, -1, color, normal);
+			tmpMeshs[labels[i]].addVertex(v);
+		}
+		for (int i = 0; i < kNum; i++)
+		{
+			cout << tmpMeshs[i].m_vertices.size() << endl;
+			meshs.push_back(tmpMeshs[i]);
+		}
+
+// 				cout << pointCloud.rows << endl;
+// 				RUNANDTIME(global_timer,
+// 					features.getVariational(pointCloud, 
+// 					pointColors, 1.5, pointCloud, pointColors),
+// 					true, "get surface variational feature points");
+// 				cout << pointCloud.rows << endl;
 // 
-// 		Mat normals;
-// 		RUNANDTIME(global_timer,
-// 			computeNormals(pointCloud, normals),
-// 			true, "compute normals");
-// 		Mat clusterData(pointCloud.rows, 6, CV_64FC1);
-// 		Mat roi = clusterData(Rect(0, 0, 3, pointCloud.rows));
-// 		convertMat(pointCloud).copyTo(roi);
-// 		roi = clusterData(Rect(3, 0, 3, pointCloud.rows));
-// 		convertMat(normals).copyTo(roi);
-// 		clusterData.convertTo(clusterData, CV_32FC1);
-// 
-// 		vector<int> labels;
-// 		int kNum = 5;
-// 		kmeans(clusterData, kNum, labels, 
-// 			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, kNum, 0.1), 
-// 			10, KMEANS_PP_CENTERS);
-// 
-// 		vector<Vec3b> colors(kNum);
-// 		for (int i = 0; i < kNum; i++)
-// 		{
-// 			colors[i] = Vec3b(rand() % 256, rand() % 256, rand() % 256);
-// 		}
-// 		vector<Triangulation::Mesh> tmpMeshs(kNum);
-// 		for (int i = 0; i < pointCloud.rows; i++)
-// 		{
-// 			Vec3d xyz = pointCloud.at<Vec3d>(i, 0);
-// 			Vec3b color = colors[labels[i]];
-// 			Vec3d normal = normals.at<Vec3d>(i, 0);
-// 			Triangulation::Vertex v(xyz, -1, color, normal);
-// 			tmpMeshs[labels[i]].addVertex(v);
-// 		}
-// 		for (int i = 0; i < kNum; i++)
-// 		{
-// 			cout << tmpMeshs[i].m_vertices.size() << endl;
-// 			meshs.push_back(tmpMeshs[i]);
-// 		}
-// 
-// // 				cout << pointCloud.rows << endl;
-// // 				RUNANDTIME(global_timer,
-// // 					features.getVariational(pointCloud, 
-// // 					pointColors, 1.5, pointCloud, pointColors),
-// // 					true, "get surface variational feature points");
-// // 				cout << pointCloud.rows << endl;
-// // 
-// // 				RUNANDTIME(global_timer, 
-// // 					mesh.addVertices(pointCloud, pointColors), 
-// // 					OUTPUT, "load data");
-// 		waitKey();
-// 	}
+// 				RUNANDTIME(global_timer, 
+// 					mesh.addVertices(pointCloud, pointColors), 
+// 					OUTPUT, "load data");
+		waitKey();
+	}
 
 	cout << global_mesh.m_vertices.size() << endl;
 	glutMainLoop();

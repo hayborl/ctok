@@ -33,7 +33,6 @@ using namespace gpu;
 #define EXTERN_C extern "C"
 
 #define DISTANCE_MAX 100000000
-#define DISTANCE_RANGE 100
 #define DISTANCE_THRE 1500
 #define OUTPUT	false
 

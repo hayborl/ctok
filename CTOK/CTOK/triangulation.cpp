@@ -1,11 +1,14 @@
 #include "triangulation.h"
 
 #include "ANN/ANN.h"
-#include "common.h"
 
 #include <fstream>
+#include <iostream>
 
+using namespace std;
 using namespace Triangulation;
+
+extern Vec3d computeNormal(ANNpointArray pts, ANNidxArray idxs, const int &k);
 
 Vertex& Vertex::operator=( const Vertex &v )
 {
@@ -13,6 +16,10 @@ Vertex& Vertex::operator=( const Vertex &v )
 	m_color = v.m_color;
 	m_normal = v.m_normal;
 	m_index = v.m_index;
+	if (v.m_neighbors[0] > 0)
+	{
+		memcpy(m_neighbors, v.m_neighbors, k * sizeof(int));
+	}
 	return *this;
 }
 
@@ -240,7 +247,6 @@ Mesh::Mesh( InputArray pts, InputArray colors )
 void Mesh::addVertex( const Vertex &v )
 {
 	Vertex _v = v;
-	_v.m_xyz *= 1000.0;
 	_v.m_index = (int)m_vertices.size();
 	m_vertices.push_back(_v);
 }
@@ -264,6 +270,7 @@ void Mesh::addVertices( InputArray _pts, InputArray _colors )
 	Vec3b* colorsPtr = (Vec3b*)colors.data;
 
 	int cnt = (int)m_vertices.size();
+	int begin = cnt;
 	m_beginIndicesVer.push_back(cnt);
 	for (int i = 0; i < total; i++)
 	{
@@ -339,43 +346,61 @@ void Mesh::saveTriangles( char* file )
 	Delaunay::saveTriangles(m_triangles, file);
 }
 
+void Mesh::computeVerticesNormals(const int &begin, const int &size)
+{
+	int _size = (int)m_vertices.size();
+	if (begin > _size || begin + size > _size)
+	{
+		return;
+	}
+
+	// 构建kdtree
+	ANNpointArray verticesData = annAllocPts(_size, 3);
+	for (int i = 0; i < _size; i++)
+	{
+		Vec3d v = m_vertices[i].m_xyz;
+		verticesData[i][0] = v[0];
+		verticesData[i][1] = v[1];
+		verticesData[i][2] = v[2];
+	}
+	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, _size, 3);
+
+	for (int i = begin; i < begin + size; i++)
+	{
+		Vec3d v = m_vertices[i].m_xyz;
+		ANNidx idxs[k];
+		ANNdist dists[k];
+		int cnt = kdtree->annkFRSearch(verticesData[i], 
+			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
+		if (cnt >= 3)	// 最近邻小于3个，不能计算法向量
+		{
+			cnt = cnt > k ? k : cnt;
+
+			m_vertices[i].m_normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
+			memcpy(m_vertices[i].m_neighbors, idxs, cnt * sizeof(int));
+			m_vertices[i].m_neighbors[0] = cnt - 1;
+		}
+	}
+	annDeallocPts(verticesData);
+}
+
 void Delaunay::computeDelaunay(Mesh &mesh)
 {
-	int size = (int)mesh.m_vertices.size();
+	int size = (int)mesh.getVerticesSize();
 	if (size == 0)
 	{
 		return;
 	}
+	mesh.computeVerticesNormals();
 	m_preSize = mesh.m_curIndex;
-
-	// 构建kdtree
-	ANNpointArray verticesData = annAllocPts(size, 3);
-	for (int i = 0; i < size; i++)
-	{
-		Vertex v = mesh.m_vertices[i];
-		verticesData[i][0] = v.m_xyz[0];
-		verticesData[i][1] = v.m_xyz[1];
-		verticesData[i][2] = v.m_xyz[2];
-	}
-	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, size, 3);
 
 	TriangleSet triSet;
 	// 依次遍历每个点，寻找最近邻，进行三角化
 	for (; mesh.m_curIndex < size; mesh.m_curIndex++)
 	{
-		Vertex v = mesh.m_vertices[mesh.m_curIndex];
-		ANNidx idxs[k];
-		ANNdist dists[k];
-		int cnt = kdtree->annkFRSearch(verticesData[mesh.m_curIndex], 
-			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
-		if (cnt < 4)	// 最近邻小于4个，不能构成三角形
-		{
-			mesh.pushTriBeginIndex((int)triSet.size());
-			continue;
-		}
-		cnt = cnt > k ? k : cnt;
+		Vertex v = mesh.getVertex(mesh.m_curIndex);
 
-		Vec3d normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
+		Vec3d normal = v.m_normal;
 		int id = 2;
 		// 判断法向量哪个不为0，z->y->x
 		if (normal[2] != 0)		// z
@@ -397,20 +422,19 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 		}
 
 		double minDistance = -1;
-		int j;
-		for (j = 0; j < cnt; j++)
+		int cnt = v.m_neighbors[0];					// 最近邻数目
+		double dists[k];
+		for (int j = 1; j < cnt + 1; j++)
 		{
-			if (dists[j] > 0)
-			{
-				minDistance = dists[j];
-				break;
-			}
+			Vec3d dv = mesh.getVertex(v.m_neighbors[j]).m_xyz - v.m_xyz;
+			dists[j] = dv.ddot(dv);
 		}
+		minDistance = dists[1];
 		VertexVector vVector, tmpvVector;
 		// 将最近邻点投射到该点的切平面上
-		for (; j < cnt; j++)
+		for (int j = 1; j < cnt + 1; j++)
 		{
-			Vertex tmpv = mesh.m_vertices[idxs[j]];
+			Vertex tmpv = mesh.getVertex(v.m_neighbors[j]);
 			if (dists[j] < u * minDistance ||		// 去除非常接近的点
 				(tmpv.m_index < v.m_index && tmpv.m_index >= m_preSize))	// 去除已遍历过的点
 			{
@@ -426,7 +450,7 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 				continue;
 			}
 			Vec3d proj = tmpv.m_xyz - alpha * normal;		// 投射到切平面
-			tmpvVector.push_back(Vertex(proj, idxs[j]));
+			tmpvVector.push_back(Vertex(proj, v.m_neighbors[j]));
 		}
 		if (tmpvVector.size() < 3)	// 少于3个不能构成三角形
 		{
@@ -438,7 +462,7 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 		vVector.push_back(Vertex(Vec3d(0, 0, 0), mesh.m_curIndex));	// 原点
 		Vec3d vx = tmpvVector[0].m_xyz - v.m_xyz;		// x轴
 		vx = normalize(vx);
-		for (j = 0; j < tmpvVector.size(); j++)
+		for (int j = 0; j < tmpvVector.size(); j++)
 		{
 			Vec3d vv = tmpvVector[j].m_xyz - v.m_xyz;
 			double x = vv.dot(vx);
@@ -451,12 +475,12 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 		computeDelaunay(vVector, tVector);
 // 		cout << vVector.size() << " " << tVector.size() << endl; 
 // 		drawTrianglesOnPlane(tVector);
-		for (j = 0; j < tVector.size(); j++)
+		for (int j = 0; j < tVector.size(); j++)
 		{
 			Triangle t = tVector[j];
-			t.m_vertices[0] = mesh.m_vertices[t.m_vertices[0].m_index];
-			t.m_vertices[1] = mesh.m_vertices[t.m_vertices[1].m_index];
-			t.m_vertices[2] = mesh.m_vertices[t.m_vertices[2].m_index];
+			t.m_vertices[0] = mesh.getVertex(t.m_vertices[0].m_index);
+			t.m_vertices[1] = mesh.getVertex(t.m_vertices[1].m_index);
+			t.m_vertices[2] = mesh.getVertex(t.m_vertices[2].m_index);
 			triSet.insert(t);
 		}
 		mesh.pushTriBeginIndex((int)triSet.size());
@@ -467,8 +491,6 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 	{
 		mesh.m_triangles.push_back(*iter);
 	}
-
-	annDeallocPts(verticesData);
 }
 
 void Delaunay::computeDelaunay( const VertexVector &verSet, 

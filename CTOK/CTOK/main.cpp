@@ -2,11 +2,11 @@
 
 #include "icp.h"
 #include "emicp.h"
-#include "segment.h"
 #include "features.h"
 #include "camera.h"
 #include "triangulation.h"
 #include "bundleadjustment.h"
+#include "segmentation.h"
 /*#include "ballpivoting.h"*/
 
 using namespace std;
@@ -17,8 +17,12 @@ using namespace xn;
 int glWinWidth = 1280, glWinHeight = 480;
 int glWinPosX = 0, glWinPosY = 0;
 int width = 640, height = 480;
-enum DrawType{TYPE_POINT = 0, TYPE_TRIANGLES = 1};
-DrawType drawType = TYPE_POINT;
+
+#define TYPE_POINT  0x1
+#define TYPE_WITH_NORMAL 0x10
+#define TYPE_TRIANGLES 0x100
+int drawType = TYPE_POINT;
+
 int mainWindow, subWindow1, subWindow2;
 
 Camera userCamera;
@@ -144,14 +148,14 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 // 绘制点云
 void drawPointsSub1()
 {
-	if (drawType == TYPE_POINT)
+	if (drawType & TYPE_POINT)
 	{
 		// 绘制图像点云
 		glPointSize(1.0);
 		glBegin(GL_POINTS);
-		for (int i = 0; i < global_mesh.m_vertices.size(); i++)
+		for (int i = 0; i < global_mesh.getVerticesSize(); i++)
 		{
-			Triangulation::Vertex v = global_mesh.m_vertices[i];
+			Triangulation::Vertex v = global_mesh.getVertex(i);
 			glColor3d(v.m_color[2] / 255.0, 
 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
 			glVertex3d(v.m_xyz[0] / 10.0, 
@@ -159,7 +163,7 @@ void drawPointsSub1()
 		}
 		glEnd();
 	}
-	else if (drawType == TYPE_TRIANGLES)
+	else if (drawType & TYPE_TRIANGLES)
 	{
 		glBegin(GL_TRIANGLES);
 		for (int i = 0; i < global_mesh.m_triangles.size(); i++)
@@ -170,10 +174,26 @@ void drawPointsSub1()
 				Triangulation::Vertex v = t.m_vertices[j];
 				glColor3d(v.m_color[2] / 255.0, 
 					v.m_color[1] / 255.0, v.m_color[0] / 255.0);
-				glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+				glVertex3d(v.m_xyz[0] / 10.0, 
+					v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 			}
 		}
 		glEnd(); 
+	}
+	if (drawType & TYPE_WITH_NORMAL)
+	{
+		glBegin(GL_LINES);
+		for (int i = 0; i < global_mesh.getVerticesSize(); i++)
+		{
+			Triangulation::Vertex v = global_mesh.getVertex(i);
+			Vec3d end = (v.m_xyz + v.m_normal) / 10.0;
+			glColor3d(255.0, 0.0, 0.0);
+			glVertex3d(v.m_xyz[0] / 10.0, 
+				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+			glColor3d(255.0, 0.0, 0.0);
+			glVertex3d(end[0], end[1], -end[2]);
+		}
+		glEnd();
 	}
 // 	MyMesh::FaceIterator fi = m.face.begin();
 // 	for (; fi != m.face.end(); ++fi)
@@ -194,10 +214,9 @@ void drawPointsSub2()
 	glBegin(GL_POINTS);
 	for (int i = 0; i < meshs.size(); i++)
 	{
-		Triangulation::VertexVector vs = meshs[i].m_vertices;
-		for (int j = 0; j < vs.size(); j++)
+		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 		{
-			Triangulation::Vertex v = vs[j];
+			Triangulation::Vertex v = meshs[i].getVertex(j);
 			glColor3d(v.m_color[2] / 255.0, 
 				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
 			glVertex3d(v.m_xyz[0] / 10.0, 
@@ -264,7 +283,7 @@ void keyboard(uchar key, int x, int y)
 		break;
 	case 'p':
 	case 'P':
-		saveData("real.xyz", global_mesh.m_vertices);
+/*		saveData("real.xyz", global_mesh.m_vertices);*/
 		cout << "save points" << endl;
 		break;
 	case 'r':
@@ -284,7 +303,14 @@ void keyboard(uchar key, int x, int y)
 		drawType = TYPE_POINT;
 		break;
 	case '2':
+		drawType = TYPE_POINT + TYPE_WITH_NORMAL;
+		break;
+	case '3':
 		drawType = TYPE_TRIANGLES;
+		if (stopScan)
+		{
+			global_delaunay.computeDelaunay(global_mesh);
+		}
 		break;
 	default:
 		break;
@@ -514,39 +540,6 @@ void initBundleAdjustment()
 	BundleAdjustment::setIntrinsic(intrinsic);	// 设置内参矩阵
 }
 
-void computeNormals(const Mat &pts, Mat &normals)
-{
-	const int k = 25;
-	// 构建kdtree
-	ANNpointArray verticesData = annAllocPts(pts.rows, 3);
-	for (int i = 0; i < pts.rows; i++)
-	{
-		Vec3d v = pts.at<Vec3d>(i, 0);
-		verticesData[i][0] = v[0];
-		verticesData[i][1] = v[1];
-		verticesData[i][2] = v[2];
-	}
-	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, pts.rows, 3);
-
-	normals.create(pts.rows, 1, CV_64FC3);
-	normals.setTo(Scalar::all(0));
-	for (int i = 0; i < pts.rows; i++)
-	{
-		Vec3d v = pts.at<Vec3d>(i, 0);
-		ANNidx idxs[k];
-		ANNdist dists[k];
-		int cnt = kdtree->annkFRSearch(verticesData[i], 
-			0.0005, k, idxs, dists);	// 其中idxs[0] = i;
-		if (cnt >= 3)	// 最近邻小于4个，不能构成三角形
-		{
-			cnt = cnt > k ? k : cnt;
-
-			Vec3d normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
-			normals.at<Vec3d>(i, 0) = normal;
-		}
-	}
-}
-
 /************************************************************************/
 /*                         主程序                                       */
 /************************************************************************/
@@ -751,7 +744,7 @@ int main(int argc, char** argv)
 			RUNANDTIME(global_timer, 
 				global_mesh.addVertices(pointCloud, pointColors), 
 				OUTPUT, "load data");
-			if (drawType == TYPE_TRIANGLES)
+			if (drawType & TYPE_TRIANGLES)
 			{
 				RUNANDTIME(global_timer, 
 					global_delaunay.computeDelaunay(global_mesh), 
@@ -790,52 +783,6 @@ int main(int argc, char** argv)
 	context.StopGeneratingAll();
 	context.Release();
 
-	{
-		Mat pointCloud;
-		pointCloud.create(global_mesh.m_vertices.size(), 1, CV_64FC3);
-#pragma omp parallel for
-		for (int i = 0; i < global_mesh.m_vertices.size(); i++)
-		{
-			pointCloud.at<Vec3d>(i, 0) = global_mesh.m_vertices[i].m_xyz / 1000.0;
-		}
-
-		Mat normals;
-		RUNANDTIME(global_timer,
-			computeNormals(pointCloud, normals),
-			true, "compute normals");
-		Mat clusterData(pointCloud.rows, 6, CV_64FC1);
-		Mat roi = clusterData(Rect(0, 0, 3, pointCloud.rows));
-		convertMat(pointCloud).copyTo(roi);
-		roi = clusterData(Rect(3, 0, 3, pointCloud.rows));
-		convertMat(normals).copyTo(roi);
-		clusterData.convertTo(clusterData, CV_32FC1);
-
-		vector<int> labels;
-		int kNum = 10;
-		kmeans(clusterData, kNum, labels, 
-			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, kNum, 0.1), 
-			kNum, KMEANS_PP_CENTERS);
-
-		vector<Vec3b> colors(kNum);
-		for (int i = 0; i < kNum; i++)
-		{
-			colors[i] = Vec3b(rand() % 256, rand() % 256, rand() % 256);
-		}
-		vector<Triangulation::Mesh> tmpMeshs(kNum);
-		for (int i = 0; i < pointCloud.rows; i++)
-		{
-			Vec3d xyz = pointCloud.at<Vec3d>(i, 0);
-			Vec3b color = colors[labels[i]];
-			Vec3d normal = normals.at<Vec3d>(i, 0);
-			Triangulation::Vertex v(xyz, -1, color, normal);
-			tmpMeshs[labels[i]].addVertex(v);
-		}
-		for (int i = 0; i < kNum; i++)
-		{
-			cout << tmpMeshs[i].m_vertices.size() << endl;
-			meshs.push_back(tmpMeshs[i]);
-		}
-
 // 				cout << pointCloud.rows << endl;
 // 				RUNANDTIME(global_timer,
 // 					features.getVariational(pointCloud, 
@@ -846,10 +793,12 @@ int main(int argc, char** argv)
 // 				RUNANDTIME(global_timer, 
 // 					mesh.addVertices(pointCloud, pointColors), 
 // 					OUTPUT, "load data");
-		waitKey();
-	}
 
-	cout << global_mesh.m_vertices.size() << endl;
+	RUNANDTIME(global_timer, 
+		segment3DRBNN(global_mesh, meshs),
+		OUTPUT, "segment 3D points");
+
+	cout << global_mesh.getVerticesSize() << endl;
 	glutMainLoop();
 	return 0;
 }

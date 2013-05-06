@@ -1,7 +1,9 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "common.h"
+#include "opencv2/opencv.hpp"
+
+using namespace cv;
 
 //摄像头移动速度
 #define MOVESPEEDLR 5.0

@@ -15,8 +15,8 @@ Camera::Camera()
 
 	mouseInWindow = true;
 
-	SetCursorPos(glWinPosX + (glWinWidth >> 1), 
-		glWinPosY + (glWinHeight >> 1));
+	SetCursorPos(curWinPosX + (glWinWidth >> 2), 
+		curWinPosY + (glWinHeight >> 1));
 	//ShowCursor(FALSE);
 }
 
@@ -58,8 +58,8 @@ void Camera::positionCamera(const Vec3d &pos, const Vec3d &view, const Vec3d &up
 void Camera::setViewByMouse(void)
 {
 	POINT mousePos;									// 存储鼠标位置的结构体
-	int middleX = glWinPosX + (glWinWidth  >> 1);	// 窗口宽度的一半
-	int middleY = glWinPosY + (glWinHeight >> 1);	// 窗口高度的一半
+	int middleX = curWinPosX + (glWinWidth  >> 2);	// 窗口宽度的一半
+	int middleY = curWinPosY + (glWinHeight >> 1);	// 窗口高度的一半
 	double angleY = 0.0;							// 存储向上看、向下看的角度
 	double angleZ = 0.0;							// 存储向左看、向右看的角度
 	static double currentRotX = 0.0;				// 存储总的向上、向下的旋转角度

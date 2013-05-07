@@ -21,6 +21,9 @@
 		<!-- Set global mirror -->
 		<GlobalMirror on="false"/>
 		
+		<!-- Create an image node. If it fails, continue anyway. -->
+		<Node type="Image" name="MyImage" />
+		
 		<!-- Create a depth node and give it a name alias (useful if referenced ahead in this script) -->
 		<Node type="Depth" name="MyDepth">
 			<Query>
@@ -47,9 +50,6 @@
 				<AlternativeViewPoint>MyImage</AlternativeViewPoint>
 			</Configuration>
 		</Node>
-		
-		<!-- Create an image node. If it fails, continue anyway. -->
-		<Node type="Image" name="MyImage" />
 
 		<!-- Uncomment nodes from here if you need them.
 		<Node type="Audio" />

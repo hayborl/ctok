@@ -15,8 +15,8 @@ using namespace cv;
 extern int glWinWidth;
 extern int glWinHeight;
 // 窗口的初始位置坐标
-extern int glWinPosX;
-extern int glWinPosY;
+extern int curWinPosX;
+extern int curWinPosY;
 
 class Camera {
 public:

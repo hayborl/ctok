@@ -16,6 +16,9 @@ using namespace xn;
 //---OpenGL 全局变量
 int glWinWidth = 1280, glWinHeight = 480;
 int glWinPosX = 0, glWinPosY = 0;
+int glSubWin1PosX = glWinPosX;
+int glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
+int curWinPosX = glWinPosX, curWinPosY = glWinPosY;
 int width = 640, height = 480;
 
 #define TYPE_POINT  0x1
@@ -46,6 +49,7 @@ XnDouble baseline;							// 基线长度(mm)
 XnUInt64 focalLengthInPixel;				// 焦距(pixel)
 ImageGenerator imageGenerator;				// image generator
 DepthGenerator depthGenerator;				// depth generator
+Recorder record; 
 
 //----CTOK
 bool hasCuda = true;						// 有没有cuda
@@ -156,8 +160,7 @@ void drawPointsSub1()
 		for (int i = 0; i < global_mesh.getVerticesSize(); i++)
 		{
 			Triangulation::Vertex v = global_mesh.getVertex(i);
-			glColor3d(v.m_color[2] / 255.0, 
-				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+			glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
 			glVertex3d(v.m_xyz[0] / 10.0, 
 				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 		}
@@ -172,8 +175,7 @@ void drawPointsSub1()
 			for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
 			{
 				Triangulation::Vertex v = t.m_vertices[j];
-				glColor3d(v.m_color[2] / 255.0, 
-					v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+				glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
 				glVertex3d(v.m_xyz[0] / 10.0, 
 					v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 			}
@@ -187,10 +189,9 @@ void drawPointsSub1()
 		{
 			Triangulation::Vertex v = global_mesh.getVertex(i);
 			Vec3d end = (v.m_xyz + v.m_normal) / 10.0;
-			glColor3d(255.0, 0.0, 0.0);
+			glColor3ub(255, 0, 0);
 			glVertex3d(v.m_xyz[0] / 10.0, 
 				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
-			glColor3d(255.0, 0.0, 0.0);
 			glVertex3d(end[0], end[1], -end[2]);
 		}
 		glEnd();
@@ -211,14 +212,14 @@ void drawPointsSub1()
 void drawPointsSub2()
 {
 	glPointSize(1.0);
-	glBegin(GL_POINTS);
+	glBegin(GL_POINTS);											// Assign Object A Name (ID)
 	for (int i = 0; i < meshs.size(); i++)
 	{
+		glLoadName(i);
 		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 		{
 			Triangulation::Vertex v = meshs[i].getVertex(j);
-			glColor3d(v.m_color[2] / 255.0, 
-				v.m_color[1] / 255.0, v.m_color[0] / 255.0);
+			glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
 			glVertex3d(v.m_xyz[0] / 10.0, 
 				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
 		}
@@ -229,6 +230,66 @@ void drawPointsSub2()
 /************************************************************************/
 /*                       OpenGL响应函数                                 */
 /************************************************************************/
+
+void selection(int mousePosX, int mousePosY)					// This Is Where Selection Is Done
+{
+	glutSetWindow(subWindow2);
+
+	GLuint	buffer[512];										// Set Up A Selection Buffer
+	GLint	hits;												// The Number Of Objects That We Selected
+
+	// The Size Of The Viewport. [0] Is <x>, [1] Is <y>, [2] Is <length>, [3] Is <width>
+	GLint	viewport[4];
+
+	// This Sets The Array <viewport> To The Size And Location Of The Screen Relative To The Window
+	glGetIntegerv(GL_VIEWPORT, viewport);
+	glSelectBuffer(512, buffer);								// Tell OpenGL To Use Our Array For Selection
+
+	// Puts OpenGL In Selection Mode. Nothing Will Be Drawn.  Object ID's and Extents Are Stored In The Buffer.
+	glRenderMode(GL_SELECT);
+
+	glInitNames();												// Initializes The Name Stack
+	glPushName(0);												// Push 0 (At Least One Entry) Onto The Stack
+
+	glMatrixMode(GL_PROJECTION);								// Selects The Projection Matrix
+	glPushMatrix();												// Push The Projection Matrix
+	glLoadIdentity();											// Resets The Matrix
+
+	// This Creates A Matrix That Will Zoom Up To A Small Portion Of The Screen, Where The Mouse Is.
+	gluPickMatrix((GLdouble)mousePosX, 
+		(GLdouble)(viewport[3] - mousePosY), 
+		1.0f, 1.0f, viewport);
+
+	// Apply The Perspective Matrix
+	gluPerspective(45.0f, 
+		(GLfloat)(viewport[2] - viewport[0]) / (GLfloat)(viewport[3] - viewport[1]), 
+		1.0f, 15000.0f);
+	glMatrixMode(GL_MODELVIEW);									// Select The Modelview Matrix
+	drawPointsSub2();											// Render The Targets To The Selection Buffer
+	glMatrixMode(GL_PROJECTION);								// Select The Projection Matrix
+	glPopMatrix();												// Pop The Projection Matrix
+	glMatrixMode(GL_MODELVIEW);									// Select The Modelview Matrix
+	hits = glRenderMode(GL_RENDER);								// Switch To Render Mode, Find Out How Many
+	// Objects Were Drawn Where The Mouse Was
+	cout << "hits" << hits << endl;
+	if (hits > 0)												// If There Were More Than 0 Hits
+	{
+		int	choose = buffer[3];									// Make Our Selection The First Object
+		int depth = buffer[1];									// Store How Far Away It Is 
+
+		for (int loop = 1; loop < hits; loop++)					// Loop Through All The Detected Hits
+		{
+			// If This Object Is Closer To Us Than The One We Have Selected
+			if (buffer[loop * 4 + 1] < GLuint(depth))
+			{
+				choose = buffer[loop * 4 + 3];					// Select The Closer Object
+				depth = buffer[loop * 4 + 1];					// Store How Far Away It Is
+			}      
+			cout << choose << endl;
+		}
+		cout << choose << endl;
+	}
+}
 
 // 鼠标按键响应函数
 void mouse(int button, int state, int x, int y)
@@ -244,6 +305,13 @@ void mouse(int button, int state, int x, int y)
 		{
 			userCamera.setMouseState(false);
 			glutSetCursor(GLUT_CURSOR_INHERIT);
+		}
+	}
+	else if (button == GLUT_RIGHT_BUTTON)
+	{
+		if (state == GLUT_DOWN)
+		{
+			selection(x, y);
 		}
 	}
 }
@@ -320,17 +388,29 @@ void keyboard(uchar key, int x, int y)
 // 鼠标进出窗口响应函数
 void mouseEntry(int state)
 {
-	switch (state)
+	POINT mousePos;
+	GetCursorPos(&mousePos);
+	if (mousePos.x >= glSubWin2PosX)
 	{
-	case GLUT_LEFT:
-		userCamera.setMouseState(false);
-		ShowCursor(TRUE);
-		break;
-	case GLUT_ENTERED:
-		userCamera.setMouseState(false);
-		ShowCursor(TRUE);
-		break;
+		curWinPosX = glSubWin2PosX;
 	}
+	else
+	{
+		curWinPosX = glSubWin1PosX;
+	}
+	curWinPosY = glWinPosY;
+	userCamera.setMouseState(false);
+// 	switch (state)
+// 	{
+// 	case GLUT_LEFT:
+// 		userCamera.setMouseState(false);
+// 		ShowCursor(TRUE);
+// 		break;
+// 	case GLUT_ENTERED:
+// 		userCamera.setMouseState(false);
+// 		ShowCursor(TRUE);
+// 		break;
+// 	}
 }
 
 void renderScene(void)
@@ -338,6 +418,8 @@ void renderScene(void)
 	glutSetWindow(mainWindow);
 	glWinPosX = glutGet(GLUT_WINDOW_X);
 	glWinPosY = glutGet(GLUT_WINDOW_Y);
+	glSubWin1PosX = glWinPosX;
+	glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 	glClear(GL_COLOR_BUFFER_BIT);
 	glutSwapBuffers();
 }
@@ -391,6 +473,7 @@ void renderSceneSub2(void)
 
 void renderSceneAll()
 {
+	renderScene();
 	renderSceneSub1();
 	renderSceneSub2();
 }
@@ -467,6 +550,11 @@ void initOpenNI()
 	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);		// 获取oni文件中的depth节点
 	checkOpenNIError(rc, "Create Depth Generator"); 
 
+	record.Create(context);  
+	record.SetDestination(XN_RECORD_MEDIUM_FILE, "record.oni");  
+	record.AddNodeToRecording(imageGenerator, XN_CODEC_JPEG);  
+	record.AddNodeToRecording(depthGenerator, XN_CODEC_16Z_EMB_TABLES);  
+
 	// 获得像素大小
 	XnDouble pixelSize = 0;
 	rc = depthGenerator.GetRealProperty("ZPPS", pixelSize);
@@ -517,13 +605,13 @@ void initOpenGL(int argc, char** argv)
 	glutIdleFunc(renderSceneAll);		// 空闲时重绘图像
 	init();
 
-	subWindow1 = glutCreateSubWindow(mainWindow, glWinPosX, 
+	subWindow1 = glutCreateSubWindow(mainWindow, glSubWin1PosX, 
 		glWinPosY, glWinWidth / 2, glWinHeight);
 	glutDisplayFunc(renderSceneSub1);
 	init();
 
-	subWindow2 = glutCreateSubWindow(mainWindow, glWinPosX + 
-		glWinWidth / 2, glWinPosY, glWinWidth / 2, glWinHeight);
+	subWindow2 = glutCreateSubWindow(mainWindow, glSubWin2PosX, 
+		glWinPosY, glWinWidth / 2, glWinHeight);
 	glutDisplayFunc(renderSceneSub2);
 	init();
 
@@ -568,7 +656,7 @@ int main(int argc, char** argv)
 	vector<Mat>	_descriptors;			// 记录每一帧的特征描述子
 
 	Mat depthImg0;
-	isStarted = true;
+	/*isStarted = true;*/
 	for (; ; frameCnt++) 
 	{
 		rc = context.WaitAndUpdateAll();
@@ -585,7 +673,10 @@ int main(int argc, char** argv)
 		Mat colorImg, depthImg;
 		RUNANDTIME(global_timer, 
 			readFrame(imageGenerator, depthGenerator, colorImg, depthImg), 
-			OUTPUT, "read one frame.");
+			OUTPUT, "read one frame."); 
+
+		rc = record.Record();  
+		checkOpenNIError(rc,"recording "); 
 
 		if (!isStarted)
 		{
@@ -781,6 +872,7 @@ int main(int argc, char** argv)
 	// destroy  
 	destroyAllWindows();
 	context.StopGeneratingAll();
+	record.Release();
 	context.Release();
 
 // 				cout << pointCloud.rows << endl;
@@ -794,6 +886,7 @@ int main(int argc, char** argv)
 // 					mesh.addVertices(pointCloud, pointColors), 
 // 					OUTPUT, "load data");
 
+	srand(time(0));
 	RUNANDTIME(global_timer, 
 		segment3DRBNN(global_mesh, meshs),
 		OUTPUT, "segment 3D points");

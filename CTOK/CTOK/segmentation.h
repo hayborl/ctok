@@ -12,11 +12,11 @@ void segment3DKmeans(Triangulation::Mesh mesh,
 
 // 使用球状最近邻方法分割
 #define SEG_K	200					// 最近邻最大个数
-#define SEG_DISTANCE_RANGE 0.0016	// 距离的平方(0.05m)^2
+#define SEG_DISTANCE_RANGE 0.0025	// 距离的平方(0.05m)^2
 
-int computeLabels(ANNpointArray verticesData, 
-	const int &size, vector<int> &labels, map<int, int> &labelMap);
-void segment3DRBNN(Triangulation::Mesh mesh, 
+int computeLabels(Triangulation::Mesh &mesh, 
+	vector<int> &labels, map<int, int> &labelMap);
+void segment3DRBNN(Triangulation::Mesh &mesh, 
 	vector<Triangulation::Mesh> &segs);
 
 #endif

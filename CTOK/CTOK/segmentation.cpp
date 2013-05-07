@@ -55,9 +55,20 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
 	}
 }
 
-int computeLabels( ANNpointArray verticesData, 
-	const int &size, vector<int> &labels, map<int, int> &labelMap )
+int computeLabels( Mesh &mesh, 
+	vector<int> &labels, map<int, int> &labelMap )
 {
+	int size = (int)mesh.getVerticesSize();
+	// 构建kdtree所需的结构数组
+	ANNpointArray verticesData = annAllocPts(size, 3);
+#pragma omp parallel for
+	for (int i = 0; i < size; i++)
+	{
+		Vec3d v = mesh.getVertex(i).m_xyz / 1000.0;	//转换单位mm->m
+		verticesData[i][0] = v[0];
+		verticesData[i][1] = v[1];
+		verticesData[i][2] = v[2];
+	}
 	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, size, 3);
 
 	labels.resize(size, -1);			// 初始化标签为-1
@@ -147,25 +158,14 @@ int computeLabels( ANNpointArray verticesData,
 }
 
 
-void segment3DRBNN(Mesh mesh, vector<Mesh> &segs)
+void segment3DRBNN(Mesh &mesh, vector<Mesh> &segs)
 {
 	int size = (int)mesh.getVerticesSize();
 	if (size > 0)
-	{
-		// 构建kdtree所需的结构数组
-		ANNpointArray verticesData = annAllocPts(size, 3);
-#pragma omp parallel for
-		for (int i = 0; i < size; i++)
-		{
-			Vec3d v = mesh.getVertex(i).m_xyz / 1000.0;	//转换单位mm->m
-			verticesData[i][0] = v[0];
-			verticesData[i][1] = v[1];
-			verticesData[i][2] = v[2];
-		}
-		
+	{	
 		vector<int> labels;
 		map<int, int> labelMap;
-		int labelCnt = computeLabels(verticesData, size, labels, labelMap);
+		int labelCnt = computeLabels(mesh, labels, labelMap);
 
 		vector<Vec3b> colors(labelCnt);
 		for (int i = 0; i < labelCnt; i++)

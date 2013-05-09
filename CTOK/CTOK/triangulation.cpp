@@ -8,13 +8,15 @@
 using namespace std;
 using namespace Triangulation;
 
-extern Vec3d computeNormal(ANNpointArray pts, ANNidxArray idxs, const int &k);
+extern Vec3d computeNormal(ANNpointArray pts, 
+	ANNidxArray idxs, const int &k, Mat &barycenter);
 
 Vertex& Vertex::operator=( const Vertex &v )
 {
 	m_xyz = v.m_xyz;
 	m_color = v.m_color;
 	m_normal = v.m_normal;
+	m_residual = v.m_residual;
 	m_index = v.m_index;
 	if (v.m_neighbors[0] > 0)
 	{
@@ -247,8 +249,10 @@ Mesh::Mesh( InputArray pts, InputArray colors )
 void Mesh::addVertex( const Vertex &v )
 {
 	Vertex _v = v;
-	_v.m_index = (int)m_vertices.size();
+	int size = (int)m_vertices.size();
+	_v.m_index = size;
 	m_vertices.push_back(_v);
+	m_barycenter += v.m_xyz;
 }
 
 void Mesh::addVertices( InputArray _pts, InputArray _colors )
@@ -274,11 +278,12 @@ void Mesh::addVertices( InputArray _pts, InputArray _colors )
 	m_beginIndicesVer.push_back(cnt);
 	for (int i = 0; i < total; i++)
 	{
-		Vec3d xyz = ptsPtr[i] * 1000.0;
+		Vec3d xyz = ptsPtr[i];
 		Vec3b color = colorsPtr[i];
 
 		m_vertices.push_back(Vertex(xyz, cnt, color));
 		cnt++;
+		m_barycenter += xyz;
 	}
 	cout << "Points total number:" << m_vertices.size() << endl;
 }
@@ -370,16 +375,22 @@ void Mesh::computeVerticesNormals(const int &begin, const int &size)
 		Vec3d v = m_vertices[i].m_xyz;
 		ANNidx idxs[k];
 		ANNdist dists[k];
-		int cnt = kdtree->annkFRSearch(verticesData[i], 
-			Distance_Range, k, idxs, dists);	// 其中idxs[0] = i;
-		if (cnt >= 3)	// 最近邻小于3个，不能计算法向量
-		{
-			cnt = cnt > k ? k : cnt;
+		kdtree->annkSearch(verticesData[i], k, idxs, dists);
+// 		int cnt = kdtree->annkFRSearch(verticesData[i], 
+// 			DISTANCE_RANGE, k, idxs, dists);	// 其中idxs[0] = i;
+// 		if (cnt >= 3)	// 最近邻小于3个，不能计算法向量
+// 		{
+// 			cnt = cnt > k ? k : cnt;
 
-			m_vertices[i].m_normal = computeNormal(verticesData, idxs, cnt);	// 计算法向量
-			memcpy(m_vertices[i].m_neighbors, idxs, cnt * sizeof(int));
-			m_vertices[i].m_neighbors[0] = cnt - 1;
-		}
+			Mat barycenter;
+			m_vertices[i].m_normal = computeNormal(
+				verticesData, idxs, k, barycenter);	// 计算法向量
+			memcpy(m_vertices[i].m_neighbors, idxs, k * sizeof(int));
+			m_vertices[i].m_neighbors[0] = k - 1;
+
+			Vec3d tmp = v - Vec3d(barycenter);
+			m_vertices[i].m_residual = abs(m_vertices[i].m_normal.ddot(tmp));
+//		}
 	}
 	annDeallocPts(verticesData);
 }

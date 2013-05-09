@@ -2,6 +2,9 @@
 
 #include "opencv2/opencv.hpp"
 #include <queue>
+#include "thrust/sort.h"
+#include "boost/unordered/unordered_set.hpp"
+#include "boost/assign/list_of.hpp"
 
 using namespace Triangulation;
 using namespace cv;
@@ -20,7 +23,7 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
 	for (int i = 0; i < size; i++)
 	{
 		Triangulation::Vertex v = mesh.getVertex(i);
-		pointCloud.at<Vec3d>(i, 0) = v.m_xyz / 1000.0;
+		pointCloud.at<Vec3d>(i, 0) = v.m_xyz;
 		normals.at<Vec3d>(i, 0) = v.m_normal;
 	}
 
@@ -55,7 +58,7 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
 	}
 }
 
-int computeLabels( Mesh &mesh, 
+int computeLabels( const double &distanceRange, Mesh &mesh, 
 	vector<int> &labels, map<int, int> &labelMap )
 {
 	int size = (int)mesh.getVerticesSize();
@@ -64,7 +67,7 @@ int computeLabels( Mesh &mesh,
 #pragma omp parallel for
 	for (int i = 0; i < size; i++)
 	{
-		Vec3d v = mesh.getVertex(i).m_xyz / 1000.0;	//转换单位mm->m
+		Vec3d v = mesh.getVertex(i).m_xyz;	//转换单位mm->m
 		verticesData[i][0] = v[0];
 		verticesData[i][1] = v[1];
 		verticesData[i][2] = v[2];
@@ -84,7 +87,7 @@ int computeLabels( Mesh &mesh,
 		ANNidx idxs[SEG_K];
 		ANNdist dists[SEG_K];
 		int cnt = kdtree->annkFRSearch(verticesData[i], 
-			SEG_DISTANCE_RANGE, SEG_K, idxs, dists);	// 其中idxs[0] = i;
+			distanceRange, SEG_K, idxs, dists);	// 其中idxs[0] = i;
 		cnt = cnt > SEG_K ? SEG_K : cnt;
 
 		// 看邻居中是否有已标记的
@@ -111,6 +114,7 @@ int computeLabels( Mesh &mesh,
 		if (labels[i] < 0)
 		{
 			labels[i] = labelCnt;
+			labelsEquals[labelCnt].insert(labelCnt);
 			labelCnt++;
 #pragma omp parallel for
 			for (int j = 1; j < cnt; j++)
@@ -158,14 +162,14 @@ int computeLabels( Mesh &mesh,
 }
 
 
-void segment3DRBNN(Mesh &mesh, vector<Mesh> &segs)
+void segment3DRBNN(const double &distanceRange, Mesh &mesh, vector<Mesh> &segs)
 {
 	int size = (int)mesh.getVerticesSize();
 	if (size > 0)
 	{	
 		vector<int> labels;
 		map<int, int> labelMap;
-		int labelCnt = computeLabels(mesh, labels, labelMap);
+		int labelCnt = computeLabels(distanceRange, mesh, labels, labelMap);
 
 		vector<Vec3b> colors(labelCnt);
 		for (int i = 0; i < labelCnt; i++)
@@ -181,7 +185,96 @@ void segment3DRBNN(Mesh &mesh, vector<Mesh> &segs)
 		}
 		for (int i = 0; i < labelCnt; i++)
 		{
-			segs.push_back(tmpMeshs[i]);
+// 			if (tmpMeshs[i].getVerticesSize() > 20000)
+// 			{
+// 				segment3DRBNN(distanceRange * 0.9, tmpMeshs[i], segs);
+// 			}
+// 			else
+// 			{
+				segs.push_back(tmpMeshs[i]);
+//			}
+		}
+	}
+}
+
+typedef boost::unordered::unordered_set<int> b_unordered_set_int;
+#define b_list_of_int boost::assign::list_of<int>
+
+void segment3DSC( Mesh &mesh, vector<Mesh> &segs )
+{
+	double residualPercent = 0.95;
+	double angleTh = cos(30.0 * CV_PI / 180.0);
+	mesh.computeVerticesNormals();
+
+	int size = (int)mesh.getVerticesSize();
+
+	int *indices = new int[size];
+	double *residuals = new double[size];
+	bool *visited = new bool[size];
+#pragma omp parallel for
+	for (int i = 0; i < size; i++)
+	{
+		residuals[i] = mesh.getVertex(i).m_residual;
+		indices[i] = i;
+		visited[i] = false;
+	}
+
+	thrust::sort_by_key(residuals, residuals + size, indices);
+
+	b_unordered_set_int indexSet = b_list_of_int().range(indices, indices + size);
+
+	while (!indexSet.empty())
+	{
+		Vec3b color(rand() % 256, rand() % 256, rand() % 256);
+		Mesh m;
+		set<int> seedIndices;
+
+		int minIndex = *indexSet.begin();
+		visited[minIndex] = true;
+		seedIndices.insert(minIndex);
+
+		Vertex v = mesh.getVertex(minIndex);
+		v.m_color = color;
+		m.addVertex(v);
+
+		indexSet.erase(indexSet.begin());
+
+		while (!seedIndices.empty())
+		{
+			int index = *seedIndices.begin();
+			seedIndices.erase(seedIndices.begin());
+			v = mesh.getVertex(index);
+			for (int i = 0; i < v.m_neighbors[0]; i++)
+			{
+				int index2 = v.m_neighbors[i + 1];
+				if (!visited[index2])
+				{
+					Vertex v2 = mesh.getVertex(index2);
+					if (abs(v.m_normal.ddot(v2.m_normal)) > angleTh)
+					{
+						v2.m_color = color;
+						m.addVertex(v2);
+						visited[index2] = true;
+						indexSet.erase(index2);
+						int n = size - 1;
+						while (n >= 0 && visited[indices[n]])
+						{
+							n--;
+						}
+						if (n >= 0)
+						{
+							if (v2.m_residual < residuals[n] * residualPercent)
+							{
+								seedIndices.insert(index2);
+							}
+						}
+					}
+				}
+			}
+		}
+		if (m.getVerticesSize() > 0)
+		{
+			segs.push_back(m);
 		}
 	}
 }

@@ -14,9 +14,13 @@ void segment3DKmeans(Triangulation::Mesh mesh,
 #define SEG_K	200					// 最近邻最大个数
 #define SEG_DISTANCE_RANGE 0.0025	// 距离的平方(0.05m)^2
 
-int computeLabels(Triangulation::Mesh &mesh, 
+int computeLabels(const double &distanceRange, Triangulation::Mesh &mesh, 
 	vector<int> &labels, map<int, int> &labelMap);
-void segment3DRBNN(Triangulation::Mesh &mesh, 
+void segment3DRBNN(const double &distanceRange, 
+	Triangulation::Mesh &mesh, vector<Triangulation::Mesh> &segs);
+
+// 使用smoothness constraiant方法来分割
+void segment3DSC(Triangulation::Mesh &mesh, 
 	vector<Triangulation::Mesh> &segs);
 
 #endif

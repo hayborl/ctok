@@ -21,10 +21,17 @@ int glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 int curWinPosX = glWinPosX, curWinPosY = glWinPosY;
 int width = 640, height = 480;
 
+GLUquadric *quadric;
+
 #define TYPE_POINT  0x1
 #define TYPE_WITH_NORMAL 0x10
 #define TYPE_TRIANGLES 0x100
 int drawType = TYPE_POINT;
+
+#define OP_SELECT	1
+#define OP_MOVE		2
+#define OP_ROTATE	3
+int opType = OP_SELECT;
 
 int mainWindow, subWindow1, subWindow2;
 
@@ -62,6 +69,7 @@ Triangulation::Delaunay global_delaunay(COS30);	// 三角化
 Triangulation::Mesh global_mesh;				// 模型
 
 vector<Triangulation::Mesh> meshs;
+int selectedMesh = 0;
 
 const Mat identityMat4x4 = Mat::eye(4, 4, CV_64FC1);
 
@@ -161,8 +169,7 @@ void drawPointsSub1()
 		{
 			Triangulation::Vertex v = global_mesh.getVertex(i);
 			glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
-			glVertex3d(v.m_xyz[0] / 10.0, 
-				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 		}
 		glEnd();
 	}
@@ -176,8 +183,7 @@ void drawPointsSub1()
 			{
 				Triangulation::Vertex v = t.m_vertices[j];
 				glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
-				glVertex3d(v.m_xyz[0] / 10.0, 
-					v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+				glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 			}
 		}
 		glEnd(); 
@@ -188,13 +194,22 @@ void drawPointsSub1()
 		for (int i = 0; i < global_mesh.getVerticesSize(); i++)
 		{
 			Triangulation::Vertex v = global_mesh.getVertex(i);
-			Vec3d end = (v.m_xyz + v.m_normal) / 10.0;
+			Vec3d end = v.m_xyz + v.m_normal / 1000.0;
 			glColor3ub(255, 0, 0);
-			glVertex3d(v.m_xyz[0] / 10.0, 
-				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 			glVertex3d(end[0], end[1], -end[2]);
 		}
 		glEnd();
+	}
+
+	if (opType == OP_SELECT)
+	{
+		Vec3d barycenter = global_mesh.barycenter();
+		glPushMatrix();
+		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+		glColor3ub(255, 0, 0);
+		gluSphere(quadric, 0.01, 32, 32);
+		glPopMatrix();
 	}
 // 	MyMesh::FaceIterator fi = m.face.begin();
 // 	for (; fi != m.face.end(); ++fi)
@@ -211,27 +226,39 @@ void drawPointsSub1()
 
 void drawPointsSub2()
 {
-	glPointSize(1.0);
-	glBegin(GL_POINTS);											// Assign Object A Name (ID)
+	glPointSize(1.0);									
 	for (int i = 0; i < meshs.size(); i++)
 	{
-		glLoadName(i);
+		glLoadName(i); // 给物体标号，不能处在glBegin和glEnd之间
+		glBegin(GL_POINTS);		
 		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 		{
 			Triangulation::Vertex v = meshs[i].getVertex(j);
 			glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
-			glVertex3d(v.m_xyz[0] / 10.0, 
-				v.m_xyz[1] / 10.0, -v.m_xyz[2] / 10.0);
+			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+		}
+		glEnd();
+	}
+	if (opType == OP_SELECT)
+	{
+		if (meshs.size() > 0)
+		{
+			Vec3d barycenter = meshs[selectedMesh].barycenter();
+			glPushMatrix();
+			glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+			glColor3ub(255, 0, 0);
+			gluSphere(quadric, 0.01, 32, 32);
+			glPopMatrix();
 		}
 	}
-	glEnd();
 }
 
 /************************************************************************/
 /*                       OpenGL响应函数                                 */
 /************************************************************************/
 
-void selection(int mousePosX, int mousePosY)					// This Is Where Selection Is Done
+// 选择模型
+void selection(int mousePosX, int mousePosY)
 {
 	glutSetWindow(subWindow2);
 
@@ -284,10 +311,9 @@ void selection(int mousePosX, int mousePosY)					// This Is Where Selection Is D
 			{
 				choose = buffer[loop * 4 + 3];					// Select The Closer Object
 				depth = buffer[loop * 4 + 1];					// Store How Far Away It Is
-			}      
-			cout << choose << endl;
+			} 
 		}
-		cout << choose << endl;
+		selectedMesh = choose;
 	}
 }
 
@@ -591,8 +617,10 @@ void init()
 // 初始化OpenGL
 void initOpenGL(int argc, char** argv)
 {
-	userCamera.positionCamera(0.0, 1.8, 10.0, 
-		0.0, 1.8, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
+	userCamera.positionCamera(0.0, 0.0, 1.0, 
+		0.0, 0.0, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
+
+	quadric = gluNewQuadric();
 
 	// OpenGL Window
 	glutInit(&argc, argv);
@@ -646,7 +674,6 @@ int main(int argc, char** argv)
 	Mat _depthImgPre;					// 前一帧的深度图
 	Mat _depthImgPre2;					// 前面第二帧的深度图
 	Mat _dscrptPre;						// 前一帧的描述子
-	Mat _mask(height, width, CV_8UC1, Scalar::all(255));
 
 	XnUInt32 frameCnt = 0;
 	int recordCnt = 0;
@@ -704,6 +731,7 @@ int main(int argc, char** argv)
 			RUNANDTIME(global_timer, 
 				get2DFeaturePoints(colorImg, keyPoint, descriptor), 
 				OUTPUT, "get feature points and descriptor.");
+			Mat mask(height, width, CV_8UC1, Scalar::all(255));
 			if (recordCnt > 0)
 			{
 				Mat H;
@@ -729,7 +757,7 @@ int main(int argc, char** argv)
 					success = convert2DTo3D(depthGenerator, 
 						H, depthImg, _depthImgPre, keyPoint, 
 						_keyPoints[last], matchesPoints, oldLoc, 
-						newLoc, objSet, modSet, objSetAT, _mask), 
+						newLoc, objSet, modSet, objSetAT, mask), 
 					OUTPUT, "get 3D feature points.");
 				if (!success)
 				{
@@ -817,7 +845,7 @@ int main(int argc, char** argv)
 
 			RUNANDTIME(global_timer, 
 				read3DPoints(depthGenerator, depthImg, 
-					colorImg, _mask, pointCloud, pointColors), 
+					colorImg, mask, pointCloud, pointColors), 
 				OUTPUT, "read 3D points");
 
 			RUNANDTIME(global_timer, 
@@ -888,8 +916,8 @@ int main(int argc, char** argv)
 
 	srand(time(0));
 	RUNANDTIME(global_timer, 
-		segment3DRBNN(global_mesh, meshs),
-		OUTPUT, "segment 3D points");
+		segment3DRBNN(SEG_DISTANCE_RANGE, global_mesh, meshs),
+		true, "segment 3D points");
 
 	cout << global_mesh.getVerticesSize() << endl;
 	glutMainLoop();

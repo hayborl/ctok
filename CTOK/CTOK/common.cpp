@@ -163,7 +163,8 @@ void plotTwoPoint3DSet( Mat objSet, Mat modSet )
 	waitKey();
 }
 
-Vec3d computeNormal( ANNpointArray pts, ANNidxArray idxs, const int &k )
+Vec3d computeNormal( ANNpointArray pts, 
+	ANNidxArray idxs, const int &k, Mat &barycenter)
 {
 	Mat M = Mat::zeros(3, 3, CV_64FC1);
 	Mat mean = Mat::zeros(3, 1, CV_64FC1);
@@ -176,6 +177,8 @@ Vec3d computeNormal( ANNpointArray pts, ANNidxArray idxs, const int &k )
 	M /= (double)k;
 	mean /= (double)k;
 	M -= mean * mean.t();
+
+	barycenter = mean.clone();
 
 	Mat eigenValues(3, 1, CV_64FC1);
 	Mat eigenVector(3, 3, CV_64FC1);
@@ -212,7 +215,8 @@ void simplifyPoints( Mat inPts, Mat& outPts,
 	{
 		ANNpoint q = pts[i];
 		kdTree->annkSearch(q, k, idxs, dists);
-		Vec3d normalVector = computeNormal(pts, idxs, k);
+		Mat barycenter;
+		Vec3d normalVector = computeNormal(pts, idxs, k, barycenter);
 		double sumd = 0;
 		for (int j = 0; j < k; j++)
 		{

@@ -8,15 +8,16 @@ using namespace cv;
 
 namespace Triangulation
 {
-#define DOUBLE_ERROR	1e-3	// 浮点数的误差范围
+#define DOUBLE_ERROR	1e-6	// 浮点数的误差范围
 #define COS0			0.0		// cos0
 #define COS30			0.866	// cos30
 #define COS60			0.5		// cos60
-#define COS180			-1.0	// cos180		
+#define COS180			-1.0	// cos180
+#define DISTANCE_RANGE	0.0009	// 寻找最近邻的范围球的半径平方(0.03m)^2
 
 	// distance_range 寻找最近邻的范围球的半径平方
 	// k个邻近点
-	enum {Distance_Range = 1000, k = 25};
+	enum {k = 25};
 
 	// 用于三角化的点的类
 	class Vertex
@@ -25,15 +26,18 @@ namespace Triangulation
 		Vec3d m_xyz;					// x、y、z坐标
 		Vec3b m_color;					// 颜色信息
 		Vec3d m_normal;					// 法向量
+		double m_residual;				// 残差值
 		int m_index;					// 索引值
 		int m_neighbors[k];				// 最近点的索引值, m_neighbors[0]表示邻居数目
 
 		Vertex() : m_index(-1){m_neighbors[0] = 0;}
 		Vertex(double x, double y, double z) 
-			: m_index(-1){ m_xyz = Vec3d(x, y, z); m_neighbors[0] = 0;}
-		Vertex(Vec3d xyz, int index = -1, 
-			Vec3b color = Vec3b(0, 0, 0), Vec3d normal = Vec3d(0, 0, 0)) 
-			: m_xyz(xyz), m_index(index), m_color(color), m_normal(normal)
+			: m_index(-1){ m_xyz = Vec3d(x, y, z); 
+				m_neighbors[0] = 0;m_residual = 0;}
+		Vertex(Vec3d xyz, int index = -1, Vec3b color = Vec3b(0, 0, 0), 
+			Vec3d normal = Vec3d(0, 0, 0), double residual = 0) 
+			: m_xyz(xyz), m_index(index), m_color(color), 
+				m_normal(normal), m_residual(residual)
 			{m_neighbors[0] = 0;}
 
 		Vertex& operator=(const Vertex &v);
@@ -85,8 +89,10 @@ namespace Triangulation
 		int m_curIndex;							// 当前计算到哪个点
 		TriangleVector m_triangles;				// 三角形集合
 
-		Mesh(){m_curIndex = 0;}
+		Mesh(){m_curIndex = 0; m_barycenter = Vec3d(0, 0, 0);}
 		Mesh(InputArray pts, InputArray colors);
+
+		Vec3d barycenter(){return m_barycenter / (double)getVerticesSize();}
 
 		void addVertex(const Vertex &v);
 		void addVertices(InputArray _pts,
@@ -121,6 +127,7 @@ namespace Triangulation
 
 	private:
 		VertexVector m_vertices;				// 点集
+		Vec3d m_barycenter;						// 重心
 		vector<int> m_beginIndicesVer;			// 每次加入的点的起始索引
 		vector<int> m_beginIndicesTri;			// 每个点生成的三角形的起始索引
 

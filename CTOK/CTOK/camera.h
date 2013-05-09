@@ -6,8 +6,8 @@
 using namespace cv;
 
 //摄像头移动速度
-#define MOVESPEEDLR 5.0
-#define MOVESPEEDFB	10.0
+#define MOVESPEEDLR 0.1
+#define MOVESPEEDFB	0.1
 //摄像头旋转速度
 #define ROTSPEED 0.01
 

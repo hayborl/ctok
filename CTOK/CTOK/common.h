@@ -54,7 +54,8 @@ void transformPointCloud(const Mat &input, Mat &output,
 void plotTwoPoint3DSet(Mat objSet, Mat modSet);
 
 // 根据已知点集估计出所有点拟合的平面的法向量
-Vec3d computeNormal(ANNpointArray pts, ANNidxArray idxs, const int &k);
+Vec3d computeNormal(ANNpointArray pts, 
+	ANNidxArray idxs, const int &k, Mat &barycenter);
 
 void simplifyPoints(Mat inPts, Mat &outPts, 
 	const int &k, const double &alpha);

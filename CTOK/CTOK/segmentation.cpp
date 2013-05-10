@@ -6,6 +6,8 @@
 #include "boost/unordered/unordered_set.hpp"
 #include "boost/assign/list_of.hpp"
 
+#include <fstream>
+
 using namespace Triangulation;
 using namespace cv;
 
@@ -58,9 +60,13 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
 	}
 }
 
-int computeLabels( const double &distanceRange, Mesh &mesh, 
+int computeLabels( const int &k, Mesh &mesh, 
 	vector<int> &labels, map<int, int> &labelMap )
 {
+	if (k < SEG_K * 0.15)
+	{
+		return -1;
+	}
 	int size = (int)mesh.getVerticesSize();
 	// 构建kdtree所需的结构数组
 	ANNpointArray verticesData = annAllocPts(size, 3);
@@ -74,6 +80,8 @@ int computeLabels( const double &distanceRange, Mesh &mesh,
 	}
 	ANNkd_tree* kdtree = new ANNkd_tree(verticesData, size, 3);
 
+	std::ofstream os("LPD.txt");
+
 	labels.resize(size, -1);			// 初始化标签为-1
 	map<int, set<int>> labelsEquals;	// 属于同一类的标签的映射
 	int labelCnt = 0;					// 类别数目
@@ -84,11 +92,33 @@ int computeLabels( const double &distanceRange, Mesh &mesh,
 			continue;
 		}
 
-		ANNidx idxs[SEG_K];
-		ANNdist dists[SEG_K];
-		int cnt = kdtree->annkFRSearch(verticesData[i], 
-			distanceRange, SEG_K, idxs, dists);	// 其中idxs[0] = i;
-		cnt = cnt > SEG_K ? SEG_K : cnt;
+		ANNidxArray idxs = new ANNidx[k];
+		ANNdistArray dists = new ANNdist[k];
+// 		int cnt = kdtree->annkFRSearch(verticesData[i], 
+// 			distanceRange, SEG_K, idxs, dists);	// 其中idxs[0] = i;
+		kdtree->annkSearch(verticesData[i], k, idxs, dists);
+//		cnt = cnt > SEG_K ? SEG_K : cnt;
+
+		double LPD = k / (CV_PI * dists[k - 1]);
+		os << LPD << endl;
+		int cnt = k;
+
+		if (LPD > 100000)
+		{
+			cnt = int(k * 0.15);
+		}
+		else if (LPD > 10000)
+		{
+			cnt = int(k * 0.2);
+		}
+		else if (LPD > 1000)
+		{
+			cnt = int(k * 0.3);
+		}
+		else
+		{
+			cnt = int(k * 0.75 - k * 0.00045 * LPD);
+		}
 
 		// 看邻居中是否有已标记的
 		for (int j = 1; j < cnt; j++)
@@ -123,6 +153,7 @@ int computeLabels( const double &distanceRange, Mesh &mesh,
 			}
 		}
 	}
+	os.close();
 
 	// 用广度优先搜索来合并同一类的标签
 	bool* visited = new bool[labelCnt];
@@ -162,14 +193,19 @@ int computeLabels( const double &distanceRange, Mesh &mesh,
 }
 
 
-void segment3DRBNN(const double &distanceRange, Mesh &mesh, vector<Mesh> &segs)
+void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 {
 	int size = (int)mesh.getVerticesSize();
 	if (size > 0)
 	{	
 		vector<int> labels;
 		map<int, int> labelMap;
-		int labelCnt = computeLabels(distanceRange, mesh, labels, labelMap);
+		int labelCnt = computeLabels(k, mesh, labels, labelMap);
+		if (labelCnt < 0)
+		{
+			segs.push_back(mesh);
+			return;
+		}
 
 		vector<Vec3b> colors(labelCnt);
 		for (int i = 0; i < labelCnt; i++)
@@ -185,9 +221,9 @@ void segment3DRBNN(const double &distanceRange, Mesh &mesh, vector<Mesh> &segs)
 		}
 		for (int i = 0; i < labelCnt; i++)
 		{
-// 			if (tmpMeshs[i].getVerticesSize() > 20000)
+//  		if (tmpMeshs[i].getVerticesSize() > mesh.getVerticesSize() * 0.5)
 // 			{
-// 				segment3DRBNN(distanceRange * 0.9, tmpMeshs[i], segs);
+// 				segment3DRBNN(int(k * 0.7), tmpMeshs[i], segs);
 // 			}
 // 			else
 // 			{

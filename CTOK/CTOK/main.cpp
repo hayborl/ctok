@@ -21,6 +21,8 @@ int glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 int curWinPosX = glWinPosX, curWinPosY = glWinPosY;
 int width = 640, height = 480;
 
+GLbyte *viewImgArr = new GLbyte[width * height * 3];
+
 GLUquadric *quadric;
 
 #define TYPE_POINT  0x1
@@ -70,6 +72,7 @@ Triangulation::Mesh global_mesh;				// Ä£ÐÍ
 
 vector<Triangulation::Mesh> meshs;
 int selectedMesh = 0;
+double distanceRange = SEG_DISTANCE_RANGE;
 
 const Mat identityMat4x4 = Mat::eye(4, 4, CV_64FC1);
 
@@ -251,6 +254,18 @@ void drawPointsSub2()
 			glPopMatrix();
 		}
 	}
+
+// 	GLint viewPort[4] = {0};
+// 	glutSetWindow(subWindow2);
+// 	glGetIntegerv(GL_VIEWPORT, viewPort);
+// 	glReadPixels(viewPort[0], viewPort[1], viewPort[2], 
+// 		viewPort[3], GL_RGB, GL_UNSIGNED_BYTE, viewImgArr);
+// 	Mat viewImg(height, width, CV_8UC3, viewImgArr);
+// 	cvtColor(viewImg, viewImg, CV_RGB2BGR);
+// 	flip(viewImg, viewImg, 0);
+// 	char name[30] = {0};
+// 	sprintf(name, "%.4lf.jpg", distanceRange);
+// 	imwrite(name, viewImg);
 }
 
 /************************************************************************/
@@ -404,6 +419,20 @@ void keyboard(uchar key, int x, int y)
 		if (stopScan)
 		{
 			global_delaunay.computeDelaunay(global_mesh);
+		}
+		break;
+	case '[':
+		{
+// 			meshs.clear();
+// 			RUNANDTIME(global_timer, 
+// 				segment3DRBNN(distanceRange, global_mesh, meshs),
+// 				true, "segment 3D points");
+// 			distanceRange -= 0.0005;
+// 			if (distanceRange <= 0)
+// 			{
+// 				distanceRange = 0.0005;
+// 			}
+// 			glutPostRedisplay();
 		}
 		break;
 	default:
@@ -915,8 +944,9 @@ int main(int argc, char** argv)
 // 					OUTPUT, "load data");
 
 	srand(time(0));
+	meshs.clear();
 	RUNANDTIME(global_timer, 
-		segment3DRBNN(SEG_DISTANCE_RANGE, global_mesh, meshs),
+		segment3DRBNN(SEG_K, global_mesh, meshs),
 		true, "segment 3D points");
 
 	cout << global_mesh.getVerticesSize() << endl;

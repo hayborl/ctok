@@ -246,6 +246,20 @@ Mesh::Mesh( InputArray pts, InputArray colors )
 	addVertices(pts, colors);
 }
 
+void Mesh::saveVertices( char *filename )
+{
+	FILE* fp;
+	fopen_s(&fp, filename, "wt");
+	fprintf(fp, "%d\n", m_vertices.size());
+	for (int i = 0; i < m_vertices.size(); i++)
+	{
+		Triangulation::Vertex point = m_vertices[i];
+		fprintf(fp, "%f,%f,%f\n", point.m_xyz[0], 
+			point.m_xyz[1], point.m_xyz[2]);
+	}
+	fclose(fp);
+}
+
 void Mesh::addVertex( const Vertex &v )
 {
 	Vertex _v = v;

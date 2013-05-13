@@ -11,6 +11,10 @@ using namespace cv;
 //摄像头旋转速度
 #define ROTSPEED 0.01
 
+#define INIT_EYE Vec3d(0.0, 0.0, 1.0)
+#define INIT_CENTER Vec3d(0.0, 0.0, 0.0)
+#define INIT_UP Vec3d(0.0, 1.0, 0.0)
+
 // 窗口的高度和宽度
 extern int glWinWidth;
 extern int glWinHeight;

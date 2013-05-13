@@ -4,14 +4,10 @@
 // 默认初始化Camera属性
 Camera::Camera()
 {
-	// 初始化Camera为OpenGL的默认方向
-	Vec3d vPos(0.0, 0.0, 0.0);
-	Vec3d vView(0.0, 0.0,-1.0);
-	Vec3d vUp(0.0, 1.0, 0.0);
-
-	m_vPosition	= vPos;
-	m_vView		= vView;
-	m_vUpVector	= vUp;
+	// 初始化Camera方向
+	m_vPosition	= INIT_EYE;
+	m_vView		= INIT_CENTER;
+	m_vUpVector	= INIT_UP;
 
 	mouseInWindow = true;
 
@@ -158,7 +154,7 @@ void Camera::moveCamera(double speed)
 
 void Camera::reset()
 {
-	positionCamera(0.0, 1.8, 100.0, 0.0, 1.8, 0.0, 0.0, 1.0, 0.0);
+	positionCamera(INIT_EYE, INIT_CENTER, INIT_UP);
 }
 
 // 更新Camera位置和方向

@@ -51,7 +51,7 @@ void checkOpenNIError(XnStatus result, string status)
 	}
 }
 
-char* videoFile = "3281.oni";
+char* videoFile = "record3.oni";
 XnStatus rc = XN_STATUS_OK;
 Context context;							// 上下文对象
 XnDouble baseline;							// 基线长度(mm)
@@ -71,7 +71,7 @@ Triangulation::Delaunay global_delaunay(COS30);	// 三角化
 Triangulation::Mesh global_mesh;				// 模型
 
 vector<Triangulation::Mesh> meshs;
-int selectedMesh = 0;
+int selectedMesh = -1;
 double distanceRange = SEG_DISTANCE_RANGE;
 
 const Mat identityMat4x4 = Mat::eye(4, 4, CV_64FC1);
@@ -392,6 +392,16 @@ void keyboard(uchar key, int x, int y)
 		break;
 	case 'p':
 	case 'P':
+		if (selectedMesh < 0)
+		{
+
+		}
+		else
+		{
+			char filename[20];
+			sprintf(filename, "pxyz_%d.xyz", selectedMesh);
+			meshs[selectedMesh].saveVertices(filename);
+		}
 /*		saveData("real.xyz", global_mesh.m_vertices);*/
 		cout << "save points" << endl;
 		break;
@@ -646,8 +656,7 @@ void init()
 // 初始化OpenGL
 void initOpenGL(int argc, char** argv)
 {
-	userCamera.positionCamera(0.0, 0.0, 1.0, 
-		0.0, 0.0, 0.0, 0.0, 1.0, 0.0);	// 定位摄像机
+	userCamera.positionCamera(INIT_EYE, INIT_CENTER, INIT_UP);	// 定位摄像机
 
 	quadric = gluNewQuadric();
 
@@ -813,57 +822,57 @@ int main(int argc, char** argv)
 				pose = _camPoses[recordCnt - 1].clone();
 				pose = pose * incMat;
 
-				if (last == -2)
-				{
-					Mat tmpMask(height, width, CV_8UC1, Scalar::all(255));
-					vector<pair<int, int>> tmpMatchesPoints;
-					pair<double, double> tmpScoreDiff;
-					RUNANDTIME(global_timer, 
-						tmpScoreDiff = pairwiseMatch(keyPoint, _keyPoints[0], 
-							descriptor, _descriptors[0], H, tmpMatchesPoints),
-						OUTPUT, "pairwise match in closure check");
-					if (tmpScoreDiff.first < SIMILARITY_THRESHOLD_HULL && 
-						tmpScoreDiff.second < AREA_DIFF_THRESHOLD)
-					{	
-						oldLoc.clear(); newLoc.clear();
-						RUNANDTIME(global_timer, 
-							success = convert2DTo3D(depthGenerator, 
-								H, depthImg, depthImg0, keyPoint, 
-								_keyPoints[0], tmpMatchesPoints, oldLoc, 
-								newLoc, objSet, modSet, objSetAT, tmpMask), 
-							OUTPUT, "get 3D feature points in closure check.");
-
-						EMICP tmpIcp(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
-						RUNANDTIME(global_timer, 
-							tmpIcp.run(hasCuda, objSetAT), 
-							OUTPUT, "run ICP in closure check.");
-						incMat = tmpIcp.getFinalTransformMat().clone();
-
-						tmpMat = identityMat4x4.clone();
-						incMatInv = incMat.inv();
-						RUNANDTIME(global_timer, 
-							BundleAdjustment::runBundleAdjustment(
-								tmpMat, incMatInv, modSet, oldLoc, newLoc), 
-							OUTPUT, "bundle adjustment.");
-						pose = _camPoses[0] * tmpMat * incMatInv.inv();
-
-						Mat curPose = pose.clone();
-						for (int i = recordCnt - 1; i > 0; i--)
-						{
-							Mat beforePose = _camPoses[i].clone();
-							_camPoses[i] = curPose * _incPoses[i].inv();
-							curPose = _camPoses[i].clone();
-							Mat transformPose = curPose * beforePose.inv();	// 先将原来已经变换过的点变换回来，再做新的变换
-
-							Mat pts;
-							global_mesh.getVertices(i, pts);
-							transformPointCloud(pts, 
-								pts, transformPose, hasCuda);
-							global_mesh.updateVertices(i, pts);
-						}
-						waitKey();
-					}
-				}
+// 				if (last == -2)
+// 				{
+// 					Mat tmpMask(height, width, CV_8UC1, Scalar::all(255));
+// 					vector<pair<int, int>> tmpMatchesPoints;
+// 					pair<double, double> tmpScoreDiff;
+// 					RUNANDTIME(global_timer, 
+// 						tmpScoreDiff = pairwiseMatch(keyPoint, _keyPoints[0], 
+// 							descriptor, _descriptors[0], H, tmpMatchesPoints),
+// 						OUTPUT, "pairwise match in closure check");
+// 					if (tmpScoreDiff.first < SIMILARITY_THRESHOLD_HULL && 
+// 						tmpScoreDiff.second < AREA_DIFF_THRESHOLD)
+// 					{	
+// 						oldLoc.clear(); newLoc.clear();
+// 						RUNANDTIME(global_timer, 
+// 							success = convert2DTo3D(depthGenerator, 
+// 								H, depthImg, depthImg0, keyPoint, 
+// 								_keyPoints[0], tmpMatchesPoints, oldLoc, 
+// 								newLoc, objSet, modSet, objSetAT, tmpMask), 
+// 							OUTPUT, "get 3D feature points in closure check.");
+// 
+// 						EMICP tmpIcp(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
+// 						RUNANDTIME(global_timer, 
+// 							tmpIcp.run(hasCuda, objSetAT), 
+// 							OUTPUT, "run ICP in closure check.");
+// 						incMat = tmpIcp.getFinalTransformMat().clone();
+// 
+// 						tmpMat = identityMat4x4.clone();
+// 						incMatInv = incMat.inv();
+// 						RUNANDTIME(global_timer, 
+// 							BundleAdjustment::runBundleAdjustment(
+// 								tmpMat, incMatInv, modSet, oldLoc, newLoc), 
+// 							OUTPUT, "bundle adjustment.");
+// 						pose = _camPoses[0] * tmpMat * incMatInv.inv();
+// 
+// 						Mat curPose = pose.clone();
+// 						for (int i = recordCnt - 1; i > 0; i--)
+// 						{
+// 							Mat beforePose = _camPoses[i].clone();
+// 							_camPoses[i] = curPose * _incPoses[i].inv();
+// 							curPose = _camPoses[i].clone();
+// 							Mat transformPose = curPose * beforePose.inv();	// 先将原来已经变换过的点变换回来，再做新的变换
+// 
+// 							Mat pts;
+// 							global_mesh.getVertices(i, pts);
+// 							transformPointCloud(pts, 
+// 								pts, transformPose, hasCuda);
+// 							global_mesh.updateVertices(i, pts);
+// 						}
+// 						waitKey();
+// 					}
+// 				}
 			}
 
 			_keyPoints.push_back(keyPoint);

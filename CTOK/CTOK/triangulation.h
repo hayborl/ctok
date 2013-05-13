@@ -94,6 +94,7 @@ namespace Triangulation
 
 		Vec3d barycenter(){return m_barycenter / (double)getVerticesSize();}
 
+		void saveVertices(char *filename);
 		void addVertex(const Vertex &v);
 		void addVertices(InputArray _pts,
 			InputArray _colors);				// 加入点以及对应的颜色

@@ -230,7 +230,7 @@ void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 				segs.push_back(tmpMeshs[i]);
 //			}
 		}
-	}
+ 	}
 }
 
 typedef boost::unordered::unordered_set<int> b_unordered_set_int;

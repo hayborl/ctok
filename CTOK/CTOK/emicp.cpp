@@ -70,5 +70,5 @@ void EMICP::run(bool withCuda, InputArray initObjSet)
 	}while (m_sigma_p2 > m_sigma_inf);
 	m_tr = tr;
 
-/*	plotTwoPoint3DSet(objSet, m_modSet);*/
+// 	plotTwoPoint3DSet(objSet, m_modSet);
 }

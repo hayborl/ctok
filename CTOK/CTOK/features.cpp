@@ -515,7 +515,7 @@ void get2DFeaturePoints( const Mat &colorImg,
 		DescriptorMatcher* matcher = new FlannBasedMatcher;
 
 		initModule_nonfree();
-		surf = Algorithm::create<Feature2D>("Feature2D.SIFT");
+		surf = Algorithm::create<Feature2D>("Feature2D.SURF");
 
 		// ¼ì²â¹Ø¼üµã
 		surf->detect(colorImg, keyPoints);
@@ -609,6 +609,11 @@ pair<double, double> pairwiseMatch(const vector<KeyPoint> &queryKeypoints,
 	areaDiff = areaDiff * 0.5 / (area0 + area1);
 	double score = matchShapes(hull[0], hull[1], CV_CONTOURS_MATCH_I1, 0);
 	if (area0 < DBL_EPSILON || area1 < DBL_EPSILON)
+	{
+		score = 1.0;
+	}
+	if (double(matchesPoints.size()) / double(matches.size()) 
+		< FEATURE_NUM_THRESHOLD)
 	{
 		score = 1.0;
 	}
@@ -750,7 +755,7 @@ void fullMatch( const int &index,
 		vector<pair<int, int>> matchesPairs;
 		pair<double, double> scoreDiff = pairwiseMatch(keypoints[index], 
 			keypoints[i], descriptors[index], descriptors[i], H, matchesPairs);
-		if (scoreDiff.first > SIMILARITY_THRESHOLD_HULL ||
+		if (scoreDiff.first > SIMILARITY_THRESHOLD_HULL_DOWN ||
 			scoreDiff.second > AREA_DIFF_THRESHOLD)
 		{
 			matchesPairs.clear();

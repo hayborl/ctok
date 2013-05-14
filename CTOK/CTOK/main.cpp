@@ -14,12 +14,16 @@ using namespace cv;
 using namespace xn;
 
 //---OpenGL 全局变量
+#define GLUT_WHEEL_UP	3
+#define GLUT_WHEEL_DOWN 4
 int glWinWidth = 1280, glWinHeight = 480;
 int glWinPosX = 0, glWinPosY = 0;
 int glSubWin1PosX = glWinPosX;
 int glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 int curWinPosX = glWinPosX, curWinPosY = glWinPosY;
 int width = 640, height = 480;
+double cursorX, cursorY, cursorZ;
+double scaleFactor = 1.0;
 
 GLbyte *viewImgArr = new GLbyte[width * height * 3];
 
@@ -30,10 +34,17 @@ GLUquadric *quadric;
 #define TYPE_TRIANGLES 0x100
 int drawType = TYPE_POINT;
 
-#define OP_SELECT	1
-#define OP_MOVE		2
-#define OP_ROTATE	3
+#define OP_SELECT	0x1
+#define OP_MOVE		0x100
+#define OP_ROTATE	0x110
 int opType = OP_SELECT;
+
+#define X_AXIS	100
+#define Y_AXIS	101
+#define Z_AXIS	102
+int selectedAxis = -1;
+
+Vec2d pickingSize(1.0, 1.0);
 
 int mainWindow, subWindow1, subWindow2;
 
@@ -204,16 +215,6 @@ void drawPointsSub1()
 		}
 		glEnd();
 	}
-
-	if (opType == OP_SELECT)
-	{
-		Vec3d barycenter = global_mesh.barycenter();
-		glPushMatrix();
-		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
-		glColor3ub(255, 0, 0);
-		gluSphere(quadric, 0.01, 32, 32);
-		glPopMatrix();
-	}
 // 	MyMesh::FaceIterator fi = m.face.begin();
 // 	for (; fi != m.face.end(); ++fi)
 // 	{
@@ -233,6 +234,9 @@ void drawPointsSub2()
 	for (int i = 0; i < meshs.size(); i++)
 	{
 		glLoadName(i); // 给物体标号，不能处在glBegin和glEnd之间
+		Vec3d t = meshs[i].m_t;
+		glPushMatrix();
+		glTranslated(t[0], t[1], t[2]);
 		glBegin(GL_POINTS);		
 		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 		{
@@ -241,18 +245,46 @@ void drawPointsSub2()
 			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
 		}
 		glEnd();
+		glPopMatrix();
 	}
-	if (opType == OP_SELECT)
+	if ((opType & OP_SELECT) && selectedMesh >= 0)
 	{
-		if (meshs.size() > 0)
+		Vec3d t = meshs[selectedMesh].m_t;
+		Vec3d barycenter = meshs[selectedMesh].barycenter();
+		glPushMatrix();
+		glTranslated(t[0], t[1], t[2]);
+		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+		glColor3ub(255, 0, 0);
+		gluSphere(quadric, 0.01, 32, 32);
+
+		if (opType & OP_MOVE)
 		{
-			Vec3d barycenter = meshs[selectedMesh].barycenter();
-			glPushMatrix();
-			glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+			glLoadName(X_AXIS);
+			glBegin(GL_LINES);
 			glColor3ub(255, 0, 0);
-			gluSphere(quadric, 0.01, 32, 32);
-			glPopMatrix();
+			glVertex3d(0.0, 0.0, 0.0);
+			glVertex3d(0.5, 0.0, 0.0);
+			glEnd();
+
+			glLoadName(Y_AXIS);
+			glBegin(GL_LINES);
+			glColor3ub(0, 255, 0);
+			glVertex3d(0.0, 0.0, 0.0);
+			glVertex3d(0.0, 0.5, 0.0);
+			glEnd();
+
+			glLoadName(Z_AXIS);
+			glBegin(GL_LINES);
+			glColor3ub(0, 0, 255);
+			glVertex3d(0.0, 0.0, 0.0);
+			glVertex3d(0.0, 0.0, 0.5);
+			glEnd();
 		}
+		else if (opType == OP_ROTATE)
+		{
+
+		}
+		glPopMatrix();
 	}
 
 // 	GLint viewPort[4] = {0};
@@ -300,7 +332,7 @@ void selection(int mousePosX, int mousePosY)
 	// This Creates A Matrix That Will Zoom Up To A Small Portion Of The Screen, Where The Mouse Is.
 	gluPickMatrix((GLdouble)mousePosX, 
 		(GLdouble)(viewport[3] - mousePosY), 
-		1.0f, 1.0f, viewport);
+		pickingSize[0], pickingSize[1], viewport);
 
 	// Apply The Perspective Matrix
 	gluPerspective(45.0f, 
@@ -313,34 +345,114 @@ void selection(int mousePosX, int mousePosY)
 	glMatrixMode(GL_MODELVIEW);									// Select The Modelview Matrix
 	hits = glRenderMode(GL_RENDER);								// Switch To Render Mode, Find Out How Many
 	// Objects Were Drawn Where The Mouse Was
-	cout << "hits" << hits << endl;
+	cout << "hits " << hits << endl;
 	if (hits > 0)												// If There Were More Than 0 Hits
 	{
 		int	choose = buffer[3];									// Make Our Selection The First Object
 		int depth = buffer[1];									// Store How Far Away It Is 
 
-		for (int loop = 1; loop < hits; loop++)					// Loop Through All The Detected Hits
+		if (opType & OP_MOVE)
 		{
-			// If This Object Is Closer To Us Than The One We Have Selected
-			if (buffer[loop * 4 + 1] < GLuint(depth))
+			for (int loop = 1; loop < hits; loop++)
 			{
-				choose = buffer[loop * 4 + 3];					// Select The Closer Object
-				depth = buffer[loop * 4 + 1];					// Store How Far Away It Is
-			} 
+				if (choose >= X_AXIS && choose <= Z_AXIS)
+				{
+					break;
+				}
+				choose = buffer[loop * 4 + 3];
+			}
 		}
-		selectedMesh = choose;
+		else
+		{
+			for (int loop = 1; loop < hits; loop++)				// Loop Through All The Detected Hits
+			{
+				// If This Object Is Closer To Us Than The One We Have Selected
+				if (buffer[loop * 4 + 1] < GLuint(depth))
+				{
+					choose = buffer[loop * 4 + 3];				// Select The Closer Object
+					depth = buffer[loop * 4 + 1];				// Store How Far Away It Is
+				} 
+			}
+		}
+
+		cout << choose << endl;;
+		if (choose >= X_AXIS && choose <= Z_AXIS)
+		{
+			selectedAxis = choose;
+		}
+		else
+		{
+			selectedMesh = choose;
+		}
 	}
+	else
+	{
+		if (opType & OP_MOVE)
+		{
+			selectedAxis = -1;
+		}
+		else
+		{
+			selectedAxis = -1;
+			selectedMesh = -1;
+		}
+	}
+}
+
+void getCoordinate(int x, int y, double &rx, double &ry, double &rz)
+{
+	GLint viewpoints[4];
+	GLdouble modelview[16];
+	GLdouble projection[16];
+	GLfloat winX, winY, winZ;
+	
+	glMatrixMode(GL_MODELVIEW);
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glGetIntegerv(GL_VIEWPORT, viewpoints);
+
+	winX = float(x);
+	winY = float(viewpoints[3] - y);
+	winZ = float(meshs[selectedMesh].barycenter()[2] 
+		+ meshs[selectedMesh].m_t[2]);
+	gluUnProject(winX, winY, winZ, 
+		modelview, projection, viewpoints, 
+		&rx, &ry, &rz);
 }
 
 // 鼠标按键响应函数
 void mouse(int button, int state, int x, int y)
 {
+	if (state == GLUT_UP)
+	{
+		 if (button == GLUT_WHEEL_UP)
+		 {
+			 scaleFactor += 0.03;
+		 }
+		 else if (button == GLUT_WHEEL_DOWN)
+		 {
+			 scaleFactor -= 0.03;
+		 }
+	}
+	if (selectedMesh >= 0)
+	{
+		getCoordinate(x, y, cursorX, cursorY, cursorZ);
+		cout << cursorX << ' ' << cursorY << ' ' << cursorZ << endl;
+	}
 	if (button == GLUT_LEFT_BUTTON)
 	{
 		if (state == GLUT_DOWN)
 		{
-			userCamera.setMouseState(true);
-			glutSetCursor(GLUT_CURSOR_NONE);
+			int mod = glutGetModifiers(); 
+			if (mod == GLUT_ACTIVE_CTRL)
+			{
+				userCamera.setMouseState(true);
+				glutSetCursor(GLUT_CURSOR_NONE);
+			}
+			else
+			{
+				selection(x, y);
+			}
 		}
 		else
 		{
@@ -348,23 +460,49 @@ void mouse(int button, int state, int x, int y)
 			glutSetCursor(GLUT_CURSOR_INHERIT);
 		}
 	}
-	else if (button == GLUT_RIGHT_BUTTON)
-	{
-		if (state == GLUT_DOWN)
-		{
-			selection(x, y);
-		}
-	}
 }
 
 // 鼠标运动响应函数
 void motion(int x, int y)
 {
+	if (selectedMesh >= 0)
+	{
+		double rx, ry, rz;
+		getCoordinate(x, y, rx, ry, rz);
+		cout << rx << ' ' << ry << ' ' << rz << endl;
+
+		if (opType & OP_MOVE)
+		{
+			double difx = rx - cursorX;
+			double dify = ry - cursorY;
+			double difz = rz - cursorZ;
+			if (selectedAxis == X_AXIS)
+			{
+				meshs[selectedMesh].m_t[0] += difx;
+			}
+			else if (selectedAxis == Y_AXIS)
+			{
+				meshs[selectedMesh].m_t[1] += dify;
+			}
+			else if (selectedAxis == Z_AXIS)
+			{
+				meshs[selectedMesh].m_t[2] += difz;
+			}
+			else
+			{
+
+			}
+		}
+		cursorX = rx;
+		cursorY = ry;
+		cursorZ = rz;
+	}
 }
 
 // 键盘按键响应函数
 void keyboard(uchar key, int x, int y)
 {
+	int mod = glutGetModifiers();
 	switch(key)
 	{
 	case 27:
@@ -450,6 +588,28 @@ void keyboard(uchar key, int x, int y)
 	}
 }
 
+// 键盘特殊按键响应函数
+void specialKeyboard(int a_keys, int x, int y)
+{
+	switch(a_keys)
+	{
+	case GLUT_KEY_F1:
+		opType = OP_SELECT;
+		pickingSize = Vec2d(1.0, 1.0);
+		break;
+	case GLUT_KEY_F2:
+		opType = OP_MOVE + OP_SELECT;
+		pickingSize = Vec2d(5.0, 5.0);
+		break;
+	case GLUT_KEY_F3:
+		opType = OP_ROTATE + OP_SELECT;
+		pickingSize = Vec2d(5.0, 5.0);
+		break;
+	default:
+		break;
+	}
+}
+
 // 鼠标进出窗口响应函数
 void mouseEntry(int state)
 {
@@ -501,6 +661,8 @@ void renderSceneSub1(void)
 	// set the camera position
 	userCamera.look();
 
+	glScaled(scaleFactor, scaleFactor, scaleFactor);
+
 	drawPointsSub1();
 
 	Vec3d vPos = userCamera.position();
@@ -523,6 +685,8 @@ void renderSceneSub2(void)
 	glLoadIdentity();   
 	// set the camera position
 	userCamera.look();
+
+	glScaled(scaleFactor, scaleFactor, scaleFactor);
 
 	drawPointsSub2();
 
@@ -651,6 +815,7 @@ void init()
 	glutEntryFunc(mouseEntry);			// 设置鼠标进入窗口的处理函数
 	glutMotionFunc(motion);				// 鼠标移动响应
 	glutKeyboardFunc(keyboard);			// 键盘按键响应
+	glutSpecialFunc(specialKeyboard);	// 特殊按键响应
 }
 
 // 初始化OpenGL
@@ -780,8 +945,9 @@ int main(int argc, char** argv)
 					scoreDiff = pairwiseMatch(keyPoint, _keyPoints[last], 
 						descriptor, _descriptors[last], H, matchesPoints), 
 					OUTPUT, "pairwise matches.");
-				if (scoreDiff.first < SIMILARITY_THRESHOLD_HULL &&
-					scoreDiff.second < AREA_DIFF_THRESHOLD)
+				if ((scoreDiff.first < SIMILARITY_THRESHOLD_HULL_DOWN &&
+					scoreDiff.second < AREA_DIFF_THRESHOLD) || 
+					scoreDiff.first > SIMILARITY_THRESHOLD_HULL_UP)
 				{
 					glutPostRedisplay();	
 					glutMainLoopEvent();
@@ -808,7 +974,7 @@ int main(int argc, char** argv)
 				EMICP icp(objSet, modSet, 0.01, 0.00001, 0.7, 0.01);
 
 				RUNANDTIME(global_timer, 
-					icp.run(hasCuda, objSetAT), 
+					icp.run(hasCuda, objSet), 
 					OUTPUT, "run ICP.");
 				incMat = icp.getFinalTransformMat();
 

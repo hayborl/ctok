@@ -243,6 +243,8 @@ size_t Triangulation::hash_value( const Triangle &t )
 Mesh::Mesh( InputArray pts, InputArray colors )
 {
 	m_curIndex = 0;
+	m_barycenter = Vec3d(0, 0, 0); 
+	m_t = Vec3d(0, 0, 0);
 	addVertices(pts, colors);
 }
 

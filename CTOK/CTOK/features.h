@@ -19,11 +19,14 @@ extern Mat convertMat(const Mat &mat);
 #define ORIENTATION_90	2
 #define ORIENTATION_135	3
 
-#define SIMILARITY_THRESHOLD_PHASH 9		// pHash的相似度阈值
-#define SIMILARITY_THRESHOLD_HULL 0.015		// 特征点凸包的相似度阈值
+#define SIMILARITY_THRESHOLD_PHASH 4		// pHash的相似度阈值
+#define SIMILARITY_THRESHOLD_HULL_DOWN 0.015// 特征点凸包的相似度阈值下界，越相似
+#define SIMILARITY_THRESHOLD_HULL_UP   0.8	// 特征点凸包的相似度阈值上界，越不相似
 
 #define MAX_AREA_DIFF_PERCENT 1.0			// 特征点凸包的相差比例最大值
 #define AREA_DIFF_THRESHOLD 0.01			// 特征点凸包的相差比例阈值
+
+#define FEATURE_NUM_THRESHOLD 0.07
 
 class Features
 {

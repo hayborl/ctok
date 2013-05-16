@@ -89,12 +89,12 @@ namespace Triangulation
 		int m_curIndex;							// 当前计算到哪个点
 		TriangleVector m_triangles;				// 三角形集合
 
-		Vec3d m_t;
+		Mat m_userT;
 
 		Mesh()
 		{m_curIndex = 0; 
 		 m_barycenter = Vec3d(0, 0, 0); 
-		 m_t = Vec3d(0, 0, 0);}
+		 m_userT = Mat::eye(4, 4, CV_64FC1);}
 		Mesh(InputArray pts, InputArray colors);
 
 		Vec3d barycenter(){return m_barycenter / (double)getVerticesSize();}

@@ -23,7 +23,9 @@ int glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 int curWinPosX = glWinPosX, curWinPosY = glWinPosY;
 int width = 640, height = 480;
 double cursorX, cursorY, cursorZ;
+int mouseX, mouseY;
 double scaleFactor = 1.0;
+bool cameraMode = false;
 
 GLbyte *viewImgArr = new GLbyte[width * height * 3];
 
@@ -35,14 +37,32 @@ GLUquadric *quadric;
 int drawType = TYPE_POINT;
 
 #define OP_SELECT	0x1
-#define OP_MOVE		0x100
-#define OP_ROTATE	0x110
+#define OP_MOVE		0x010
+#define OP_ROTATE	0x100
 int opType = OP_SELECT;
 
 #define X_AXIS	100
 #define Y_AXIS	101
 #define Z_AXIS	102
+#define ROTATE_X 103
+#define ROTATE_Y 104
+#define ROTATE_Z 105
+GLubyte axisColor[3][3] = {
+	{255, 0, 0}, 
+	{0, 255, 0}, 
+	{0, 0, 255}};
+double axisPos[3][3] = {
+	{0.5, 0.0, 0.0}, 
+	{0.0, 0.5, 0.0}, 
+	{0.0, 0.0, 0.5}};
+double axisRot[3][4] = {
+	{90.0, 0.0, 1.0, 0.0}, 
+	{90.0, 1.0, 0.0, 0.0}, 
+	{0.0, 0.0, 0.0, 1.0}};
 int selectedAxis = -1;
+
+#define BARYCENTER 200
+Mat global_barycenter(4, 1, CV_64FC1);
 
 Vec2d pickingSize(1.0, 1.0);
 
@@ -228,61 +248,89 @@ void drawPointsSub1()
 // 	}
 }
 
+void drawTranslateAxis(int type)
+{
+	if (type >= X_AXIS && type <= Z_AXIS)
+	{
+		int id = type - X_AXIS;
+		glLoadName(type);
+		glBegin(GL_LINES);
+		glColor3ubv(axisColor[id]);
+		glVertex3d(0.0, 0.0, 0.0);
+		glVertex3dv(axisPos[id]);
+		glEnd();
+
+		glPushMatrix();
+		glTranslated(axisPos[id][0], axisPos[id][1], axisPos[id][2]);
+		glLoadName(type);
+		glColor3ubv(axisColor[id]);
+		gluSphere(quadric, 0.01, 32, 32);
+		glPopMatrix();
+	}
+}
+
+void drawRotateRing(int type)
+{
+	if (type >= ROTATE_X && type <= ROTATE_Z)
+	{
+		int id = type - ROTATE_X;
+		glPushMatrix();
+		glRotated(axisRot[id][0], axisRot[id][1], 
+			axisRot[id][2], axisRot[id][3]);
+		glLoadName(type);
+		glColor3ubv(axisColor[id]);
+		gluDisk(quadric, 0.28, 0.3, 32, 32);
+		glPopMatrix();
+	}
+}
+
 void drawPointsSub2()
 {
 	glPointSize(1.0);									
 	for (int i = 0; i < meshs.size(); i++)
 	{
 		glLoadName(i); // 给物体标号，不能处在glBegin和glEnd之间
-		Vec3d t = meshs[i].m_t;
+		Mat userT = meshs[i].m_userT.t();
+		GLdouble glUserT[16];
+		memcpy(glUserT, userT.data, 16 * sizeof(double));
+		Vec3d barycenter = meshs[i].barycenter();
 		glPushMatrix();
-		glTranslated(t[0], t[1], t[2]);
+		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+		glMultMatrixd(glUserT);
 		glBegin(GL_POINTS);		
 		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 		{
 			Triangulation::Vertex v = meshs[i].getVertex(j);
+			Vec3d realXYZ = v.m_xyz - barycenter;
 			glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
-			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+			glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
 		}
 		glEnd();
 		glPopMatrix();
 	}
 	if ((opType & OP_SELECT) && selectedMesh >= 0)
 	{
-		Vec3d t = meshs[selectedMesh].m_t;
+		Mat userT = meshs[selectedMesh].m_userT;
+		Vec3d translateT = Vec3d(userT(Rect(3, 0, 1, 3)));
 		Vec3d barycenter = meshs[selectedMesh].barycenter();
+		glLoadName(BARYCENTER);
 		glPushMatrix();
-		glTranslated(t[0], t[1], t[2]);
 		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
-		glColor3ub(255, 0, 0);
+		glTranslated(translateT[0], translateT[1], translateT[2]);
+		glColor3ub(255, 0, 255);
 		gluSphere(quadric, 0.01, 32, 32);
 
 		if (opType & OP_MOVE)
 		{
-			glLoadName(X_AXIS);
-			glBegin(GL_LINES);
-			glColor3ub(255, 0, 0);
-			glVertex3d(0.0, 0.0, 0.0);
-			glVertex3d(0.5, 0.0, 0.0);
-			glEnd();
-
-			glLoadName(Y_AXIS);
-			glBegin(GL_LINES);
-			glColor3ub(0, 255, 0);
-			glVertex3d(0.0, 0.0, 0.0);
-			glVertex3d(0.0, 0.5, 0.0);
-			glEnd();
-
-			glLoadName(Z_AXIS);
-			glBegin(GL_LINES);
-			glColor3ub(0, 0, 255);
-			glVertex3d(0.0, 0.0, 0.0);
-			glVertex3d(0.0, 0.0, 0.5);
-			glEnd();
+			drawTranslateAxis(X_AXIS);
+			drawTranslateAxis(Y_AXIS);
+			drawTranslateAxis(Z_AXIS);
 		}
-		else if (opType == OP_ROTATE)
+		else if (opType & OP_ROTATE)
 		{
-
+			drawRotateRing(ROTATE_X);
+			drawRotateRing(ROTATE_Y);
+			drawRotateRing(ROTATE_Z);
 		}
 		glPopMatrix();
 	}
@@ -351,11 +399,12 @@ void selection(int mousePosX, int mousePosY)
 		int	choose = buffer[3];									// Make Our Selection The First Object
 		int depth = buffer[1];									// Store How Far Away It Is 
 
-		if (opType & OP_MOVE)
+		if ((opType & OP_MOVE) || (opType & OP_ROTATE))
 		{
 			for (int loop = 1; loop < hits; loop++)
 			{
-				if (choose >= X_AXIS && choose <= Z_AXIS)
+				if (choose >= X_AXIS && choose <= Z_AXIS ||
+					choose >= ROTATE_X && choose <= ROTATE_Z)
 				{
 					break;
 				}
@@ -376,26 +425,21 @@ void selection(int mousePosX, int mousePosY)
 		}
 
 		cout << choose << endl;;
-		if (choose >= X_AXIS && choose <= Z_AXIS)
+		if (choose >= X_AXIS && choose <= Z_AXIS ||
+			choose >= ROTATE_X && choose <= ROTATE_Z)
 		{
 			selectedAxis = choose;
 		}
-		else
+		else if (choose != BARYCENTER)
 		{
+			selectedAxis = -1;
 			selectedMesh = choose;
 		}
 	}
 	else
 	{
-		if (opType & OP_MOVE)
-		{
-			selectedAxis = -1;
-		}
-		else
-		{
-			selectedAxis = -1;
-			selectedMesh = -1;
-		}
+		selectedAxis = -1;
+		selectedMesh = -1;
 	}
 }
 
@@ -413,11 +457,39 @@ void getCoordinate(int x, int y, double &rx, double &ry, double &rz)
 
 	winX = float(x);
 	winY = float(viewpoints[3] - y);
-	winZ = float(meshs[selectedMesh].barycenter()[2] 
-		+ meshs[selectedMesh].m_t[2]);
+// 	glReadPixels(x, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
+
+	Mat userT = meshs[selectedMesh].m_userT.clone();
+	global_barycenter = Mat::ones(4, 1, CV_64FC1);
+	Mat roi = global_barycenter(Rect(0, 0, 1, 3));
+	Mat(meshs[selectedMesh].barycenter()).copyTo(roi);
+	global_barycenter.at<double>(3, 0) = -global_barycenter.at<double>(3, 0);
+	global_barycenter = userT * global_barycenter;
+	winZ = float(global_barycenter.at<double>(3, 0));
+
 	gluUnProject(winX, winY, winZ, 
 		modelview, projection, viewpoints, 
 		&rx, &ry, &rz);
+}
+
+void getWindowPos(double x, double y, double z, int &rx, int &ry)
+{
+	GLint viewpoints[4];
+	GLdouble modelview[16];
+	GLdouble projection[16];
+	GLdouble winX, winY, winZ;
+
+	glMatrixMode(GL_MODELVIEW);
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glGetIntegerv(GL_VIEWPORT, viewpoints);
+
+	gluProject(x, y, z, 
+		modelview, projection, viewpoints, 
+		&winX, &winY, &winZ);
+
+	rx = int(winX);
+	ry = int(viewpoints[3] - winY);
 }
 
 // 鼠标按键响应函数
@@ -434,10 +506,9 @@ void mouse(int button, int state, int x, int y)
 			 scaleFactor -= 0.03;
 		 }
 	}
-	if (selectedMesh >= 0)
+	if (selectedMesh >= 0 && !cameraMode)
 	{
 		getCoordinate(x, y, cursorX, cursorY, cursorZ);
-		cout << cursorX << ' ' << cursorY << ' ' << cursorZ << endl;
 	}
 	if (button == GLUT_LEFT_BUTTON)
 	{
@@ -448,14 +519,17 @@ void mouse(int button, int state, int x, int y)
 			{
 				userCamera.setMouseState(true);
 				glutSetCursor(GLUT_CURSOR_NONE);
+				cameraMode = true;
 			}
 			else
 			{
+				cameraMode = false;
 				selection(x, y);
 			}
 		}
 		else
 		{
+			cameraMode = false;
 			userCamera.setMouseState(false);
 			glutSetCursor(GLUT_CURSOR_INHERIT);
 		}
@@ -465,37 +539,81 @@ void mouse(int button, int state, int x, int y)
 // 鼠标运动响应函数
 void motion(int x, int y)
 {
-	if (selectedMesh >= 0)
+	if (selectedMesh >= 0 && !cameraMode)
 	{
 		double rx, ry, rz;
 		getCoordinate(x, y, rx, ry, rz);
-		cout << rx << ' ' << ry << ' ' << rz << endl;
 
 		if (opType & OP_MOVE)
 		{
 			double difx = rx - cursorX;
 			double dify = ry - cursorY;
-			double difz = rz - cursorZ;
 			if (selectedAxis == X_AXIS)
 			{
-				meshs[selectedMesh].m_t[0] += difx;
+				meshs[selectedMesh].m_userT.at<double>(0, 3) += difx;
 			}
 			else if (selectedAxis == Y_AXIS)
 			{
-				meshs[selectedMesh].m_t[1] += dify;
+				meshs[selectedMesh].m_userT.at<double>(1, 3) += dify;
 			}
 			else if (selectedAxis == Z_AXIS)
 			{
-				meshs[selectedMesh].m_t[2] += difz;
+				int difWinY = y - mouseY;
+				double difz = sqrt(difx * difx + dify * dify);
+				difz = difWinY > 0 ? -difz : difz;
+				meshs[selectedMesh].m_userT.at<double>(2, 3) += difz;
 			}
-			else
-			{
+		}
+		else if (opType & OP_ROTATE)
+		{
+			Vec2d origin;
+			origin[0] = global_barycenter.at<double>(0, 0);
+			origin[1] = global_barycenter.at<double>(1, 0);
 
+			Vec2d rv(rx, ry), pv(cursorX, cursorY);
+			rv = rv - origin;
+			pv = pv - origin;
+
+			double crossValue = pv[0] * rv[1] - pv[1] * rv[0];
+
+			double rvl = sqrt(rv.ddot(rv));
+			double pvl = sqrt(pv.ddot(pv));
+
+			double cosAlpha = pv.ddot(rv) / (rvl * pvl);
+			double sinAlpha = sqrt(1 - cosAlpha * cosAlpha);
+			cosAlpha = crossValue > 0 ? cosAlpha : -cosAlpha;
+
+			Mat rotateMat = Mat::eye(3, 3, CV_64FC1);
+
+			if (selectedAxis == ROTATE_X)
+			{
+				rotateMat.at<double>(1, 1) = cosAlpha;
+				rotateMat.at<double>(1, 2) = -sinAlpha;
+				rotateMat.at<double>(2, 1) = sinAlpha;
+				rotateMat.at<double>(2, 2) = cosAlpha;
 			}
+			else if (selectedAxis == ROTATE_Y)
+			{
+				rotateMat.at<double>(0, 0) = cosAlpha;
+				rotateMat.at<double>(0, 2) = -sinAlpha;
+				rotateMat.at<double>(2, 0) = sinAlpha;
+				rotateMat.at<double>(2, 2) = cosAlpha;
+			}
+			else if (selectedAxis == ROTATE_Z)
+			{
+				rotateMat.at<double>(0, 0) = cosAlpha;
+				rotateMat.at<double>(0, 1) = -sinAlpha;
+				rotateMat.at<double>(1, 0) = sinAlpha;
+				rotateMat.at<double>(1, 1) = cosAlpha;
+			}
+			Mat R = meshs[selectedMesh].m_userT(Rect(0, 0, 3, 3));
+			Mat(rotateMat * R).copyTo(R);
 		}
 		cursorX = rx;
 		cursorY = ry;
 		cursorZ = rz;
+		mouseX = x;
+		mouseY = y;
 	}
 }
 
@@ -596,14 +714,17 @@ void specialKeyboard(int a_keys, int x, int y)
 	case GLUT_KEY_F1:
 		opType = OP_SELECT;
 		pickingSize = Vec2d(1.0, 1.0);
+		selectedAxis = -1;
 		break;
 	case GLUT_KEY_F2:
 		opType = OP_MOVE + OP_SELECT;
-		pickingSize = Vec2d(5.0, 5.0);
+		pickingSize = Vec2d(2.0, 2.0);
+		selectedAxis = -1;
 		break;
 	case GLUT_KEY_F3:
 		opType = OP_ROTATE + OP_SELECT;
-		pickingSize = Vec2d(5.0, 5.0);
+		pickingSize = Vec2d(2.0, 2.0);
+		selectedAxis = -1;
 		break;
 	default:
 		break;

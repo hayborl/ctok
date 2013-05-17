@@ -216,7 +216,7 @@ void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 		for (int i = 0; i < size; i++)
 		{
 			Triangulation::Vertex v = mesh.getVertex(i);
-			v.m_color = colors[labelMap[labels[i]]];
+/*			v.m_color = colors[labelMap[labels[i]]];*/
 			tmpMeshs[labelMap[labels[i]]].addVertex(v);
 		}
 		for (int i = 0; i < labelCnt; i++)

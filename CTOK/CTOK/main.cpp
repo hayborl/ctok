@@ -294,15 +294,22 @@ void drawPointsSub2()
 		GLdouble glUserT[16];
 		memcpy(glUserT, userT.data, 16 * sizeof(double));
 		Vec3d barycenter = meshs[i].barycenter();
+		double scaleColor = 1.0;
 		glPushMatrix();
 		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
 		glMultMatrixd(glUserT);
-		glBegin(GL_POINTS);		
+		glBegin(GL_POINTS);	
+		if (selectedMesh >= 0 && i == selectedMesh)
+		{
+			scaleColor = 1.5;
+		}
 		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 		{
 			Triangulation::Vertex v = meshs[i].getVertex(j);
 			Vec3d realXYZ = v.m_xyz - barycenter;
-			glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
+			glColor3ub(int(v.m_color[2] * scaleColor), 
+				int(v.m_color[1] * scaleColor), 
+				int(v.m_color[0] * scaleColor));
 			glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
 		}
 		glEnd();
@@ -460,12 +467,11 @@ void getCoordinate(int x, int y, double &rx, double &ry, double &rz)
 // 	glReadPixels(x, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
 
 	Mat userT = meshs[selectedMesh].m_userT.clone();
-	global_barycenter = Mat::ones(4, 1, CV_64FC1);
-	Mat roi = global_barycenter(Rect(0, 0, 1, 3));
-	Mat(meshs[selectedMesh].barycenter()).copyTo(roi);
-	global_barycenter.at<double>(3, 0) = -global_barycenter.at<double>(3, 0);
-	global_barycenter = userT * global_barycenter;
-	winZ = float(global_barycenter.at<double>(3, 0));
+	global_barycenter = Mat::ones(3, 1, CV_64FC1);
+	Mat(meshs[selectedMesh].barycenter()).copyTo(global_barycenter);
+	global_barycenter.at<double>(2, 0) = -global_barycenter.at<double>(2, 0);
+	global_barycenter += userT(Rect(3, 0, 1, 3));
+	winZ = float(global_barycenter.at<double>(2, 0));
 
 	gluUnProject(winX, winY, winZ, 
 		modelview, projection, viewpoints, 
@@ -508,6 +514,8 @@ void mouse(int button, int state, int x, int y)
 	}
 	if (selectedMesh >= 0 && !cameraMode)
 	{
+		mouseX = x;
+		mouseY = y;
 		getCoordinate(x, y, cursorX, cursorY, cursorZ);
 	}
 	if (button == GLUT_LEFT_BUTTON)
@@ -566,25 +574,34 @@ void motion(int x, int y)
 		}
 		else if (opType & OP_ROTATE)
 		{
-			Vec2d origin;
-			origin[0] = global_barycenter.at<double>(0, 0);
-			origin[1] = global_barycenter.at<double>(1, 0);
+			double objx = global_barycenter.at<double>(0, 0);
+			double objy = global_barycenter.at<double>(1, 0);
+			double objz = global_barycenter.at<double>(2, 0);
+			int ox, oy;
+			getWindowPos(objx, objy, objz, ox, oy);
+			cout << ox << " " << oy << endl;
+			cout << mouseX << " " << mouseY << endl;
+			cout << x << " " << y << endl;
+			int signValue = 1;
+			if (mouseX < ox)
+			{
+				signValue = y >= mouseY ? 1 : -1;
+			}
+			else
+			{
+				signValue = y <= mouseY ? 1 : -1;
+			}
 
-			Vec2d rv(rx, ry), pv(cursorX, cursorY);
-			rv = rv - origin;
-			pv = pv - origin;
-
-			double crossValue = pv[0] * rv[1] - pv[1] * rv[0];
-
+			Vec2d rv(rx - objx, ry - objy);
+			Vec2d pv(cursorX - objx, cursorY - objy);
 			double rvl = sqrt(rv.ddot(rv));
 			double pvl = sqrt(pv.ddot(pv));
-
 			double cosAlpha = pv.ddot(rv) / (rvl * pvl);
-			double sinAlpha = sqrt(1 - cosAlpha * cosAlpha);
-			cosAlpha = crossValue > 0 ? cosAlpha : -cosAlpha;
+			double sinAlpha = signValue * sqrt(1 - cosAlpha * cosAlpha);
+
+			cout << sinAlpha << endl;
 
 			Mat rotateMat = Mat::eye(3, 3, CV_64FC1);
-
 			if (selectedAxis == ROTATE_X)
 			{
 				rotateMat.at<double>(1, 1) = cosAlpha;

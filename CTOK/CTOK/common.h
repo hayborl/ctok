@@ -37,6 +37,7 @@ using namespace gpu;
 #define OUTPUT	false
 
 typedef unsigned int uint;
+typedef unsigned short ushort;
 
 void saveData(const char* filename, InputArray _pts);
 void saveData(const char* filename, const Triangulation::VertexVector pts);

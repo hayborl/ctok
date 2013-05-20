@@ -131,6 +131,9 @@ namespace Triangulation
 			{m_beginIndicesTri.push_back(i);}	// 将每个点生成三角形的起始索引压入
 		void saveTriangles(char* file);			// 保存当前划分出的三角形到文件
 
+		void render(int drawType, 
+			bool selected);						// 绘制模型
+
 	private:
 		VertexVector m_vertices;				// 点集
 		Vec3d m_barycenter;						// 重心

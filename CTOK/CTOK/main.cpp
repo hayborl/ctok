@@ -31,9 +31,9 @@ GLbyte *viewImgArr = new GLbyte[width * height * 3];
 
 GLUquadric *quadric;
 
-#define TYPE_POINT  0x1
-#define TYPE_WITH_NORMAL 0x10
-#define TYPE_TRIANGLES 0x100
+#define TYPE_POINT			0x1
+#define TYPE_WITH_NORMAL	0x10
+#define TYPE_TRIANGLES		0x100
 int drawType = TYPE_POINT;
 
 #define OP_SELECT	0x1
@@ -41,12 +41,12 @@ int drawType = TYPE_POINT;
 #define OP_ROTATE	0x100
 int opType = OP_SELECT;
 
-#define X_AXIS	100
-#define Y_AXIS	101
-#define Z_AXIS	102
-#define ROTATE_X 103
-#define ROTATE_Y 104
-#define ROTATE_Z 105
+#define X_AXIS		100
+#define Y_AXIS		101
+#define Z_AXIS		102
+#define ROTATE_X	103
+#define ROTATE_Y	104
+#define ROTATE_Z	105
 GLubyte axisColor[3][3] = {
 	{255, 0, 0}, 
 	{0, 255, 0}, 
@@ -82,7 +82,7 @@ void checkOpenNIError(XnStatus result, string status)
 	}
 }
 
-char* videoFile = "record3.oni";
+char* videoFile = "3281.oni";
 XnStatus rc = XN_STATUS_OK;
 Context context;							// 上下文对象
 XnDouble baseline;							// 基线长度(mm)
@@ -109,6 +109,56 @@ const Mat identityMat4x4 = Mat::eye(4, 4, CV_64FC1);
 
 /*MyMesh m;*/
 
+void meanBlur16U(InputArray _in, OutputArray _out, Size ksize)
+{
+	Mat inMat = _in.getMat();
+	_out.create(inMat.size(), inMat.type());
+	Mat outMat = _out.getMat();
+
+	int rows = outMat.rows, cols = outMat.cols;
+	int c = ksize.width / 2, r = ksize.height / 2;
+
+	int total = inMat.total();
+	ushort *inPtr = (ushort *)inMat.data;
+	ushort *outPtr = (ushort *)outMat.data;
+
+#pragma omp parallel for
+	for (int k = 0; k < total; k++)
+	{
+		ushort val = inPtr[k];
+		if (val == 0)
+		{
+			outPtr[k] = 0;
+			continue;
+		}
+		int i = k / cols;
+		int j = k % cols;
+		int meanVal = 0;
+		int cnt = 0;
+		for (int m = i - r; m <= i + r; m++)
+		{
+			if (m < 0 || m >= rows)
+			{
+				continue;
+			}
+			for (int n = j - c; n <= j + c; n++)
+			{
+				if (n < 0 || n >= cols)
+				{
+					continue;
+				}
+				ushort neighVal = inPtr[m * cols + n];
+				if (neighVal > 0 && abs(val - neighVal) <= 100)
+				{
+					meanVal += neighVal;
+					cnt++;
+				}
+			}
+		}
+		outPtr[k] = meanVal / cnt;
+	}
+}
+
 // 读取每一帧的彩色图与深度图
 void readFrame(ImageGenerator ig, DepthGenerator dg, 
 	Mat &colorImg, Mat &depthImg)
@@ -129,7 +179,8 @@ void readFrame(ImageGenerator ig, DepthGenerator dg,
 	depthImg.create(rows, cols, CV_16UC1);
 	const XnDepthPixel* pDepthMap = depthMD.Data();
 	memcpy(depthImg.data, pDepthMap, cols * rows * sizeof(XnDepthPixel));
-	medianBlur(depthImg, depthImg, 5);
+//	medianBlur(depthImg, depthImg, 5);
+	meanBlur16U(depthImg, depthImg, Size(5, 5));
 
 	double min, max;
 	minMaxLoc(depthImg, &min, &max);
@@ -294,23 +345,29 @@ void drawPointsSub2()
 		GLdouble glUserT[16];
 		memcpy(glUserT, userT.data, 16 * sizeof(double));
 		Vec3d barycenter = meshs[i].barycenter();
-		double scaleColor = 1.0;
 		glPushMatrix();
 		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
 		glMultMatrixd(glUserT);
 		glBegin(GL_POINTS);	
 		if (selectedMesh >= 0 && i == selectedMesh)
 		{
-			scaleColor = 1.5;
+			for (int j = 0; j < meshs[i].getVerticesSize(); j++)
+			{
+				Triangulation::Vertex v = meshs[i].getVertex(j);
+				Vec3d realXYZ = v.m_xyz - barycenter;
+				glColor3ub(200, 200, 200);
+				glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+			}
 		}
-		for (int j = 0; j < meshs[i].getVerticesSize(); j++)
+		else
 		{
-			Triangulation::Vertex v = meshs[i].getVertex(j);
-			Vec3d realXYZ = v.m_xyz - barycenter;
-			glColor3ub(int(v.m_color[2] * scaleColor), 
-				int(v.m_color[1] * scaleColor), 
-				int(v.m_color[0] * scaleColor));
-			glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+			for (int j = 0; j < meshs[i].getVerticesSize(); j++)
+			{
+				Triangulation::Vertex v = meshs[i].getVertex(j);
+				Vec3d realXYZ = v.m_xyz - barycenter;
+				glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
+				glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+			}
 		}
 		glEnd();
 		glPopMatrix();
@@ -579,9 +636,6 @@ void motion(int x, int y)
 			double objz = global_barycenter.at<double>(2, 0);
 			int ox, oy;
 			getWindowPos(objx, objy, objz, ox, oy);
-			cout << ox << " " << oy << endl;
-			cout << mouseX << " " << mouseY << endl;
-			cout << x << " " << y << endl;
 			int signValue = 1;
 			if (mouseX < ox)
 			{
@@ -598,8 +652,6 @@ void motion(int x, int y)
 			double pvl = sqrt(pv.ddot(pv));
 			double cosAlpha = pv.ddot(rv) / (rvl * pvl);
 			double sinAlpha = signValue * sqrt(1 - cosAlpha * cosAlpha);
-
-			cout << sinAlpha << endl;
 
 			Mat rotateMat = Mat::eye(3, 3, CV_64FC1);
 			if (selectedAxis == ROTATE_X)
@@ -645,12 +697,12 @@ void keyboard(uchar key, int x, int y)
 		break;
 	case 'D':
 	case 'd':
-		userCamera.strafeCamera(MOVESPEEDFB);
+		userCamera.strafeCamera(MOVESPEEDLR);
 		glutPostRedisplay();
 		break;
 	case 'A':
 	case 'a':
-		userCamera.strafeCamera(-MOVESPEEDFB);
+		userCamera.strafeCamera(-MOVESPEEDLR);
 		glutPostRedisplay();
 		break;
 	case 'W':

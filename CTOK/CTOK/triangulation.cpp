@@ -367,6 +367,11 @@ void Mesh::saveTriangles( char* file )
 	Delaunay::saveTriangles(m_triangles, file);
 }
 
+void Mesh::render( int drawType, bool selected )
+{
+
+}
+
 void Mesh::computeVerticesNormals(const int &begin, const int &size)
 {
 	int _size = (int)m_vertices.size();

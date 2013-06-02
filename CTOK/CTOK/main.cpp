@@ -754,6 +754,7 @@ void keyboard(uchar key, int x, int y)
 		if (stopScan)
 		{
 			global_delaunay.computeDelaunay(global_mesh);
+			cout << global_mesh.getTriangleSize() << endl;
 		}
 		break;
 	case '[':

@@ -14,10 +14,14 @@ namespace Triangulation
 #define COS60			0.5		// cos60
 #define COS180			-1.0	// cos180
 #define DISTANCE_RANGE	0.0009	// 寻找最近邻的范围球的半径平方(0.03m)^2
+#define INNER_THRESHOLD	0.4		// 判断是内点的阈值，30%
 
 	// distance_range 寻找最近邻的范围球的半径平方
 	// k个邻近点
 	enum {k = 25};
+
+	class Vertex;
+	typedef vector<Vertex> VertexVector;
 
 	// 用于三角化的点的类
 	class Vertex
@@ -29,16 +33,17 @@ namespace Triangulation
 		double m_residual;				// 残差值
 		int m_index;					// 索引值
 		int m_neighbors[k];				// 最近点的索引值, m_neighbors[0]表示邻居数目
+		bool m_isInner;					// 是否是内部点
 
-		Vertex() : m_index(-1){m_neighbors[0] = 0;}
+		Vertex() : m_index(-1){m_neighbors[0] = 0; m_isInner = false;}
 		Vertex(double x, double y, double z) 
 			: m_index(-1){ m_xyz = Vec3d(x, y, z); 
-				m_neighbors[0] = 0;m_residual = 0;}
+				m_neighbors[0] = 0;m_residual = 0;m_isInner = false;}
 		Vertex(Vec3d xyz, int index = -1, Vec3b color = Vec3b(0, 0, 0), 
 			Vec3d normal = Vec3d(0, 0, 0), double residual = 0) 
 			: m_xyz(xyz), m_index(index), m_color(color), 
 				m_normal(normal), m_residual(residual)
-			{m_neighbors[0] = 0;}
+			{m_neighbors[0] = 0;m_isInner = false;}
 
 		Vertex& operator=(const Vertex &v);
 		bool operator==(const Vertex &v)const;
@@ -78,7 +83,6 @@ namespace Triangulation
 	};
 	size_t hash_value(const Triangle &t);		// hash函数，用于boost库的set类
 
-	typedef vector<Vertex> VertexVector;
 	typedef vector<Triangle> TriangleVector;
 	typedef boost::unordered::unordered_set<Triangle> TriangleSet;
 
@@ -119,6 +123,7 @@ namespace Triangulation
 			computeVerticesNormals(m_curIndex, 
 				(int)m_vertices.size() - m_curIndex);
 		}
+		void inner(int i);						// 判断第i个点是否是内点
 
 		size_t getTriangleSize()
 			{return m_triangles.size();}		// 获取三角面片的总数目

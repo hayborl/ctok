@@ -120,9 +120,15 @@ int computeLabels( const int &k, Mesh &mesh,
 			cnt = int(k * 0.75 - k * 0.00045 * LPD);
 		}
 
+//		Vec3d normal = mesh.getVertex(i).m_normal;
 		// 看邻居中是否有已标记的
 		for (int j = 1; j < cnt; j++)
 		{
+// 			Vec3d neighNormal = mesh.getVertex(j).m_normal;
+// 			if (normal.ddot(neighNormal) < 0.8)
+// 			{
+// 				continue;
+// 			}
 			if (labels[i] >= 0 && labels[idxs[j]] >= 0)
 			{
 				if (labels[i] != labels[idxs[j]])
@@ -198,6 +204,8 @@ void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 	int size = (int)mesh.getVerticesSize();
 	if (size > 0)
 	{	
+//		mesh.computeVerticesNormals();
+
 		vector<int> labels;
 		map<int, int> labelMap;
 		int labelCnt = computeLabels(k, mesh, labels, labelMap);
@@ -216,7 +224,7 @@ void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 		for (int i = 0; i < size; i++)
 		{
 			Triangulation::Vertex v = mesh.getVertex(i);
-/*			v.m_color = colors[labelMap[labels[i]]];*/
+			v.m_color = colors[labelMap[labels[i]]];
 			tmpMeshs[labelMap[labels[i]]].addVertex(v);
 		}
 		for (int i = 0; i < labelCnt; i++)

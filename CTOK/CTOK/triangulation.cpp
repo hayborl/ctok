@@ -22,6 +22,7 @@ Vertex& Vertex::operator=( const Vertex &v )
 	{
 		memcpy(m_neighbors, v.m_neighbors, k * sizeof(int));
 	}
+	m_isInner = v.m_isInner;
 	return *this;
 }
 
@@ -396,24 +397,61 @@ void Mesh::computeVerticesNormals(const int &begin, const int &size)
 		Vec3d v = m_vertices[i].m_xyz;
 		ANNidx idxs[k];
 		ANNdist dists[k];
-		kdtree->annkSearch(verticesData[i], k, idxs, dists);
-// 		int cnt = kdtree->annkFRSearch(verticesData[i], 
-// 			DISTANCE_RANGE, k, idxs, dists);	// 其中idxs[0] = i;
-// 		if (cnt >= 3)	// 最近邻小于3个，不能计算法向量
-// 		{
-// 			cnt = cnt > k ? k : cnt;
+/*		kdtree->annkSearch(verticesData[i], k, idxs, dists);*/
+		int cnt = kdtree->annkFRSearch(verticesData[i], 
+			DISTANCE_RANGE, k, idxs, dists);	// 其中idxs[0] = i;
+		if (cnt >= 3)	// 最近邻小于3个，不能计算法向量
+		{
+			cnt = cnt > k ? k : cnt;
 
 			Mat barycenter;
 			m_vertices[i].m_normal = computeNormal(
-				verticesData, idxs, k, barycenter);	// 计算法向量
-			memcpy(m_vertices[i].m_neighbors, idxs, k * sizeof(int));
-			m_vertices[i].m_neighbors[0] = k - 1;
-
-			Vec3d tmp = v - Vec3d(barycenter);
-			m_vertices[i].m_residual = abs(m_vertices[i].m_normal.ddot(tmp));
-//		}
+				verticesData, idxs, cnt, barycenter);	// 计算法向量
+			memcpy(m_vertices[i].m_neighbors, idxs, cnt * sizeof(int));
+			m_vertices[i].m_neighbors[0] = cnt - 1;
+			inner(i);
+// 
+// 			Vec3d tmp = v - Vec3d(barycenter);
+// 			m_vertices[i].m_residual = abs(m_vertices[i].m_normal.ddot(tmp));
+		}
 	}
 	annDeallocPts(verticesData);
+}
+
+void Mesh::inner( int i )
+{
+	Vertex v = m_vertices[i];
+	if (v.m_neighbors[0] == 0)
+	{
+		m_vertices[i].m_isInner = true;
+		return;
+	}
+	int pcnt = 0, ncnt = 0;
+	for (int j = 1; j < v.m_neighbors[0]; j++)
+	{
+		Vec3d vec = m_vertices[v.m_neighbors[j]].m_xyz - v.m_xyz;
+		double val = vec.ddot(v.m_normal);
+		if (val > 0)
+		{
+			pcnt++;
+		}
+		else
+		{
+			ncnt++;
+		}
+	}
+	if (ncnt < pcnt)
+	{
+		m_vertices[i].m_normal = -m_vertices[i].m_normal;
+		int tmp = ncnt;
+		ncnt = pcnt;
+		pcnt = tmp;
+	}
+	if (double(pcnt) / double(v.m_neighbors[0]) > INNER_THRESHOLD)
+	{
+		m_vertices[i].m_isInner = true;
+		return;
+	}
 }
 
 void Delaunay::computeDelaunay(Mesh &mesh)
@@ -431,6 +469,11 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 	for (; mesh.m_curIndex < size; mesh.m_curIndex++)
 	{
 		Vertex v = mesh.getVertex(mesh.m_curIndex);
+		if (v.m_isInner)
+		{
+			mesh.pushTriBeginIndex((int)triSet.size());
+			continue;
+		}
 
 		Vec3d normal = v.m_normal;
 		int id = 2;
@@ -468,7 +511,8 @@ void Delaunay::computeDelaunay(Mesh &mesh)
 		{
 			Vertex tmpv = mesh.getVertex(v.m_neighbors[j]);
 			if (dists[j] < u * minDistance ||		// 去除非常接近的点
-				(tmpv.m_index < v.m_index && tmpv.m_index >= m_preSize))	// 去除已遍历过的点
+				(tmpv.m_index < v.m_index && tmpv.m_index >= m_preSize) ||	// 去除已遍历过的点
+				tmpv.m_isInner)						// 去除内点
 			{
 				continue;
 			}
@@ -713,7 +757,7 @@ bool Delaunay::flipTest( TriangleVector &triSet, Triangle t )
 				d = iter->m_vertices[1];
 			}
 			break;
-		case 6: // v2
+		case 6: // v0
 			if (Vertex::cross(a, c, iter->m_vertices[0]) != 0 &&
 				Vertex::cross(b, c, iter->m_vertices[0]) != 0)
 			{

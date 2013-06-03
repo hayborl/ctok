@@ -409,7 +409,7 @@ void Mesh::computeVerticesNormals(const int &begin, const int &size)
 				verticesData, idxs, cnt, barycenter);	// 计算法向量
 			memcpy(m_vertices[i].m_neighbors, idxs, cnt * sizeof(int));
 			m_vertices[i].m_neighbors[0] = cnt - 1;
-			//inner(i);
+			inner(i);
 // 
 // 			Vec3d tmp = v - Vec3d(barycenter);
 // 			m_vertices[i].m_residual = abs(m_vertices[i].m_normal.ddot(tmp));
@@ -429,6 +429,10 @@ void Mesh::inner( int i )
 	int pcnt = 0, ncnt = 0;
 	for (int j = 1; j < v.m_neighbors[0]; j++)
 	{
+		if (m_vertices[v.m_neighbors[j]].m_neighbors[0] == 0)
+		{
+			continue;
+		}
 		Vec3d vec = m_vertices[v.m_neighbors[j]].m_xyz - v.m_xyz;
 		double val = vec.ddot(v.m_normal);
 		if (val > 0)
@@ -447,7 +451,7 @@ void Mesh::inner( int i )
 		ncnt = pcnt;
 		pcnt = tmp;
 	}
-	if (double(pcnt) / double(v.m_neighbors[0]) > INNER_THRESHOLD)
+	if (double(pcnt) / double(pcnt + ncnt) > INNER_THRESHOLD)
 	{
 		m_vertices[i].m_isInner = true;
 		return;

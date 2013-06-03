@@ -409,7 +409,7 @@ void Mesh::computeVerticesNormals(const int &begin, const int &size)
 				verticesData, idxs, cnt, barycenter);	// 计算法向量
 			memcpy(m_vertices[i].m_neighbors, idxs, cnt * sizeof(int));
 			m_vertices[i].m_neighbors[0] = cnt - 1;
-			inner(i);
+			//inner(i);
 // 
 // 			Vec3d tmp = v - Vec3d(barycenter);
 // 			m_vertices[i].m_residual = abs(m_vertices[i].m_normal.ddot(tmp));

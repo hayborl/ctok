@@ -286,17 +286,17 @@ void drawPointsSub1()
 		}
 		glEnd();
 	}
-// 	MyMesh::FaceIterator fi = m.face.begin();
-// 	for (; fi != m.face.end(); ++fi)
-// 	{
-// 		for (int i = 0; i < 3; i++)
-// 		{
-// 			MyMesh::VertexPointer v = fi->V(i);
-// 			vcg::Color4b c = v->C();
-// 			glColor3d(c[0], c[1], c[2]);
-// 			glVertex3d(v->P()[0], v->P()[1], v->P()[2]);
-// 		}
-// 	}
+	GLint viewPort[4] = {0};
+	glutSetWindow(subWindow1);
+	glGetIntegerv(GL_VIEWPORT, viewPort);
+	glReadPixels(viewPort[0], viewPort[1], viewPort[2], 
+		viewPort[3], GL_RGB, GL_UNSIGNED_BYTE, viewImgArr);
+	Mat viewImg(height, width, CV_8UC3, viewImgArr);
+	cvtColor(viewImg, viewImg, CV_RGB2BGR);
+	flip(viewImg, viewImg, 0);
+	char name[30];
+	sprintf(name, "%d.png", drawType);
+	imwrite(name, viewImg);
 }
 
 void drawTranslateAxis(int type)
@@ -1098,6 +1098,10 @@ int main(int argc, char** argv)
 
 		rc = record.Record();  
 		checkOpenNIError(rc,"recording "); 
+		if (frameCnt > 120)
+		{
+			stopScan = true;
+		}
 
 		if (!isStarted)
 		{
@@ -1265,6 +1269,7 @@ int main(int argc, char** argv)
 					OUTPUT, "delaunay");
 				cout << global_mesh.m_triangles.size() << endl;
 			}
+			//stopScan = true;
 		}
 // 				if (last - 2 >= 0)
 // 				{
@@ -1316,6 +1321,8 @@ int main(int argc, char** argv)
 		true, "segment 3D points");
 
 	cout << global_mesh.getVerticesSize() << endl;
+	global_delaunay.computeDelaunay(global_mesh);
+	cout << global_mesh.getTriangleSize() << endl;
 	glutMainLoop();
 	return 0;
 }

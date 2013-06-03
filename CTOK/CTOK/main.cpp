@@ -1077,7 +1077,7 @@ int main(int argc, char** argv)
 	vector<Mat>	_descriptors;			// 记录每一帧的特征描述子
 
 	Mat depthImg0;
-	/*isStarted = true;*/
+	isStarted = true;
 	for (; ; frameCnt++) 
 	{
 		rc = context.WaitAndUpdateAll();

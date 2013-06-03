@@ -14,6 +14,8 @@ void segment3DKmeans(Triangulation::Mesh mesh,
 #define SEG_K	200					// 最近邻最大个数
 #define SEG_DISTANCE_RANGE 0.04		// 距离的平方(0.05m)^2
 
+int search(double dists[], const double &dist, const int &n);
+
 int computeLabels(const int &k, Triangulation::Mesh &mesh, 
 	vector<int> &labels, map<int, int> &labelMap);
 void segment3DRBNN(const int &k, 

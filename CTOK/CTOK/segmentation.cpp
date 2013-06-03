@@ -60,6 +60,36 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
 	}
 }
 
+int search( double dists[], const double &dist, const int &n)
+{
+	if (dist > dists[n - 1])
+	{
+		return n;
+	}
+	if (dist < dists[1])
+	{
+		return 10;
+	}
+	int l = 0, h = n - 1;
+	while (l <= h)
+	{
+		int mid = (l + h) / 2;
+		if (dist < dists[mid])
+		{
+			h = mid - 1;
+		}
+		else if (dist > dists[mid])
+		{
+			l = mid + 1;
+		}
+		else
+		{
+			return mid;
+		}
+	}
+	return l;
+}
+
 int computeLabels( const int &k, Mesh &mesh, 
 	vector<int> &labels, map<int, int> &labelMap )
 {
@@ -87,7 +117,7 @@ int computeLabels( const int &k, Mesh &mesh,
 	int labelCnt = 0;					// 类别数目
 	for (int i = 0; i < size; i++)
 	{
-		if (labels[i] >= 0)	// 已经标记
+		if (labels[i] >= 0 /*&& mesh.getVertex(i).m_isInner*/)	// 已经标记
 		{
 			continue;
 		}
@@ -113,11 +143,11 @@ int computeLabels( const int &k, Mesh &mesh,
 		}
 		else if (LPD > 1000)
 		{
-			cnt = int(k * 0.3);
+			cnt = int(k * 2 / log(LPD));
 		}
 		else
 		{
-			cnt = int(k * 0.75 - k * 0.00045 * LPD);
+			cnt = int(k * (0.75 - 0.00045 * LPD));
 		}
 
 //		Vec3d normal = mesh.getVertex(i).m_normal;
@@ -125,7 +155,7 @@ int computeLabels( const int &k, Mesh &mesh,
 		for (int j = 1; j < cnt; j++)
 		{
 // 			Vec3d neighNormal = mesh.getVertex(j).m_normal;
-// 			if (normal.ddot(neighNormal) < 0.8)
+// 			if (!mesh.getVertex(j).m_isInner && normal.ddot(neighNormal) < 0.9)
 // 			{
 // 				continue;
 // 			}

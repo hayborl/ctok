@@ -1077,7 +1077,7 @@ int main(int argc, char** argv)
 	vector<Mat>	_descriptors;			// 记录每一帧的特征描述子
 
 	Mat depthImg0;
-	isStarted = true;
+	/*isStarted = true;*/
 	for (; ; frameCnt++) 
 	{
 		rc = context.WaitAndUpdateAll();
@@ -1098,7 +1098,11 @@ int main(int argc, char** argv)
 
 		rc = record.Record();  
 		checkOpenNIError(rc,"recording "); 
-		if (frameCnt > 120)
+		if (frameCnt == 71)
+		{
+			isStarted = true;
+		}
+		if (frameCnt > 150)
 		{
 			stopScan = true;
 		}
@@ -1140,9 +1144,9 @@ int main(int argc, char** argv)
 					scoreDiff = pairwiseMatch(keyPoint, _keyPoints[last], 
 						descriptor, _descriptors[last], H, matchesPoints), 
 					OUTPUT, "pairwise matches.");
-				if ((scoreDiff.first < SIMILARITY_THRESHOLD_HULL_DOWN &&
-					scoreDiff.second < AREA_DIFF_THRESHOLD) || 
-					scoreDiff.first > SIMILARITY_THRESHOLD_HULL_UP)
+// 				if ((scoreDiff.first < SIMILARITY_THRESHOLD_HULL_DOWN &&
+// 					scoreDiff.second < AREA_DIFF_THRESHOLD) || 
+				if	(scoreDiff.first > SIMILARITY_THRESHOLD_HULL_UP)
 				{
 					glutPostRedisplay();	
 					glutMainLoopEvent();
@@ -1180,8 +1184,29 @@ int main(int argc, char** argv)
 					tmpMat, incMatInv, modSet, oldLoc, newLoc), 
 					OUTPUT, "bundle adjustment.");
 				incMat = tmpMat * incMatInv.inv();
-				pose = _camPoses[recordCnt - 1].clone();
-				pose = pose * incMat;
+				pose = _camPoses[recordCnt - 1] * incMat;
+
+// 				vector<Mat> camPoses;
+// 				Mat points;
+// 				vector<vector<Vec2d>> locs;
+// // 				if (recordCnt == 1)
+// // 				{
+// 					Mat tmpMat = identityMat4x4.clone();
+// 					Mat incMatInv = incMat.inv();
+// 					camPoses.push_back(tmpMat);
+// 					camPoses.push_back(incMatInv);
+// 					points = modSet.clone();
+// 					locs.push_back(oldLoc);
+// 					locs.push_back(newLoc);
+// 
+// 					RUNANDTIME(global_timer, 
+// 						BundleAdjustment::runBundleAdjustment(
+// 						camPoses, points, locs),
+// 						OUTPUT, "bundle adjustment");
+// //				}
+// 				int camNum = camPoses.size();
+// 				incMat = camPoses[0] * camPoses[camNum - 1].inv();
+// 				pose = _camPoses[recordCnt - 1] * incMat;
 
 // 				if (last == -2)
 // 				{
@@ -1269,7 +1294,6 @@ int main(int argc, char** argv)
 					OUTPUT, "delaunay");
 				cout << global_mesh.m_triangles.size() << endl;
 			}
-			//stopScan = true;
 		}
 // 				if (last - 2 >= 0)
 // 				{
@@ -1296,6 +1320,7 @@ int main(int argc, char** argv)
 		glutPostRedisplay();	// 刷新画面
 		glutMainLoopEvent();	// OpenCV 处理键盘响应消息后，再显示 OpenGL 图像
 	}
+	cout << "record cnt: " << recordCnt << endl;
 
 	// destroy  
 	destroyAllWindows();
@@ -1321,8 +1346,6 @@ int main(int argc, char** argv)
 		true, "segment 3D points");
 
 	cout << global_mesh.getVerticesSize() << endl;
-	global_delaunay.computeDelaunay(global_mesh);
-	cout << global_mesh.getTriangleSize() << endl;
 	glutMainLoop();
 	return 0;
 }

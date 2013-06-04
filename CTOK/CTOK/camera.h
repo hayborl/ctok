@@ -12,7 +12,7 @@ using namespace cv;
 #define ROTSPEED 0.01
 
 #define INIT_EYE Vec3d(0.0, 0.0, 1.0)
-#define INIT_CENTER Vec3d(0.2, 0.0, 0.0)
+#define INIT_CENTER Vec3d(0.3, 0.0, 0.0)
 #define INIT_UP Vec3d(0.0, 1.0, 0.0)
 
 // 窗口的高度和宽度

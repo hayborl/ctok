@@ -617,6 +617,10 @@ pair<double, double> pairwiseMatch(const vector<KeyPoint> &queryKeypoints,
 	{
 		score = 1.0;
 	}
+	if (double(matchesPoints.size()) / double(trainKeypoints.size()) > 0.25)
+	{
+		score = 1.0;
+	}
 	return make_pair(score, areaDiff);
 }
 

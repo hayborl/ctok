@@ -403,6 +403,117 @@ void BundleAdjustment::runBundleAdjustment(
 	}
 }
 
+void BundleAdjustment::runBundleAdjustment( vector<Mat> &camPoses, 
+	const Mat &points, const vector<vector<Vec2d>> locs )
+{
+	assert(camPoses.size() == locs.size());
+
+	int N = camPoses.size();
+	int M = points.rows;
+	int K = 2 * M;
+
+	double r_f0 = 1.0 / m_f0;
+
+	StdDistortionFunction distortion;
+// 	distortion.k1 = -0.1296;
+// 	distortion.k2 = 0.45;
+// 	distortion.p1 = -0.0005;
+// 	distortion.p2 = -0.002;
+
+	Matrix3x3d KNorm = m_intrinsic;
+	// Normalize the intrinsic to have unit focal length.
+	scaleMatrixIP(r_f0, KNorm);
+	KNorm[2][2] = 1.0;
+
+	vector<Vector3d> pts(M);
+#pragma omp parallel for
+	for (int i = 0; i < M; i++)
+	{
+		Vec3d v = points.at<Vec3d>(i, 0);
+		pts[i][0] = v[0];
+		pts[i][1] = v[1];
+		pts[i][2] = v[2];
+	}
+	/*	cout << "Read the 3D points." << endl;*/
+
+	vector<CameraMatrix> cams(N);
+/*#pragma omp parallel for*/
+	for (int i = 0; i < N; i++)
+	{
+		Matrix3x3d R;
+		Vector3d T;
+
+		cams[i].setIntrinsic(KNorm);
+		Mat pose = camPoses[i];
+
+		for (int m = 0; m < 3; m++)
+		{
+			for (int n = 0; n < 3; n++)
+			{
+				R[m][n] = pose.at<double>(m, n);
+			}
+			T[m] = pose.at<double>(m, 3);
+		}
+		cams[i].setRotation(R);
+		cams[i].setTranslation(T);
+	}
+	/*	cout << "Read the cameras." << endl;*/
+
+	vector<Vector2d> measurements;
+	vector<int> correspondingView;
+	vector<int> correspondingPoint;
+	for (int i = 0; i < M; i++)
+	{
+		for (int j = 0; j < N; j++)
+		{
+			Vector3d p;
+			Vec2d v = locs[j][i];
+			if (v[0] < 0)
+			{
+				continue;
+			}
+			p[0] = v[0];
+			p[1] = v[1];
+			p[2] = 1.0;
+
+			scaleVectorIP(r_f0, p);
+			measurements.push_back(makeVector2(p[0], p[1]));
+			correspondingView.push_back(j);
+			correspondingPoint.push_back(i);
+		}
+	}
+	/*	cout << "Read " << K << " valid 2D measurements." << endl;*/
+
+	const double inlierThreshold = 2.0 / m_f0;
+
+	Matrix3x3d K0 = cams[0].getIntrinsic();
+
+// 	showErrorStatistics(m_f0, distortion, cams, pts, measurements, 
+// 		correspondingView, correspondingPoint);
+
+	// 	V3D::optimizerVerbosenessLevel = 1;
+	CommonInternalsMetricBundleOptimizer opt(FULL_BUNDLE_FOCAL_LENGTH_PP,
+		inlierThreshold, K0, distortion, cams, pts, 
+		measurements, correspondingView, correspondingPoint);
+	opt.maxIterations = 50;
+	opt.minimize();
+	// 	cout << "optimizer status = " << opt.status << endl;
+	// 
+	showErrorStatistics(m_f0, distortion, cams, pts, measurements, 
+		correspondingView, correspondingPoint);
+
+	for (int i = 0; i < N; i++)
+	{
+		Matrix3x4d RT = cams[i].getOrientation();
+		for (int j = 0; j < 12; j++)
+		{
+			int subi = j / 4;
+			int subj = j % 4;
+			camPoses[i].at<double>(subi, subj) = RT[subi][subj];
+		}
+	}
+}
+
 void BundleAdjustment::showErrorStatistics( double const f0, 
 	StdDistortionFunction const& distortion,
 	vector<CameraMatrix> const& cams, 

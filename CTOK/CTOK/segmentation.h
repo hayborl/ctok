@@ -8,7 +8,7 @@ using namespace std;
 
 // 使用kmeans方法分割
 void segment3DKmeans(Triangulation::Mesh mesh, 
-	vector<Triangulation::Mesh> &segs);
+	vector<Triangulation::Mesh> &segs, int kNum);
 
 // 使用球状最近邻方法分割
 #define SEG_K	200					// 最近邻最大个数

@@ -56,16 +56,6 @@ double AbstractICP::computeError(const Mat &objAfterTrans,
 	}
 	else
 	{
-		double error = 0;
-		int rows = objAfterTrans.rows;
-
-		double3* arr_obj = new double3[rows];
-		memcpy(arr_obj, (double3*)objAfterTrans.data, rows * sizeof(double3));
-		double3* arr_mod = new double3[rows];
-		memcpy(arr_mod, (double3*)mod.data, rows * sizeof(double3));
-		double* arr_lambda = new double[rows];
-		memcpy(arr_lambda, (double*)lambda.data, rows * sizeof(double));
-
 		try
 		{
 			thrust::host_vector<double3> h_obj(arr_obj, arr_obj + rows);

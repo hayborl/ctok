@@ -13,7 +13,7 @@ using namespace cv;
 
 extern Mat convertMat(const Mat &mat);
 
-void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
+void segment3DKmeans(Mesh mesh, vector<Mesh> &segs, int kNum)
 {
 	mesh.computeVerticesNormals();
 
@@ -37,7 +37,6 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs)
 	clusterData.convertTo(clusterData, CV_32FC1);
 
 	vector<int> labels;
-	int kNum = 10;
 	kmeans(clusterData, kNum, labels, 
 		TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, kNum, 0.1), 
 		kNum, KMEANS_PP_CENTERS);
@@ -259,14 +258,14 @@ void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 		}
 		for (int i = 0; i < labelCnt; i++)
 		{
-//  		if (tmpMeshs[i].getVerticesSize() > mesh.getVerticesSize() * 0.5)
-// 			{
-// 				segment3DRBNN(int(k * 0.7), tmpMeshs[i], segs);
-// 			}
-// 			else
-// 			{
+ 			if (tmpMeshs[i].getVerticesSize() > mesh.getVerticesSize() * 0.5)
+			{
+				segment3DKmeans(tmpMeshs[i], segs, 4);
+			}
+			else
+			{
 				segs.push_back(tmpMeshs[i]);
-//			}
+			}
 		}
  	}
 }

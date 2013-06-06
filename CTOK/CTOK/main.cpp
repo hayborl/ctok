@@ -1102,10 +1102,6 @@ int main(int argc, char** argv)
 		{
 			isStarted = true;
 		}
-		if (frameCnt > 150)
-		{
-			stopScan = true;
-		}
 
 		if (!isStarted)
 		{
@@ -1339,11 +1335,11 @@ int main(int argc, char** argv)
 // 					mesh.addVertices(pointCloud, pointColors), 
 // 					OUTPUT, "load data");
 
-	srand(time(0));
-	meshs.clear();
-	RUNANDTIME(global_timer, 
-		segment3DRBNN(SEG_K, global_mesh, meshs),
-		true, "segment 3D points");
+// 	srand(time(0));
+// 	meshs.clear();
+// 	RUNANDTIME(global_timer, 
+// 		segment3DRBNN(SEG_K, global_mesh, meshs),
+// 		true, "segment 3D points");
 
 	cout << global_mesh.getVerticesSize() << endl;
 	glutMainLoop();

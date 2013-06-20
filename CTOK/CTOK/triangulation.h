@@ -14,7 +14,7 @@ namespace Triangulation
 #define COS60			0.5		// cos60
 #define COS180			-1.0	// cos180
 #define DISTANCE_RANGE	0.0009	// 寻找最近邻的范围球的半径平方(0.03m)^2
-#define INNER_THRESHOLD	0.4		// 判断是内点的阈值，45%
+#define INNER_THRESHOLD	0.45	// 判断是内点的阈值，45%
 
 	// distance_range 寻找最近邻的范围球的半径平方
 	// k个邻近点

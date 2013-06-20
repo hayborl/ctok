@@ -16,10 +16,9 @@ using namespace xn;
 //---OpenGL 全局变量
 #define GLUT_WHEEL_UP	3
 #define GLUT_WHEEL_DOWN 4
-int glWinWidth = 1280, glWinHeight = 480;
+int glWinWidth = 640, glWinHeight = 480;
 int glWinPosX = 0, glWinPosY = 0;
 int glSubWin1PosX = glWinPosX;
-int glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 int curWinPosX = glWinPosX, curWinPosY = glWinPosY;
 int width = 640, height = 480;
 double cursorX, cursorY, cursorZ;
@@ -69,6 +68,8 @@ Vec2d pickingSize(1.0, 1.0);
 int mainWindow, subWindow1, subWindow2;
 
 Camera userCamera;
+
+bool afterSeg = false;
 
 //---OpenNI
 #define CONFIG_PATH "SamplesConfig.xml"
@@ -242,6 +243,8 @@ void read3DPoints(DepthGenerator dg, const Mat &depthImg,
 	pointColors = Mat(colors, true).clone();
 }
 
+void drawPointsSub2();
+
 // 绘制点云
 void drawPointsSub1()
 {
@@ -260,43 +263,70 @@ void drawPointsSub1()
 	}
 	else if (drawType & TYPE_TRIANGLES)
 	{
-		glBegin(GL_TRIANGLES);
-		for (int i = 0; i < global_mesh.m_triangles.size(); i++)
-		{
-			Triangulation::Triangle t = global_mesh.m_triangles[i];
-			for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+			glBegin(GL_TRIANGLES);
+			for (int i = 0; i < global_mesh.m_triangles.size(); i++)
 			{
-				Triangulation::Vertex v = t.m_vertices[j];
-				glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
-				glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+				Triangulation::Triangle t = global_mesh.m_triangles[i];
+				for (int j = 0; j < Triangulation::Triangle::Vertex_Size; j++)
+				{
+					Triangulation::Vertex v = t.m_vertices[j];
+					glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
+					glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+				}
 			}
-		}
-		glEnd(); 
+			glEnd(); 
 	}
 	if (drawType & TYPE_WITH_NORMAL)
 	{
-		glBegin(GL_LINES);
-		for (int i = 0; i < global_mesh.getVerticesSize(); i++)
+		if (!afterSeg)
 		{
-			Triangulation::Vertex v = global_mesh.getVertex(i);
-			Vec3d end = v.m_xyz + v.m_normal / 1000.0;
-			glColor3ub(255, 0, 0);
-			glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
-			glVertex3d(end[0], end[1], -end[2]);
+			glBegin(GL_LINES);
+			for (int i = 0; i < global_mesh.getVerticesSize(); i++)
+			{
+				Triangulation::Vertex v = global_mesh.getVertex(i);
+				Vec3d end = v.m_xyz + v.m_normal / 1000.0;
+				glColor3ub(255, 0, 0);
+				glVertex3d(v.m_xyz[0], v.m_xyz[1], -v.m_xyz[2]);
+				glVertex3d(end[0], end[1], -end[2]);
+			}
+			glEnd();
 		}
-		glEnd();
+		else
+		{
+			for (int i = 0; i < meshs.size(); i++)
+			{
+				Mat userT = meshs[i].m_userT.t();
+				GLdouble glUserT[16];
+				memcpy(glUserT, userT.data, 16 * sizeof(double));
+				Vec3d barycenter = meshs[i].barycenter();
+				glPushMatrix();
+				glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+				glMultMatrixd(glUserT);
+				glBegin(GL_LINES);
+				for (int j = 0; j < meshs[i].getVerticesSize(); j++)
+				{
+					Triangulation::Vertex v = meshs[i].getVertex(j);
+					Vec3d realXYZ = v.m_xyz - barycenter;
+					Vec3d end = realXYZ + v.m_normal / 1000.0;
+					glColor3ub(255, 0, 0);
+					glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+					glVertex3d(end[0], end[1], -end[2]);
+				}
+				glEnd();
+			}
+		}
 	}
-	GLint viewPort[4] = {0};
-	glutSetWindow(subWindow1);
-	glGetIntegerv(GL_VIEWPORT, viewPort);
-	glReadPixels(viewPort[0], viewPort[1], viewPort[2], 
-		viewPort[3], GL_RGB, GL_UNSIGNED_BYTE, viewImgArr);
-	Mat viewImg(height, width, CV_8UC3, viewImgArr);
-	cvtColor(viewImg, viewImg, CV_RGB2BGR);
-	flip(viewImg, viewImg, 0);
-	char name[30];
-	sprintf(name, "%d.png", drawType);
-	imwrite(name, viewImg);
+// 	GLint viewPort[4] = {0};
+// 	glutSetWindow(subWindow1);
+// 	glGetIntegerv(GL_VIEWPORT, viewPort);
+// 	glReadPixels(viewPort[0], viewPort[1], viewPort[2], 
+// 		viewPort[3], GL_RGB, GL_UNSIGNED_BYTE, viewImgArr);
+// 	Mat viewImg(height, width, CV_8UC3, viewImgArr);
+// 	cvtColor(viewImg, viewImg, CV_RGB2BGR);
+// 	flip(viewImg, viewImg, 0);
+// 	char name[30];
+// 	sprintf(name, "%d.png", drawType);
+// 	imwrite(name, viewImg);
 }
 
 void drawTranslateAxis(int type)
@@ -337,40 +367,111 @@ void drawRotateRing(int type)
 
 void drawPointsSub2()
 {
-	glPointSize(1.0);									
-	for (int i = 0; i < meshs.size(); i++)
+	if (drawType & TYPE_POINT)
 	{
-		glLoadName(i); // 给物体标号，不能处在glBegin和glEnd之间
-		Mat userT = meshs[i].m_userT.t();
-		GLdouble glUserT[16];
-		memcpy(glUserT, userT.data, 16 * sizeof(double));
-		Vec3d barycenter = meshs[i].barycenter();
-		glPushMatrix();
-		glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
-		glMultMatrixd(glUserT);
-		glBegin(GL_POINTS);	
-		if (selectedMesh >= 0 && i == selectedMesh)
+		for (int i = 0; i < meshs.size(); i++)
 		{
+			glLoadName(i); // 给物体标号，不能处在glBegin和glEnd之间
+			Mat userT = meshs[i].m_userT.t();
+			GLdouble glUserT[16];
+			memcpy(glUserT, userT.data, 16 * sizeof(double));
+			Vec3d barycenter = meshs[i].barycenter();
+			glPushMatrix();
+			glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+			glMultMatrixd(glUserT);
+			glBegin(GL_POINTS);	
+			if (selectedMesh >= 0 && i == selectedMesh)
+			{
+				for (int j = 0; j < meshs[i].getVerticesSize(); j++)
+				{
+					Triangulation::Vertex v = meshs[i].getVertex(j);
+					Vec3d realXYZ = v.m_xyz - barycenter;
+					glColor3ub(200, 200, 200);
+					glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+				}
+			}
+			else
+			{
+				for (int j = 0; j < meshs[i].getVerticesSize(); j++)
+				{
+					Triangulation::Vertex v = meshs[i].getVertex(j);
+					Vec3d realXYZ = v.m_xyz - barycenter;
+					glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
+					glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+				}
+			}
+			glEnd();
+			glPopMatrix();
+		}
+	}
+	else if (drawType & TYPE_TRIANGLES)
+	{
+		for (int i = 0; i < meshs.size(); i++)
+		{
+			glLoadName(i); // 给物体标号，不能处在glBegin和glEnd之间
+			Mat userT = meshs[i].m_userT.t();
+			GLdouble glUserT[16];
+			memcpy(glUserT, userT.data, 16 * sizeof(double));
+			Vec3d barycenter = meshs[i].barycenter();
+			glPushMatrix();
+			glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+			glMultMatrixd(glUserT);
+			glBegin(GL_TRIANGLES);	
+			if (selectedMesh >= 0 && i == selectedMesh)
+			{
+				for (int j = 0; j < meshs[i].m_triangles.size(); j++)
+				{
+					Triangulation::Triangle t = meshs[i].m_triangles[j];
+					for (int k = 0; k < Triangulation::Triangle::Vertex_Size; k++)
+					{
+						Triangulation::Vertex v = t.m_vertices[k];
+						Vec3d realXYZ = v.m_xyz - barycenter;
+						glColor3ub(200, 200, 200);
+						glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+					}	
+				}
+			}
+			else
+			{
+				for (int j = 0; j < meshs[i].m_triangles.size(); j++)
+				{
+					Triangulation::Triangle t = meshs[i].m_triangles[j];
+					for (int k = 0; k < Triangulation::Triangle::Vertex_Size; k++)
+					{
+						Triangulation::Vertex v = t.m_vertices[k];
+						Vec3d realXYZ = v.m_xyz - barycenter;
+						glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
+						glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+					}	
+				}
+			}
+			glEnd();
+			glPopMatrix();
+		}
+	}
+	if (drawType & TYPE_WITH_NORMAL)
+	{
+		for (int i = 0; i < meshs.size(); i++)
+		{
+			Mat userT = meshs[i].m_userT.t();
+			GLdouble glUserT[16];
+			memcpy(glUserT, userT.data, 16 * sizeof(double));
+			Vec3d barycenter = meshs[i].barycenter();
+			glPushMatrix();
+			glTranslated(barycenter[0], barycenter[1], -barycenter[2]);
+			glMultMatrixd(glUserT);
+			glBegin(GL_LINES);
 			for (int j = 0; j < meshs[i].getVerticesSize(); j++)
 			{
 				Triangulation::Vertex v = meshs[i].getVertex(j);
 				Vec3d realXYZ = v.m_xyz - barycenter;
-				glColor3ub(200, 200, 200);
+				Vec3d end = realXYZ + v.m_normal / 1000.0;
+				glColor3ub(255, 0, 0);
 				glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
+				glVertex3d(end[0], end[1], -end[2]);
 			}
+			glEnd();
 		}
-		else
-		{
-			for (int j = 0; j < meshs[i].getVerticesSize(); j++)
-			{
-				Triangulation::Vertex v = meshs[i].getVertex(j);
-				Vec3d realXYZ = v.m_xyz - barycenter;
-				glColor3ub(v.m_color[2], v.m_color[1], v.m_color[0]);
-				glVertex3d(realXYZ[0], realXYZ[1], -realXYZ[2]);
-			}
-		}
-		glEnd();
-		glPopMatrix();
 	}
 	if ((opType & OP_SELECT) && selectedMesh >= 0)
 	{
@@ -419,7 +520,7 @@ void drawPointsSub2()
 // 选择模型
 void selection(int mousePosX, int mousePosY)
 {
-	glutSetWindow(subWindow2);
+	glutSetWindow(subWindow1);
 
 	GLuint	buffer[512];										// Set Up A Selection Buffer
 	GLint	hits;												// The Number Of Objects That We Selected
@@ -589,7 +690,10 @@ void mouse(int button, int state, int x, int y)
 			else
 			{
 				cameraMode = false;
-				selection(x, y);
+				if (afterSeg)
+				{
+					selection(x, y);
+				}
 			}
 		}
 		else
@@ -753,9 +857,28 @@ void keyboard(uchar key, int x, int y)
 		drawType = TYPE_TRIANGLES;
 		if (stopScan)
 		{
-			global_delaunay.computeDelaunay(global_mesh);
-			cout << global_mesh.getTriangleSize() << endl;
+			if (!afterSeg)
+			{
+				global_delaunay.computeDelaunay(global_mesh);
+				cout << global_mesh.getTriangleSize() << endl;
+			}
+			else
+			{
+				for (int i = 0; i < meshs.size(); i++)
+				{
+					global_delaunay.computeDelaunay(meshs[i]);
+					cout << meshs[i].getTriangleSize() << endl;
+				}
+			}
 		}
+		break;
+	case '4':
+		srand(time(0));
+		meshs.clear();
+		RUNANDTIME(global_timer, 
+			segment3DRBNN(SEG_K, global_mesh, meshs),
+			true, "segment 3D points");
+		afterSeg = true;
 		break;
 	case '[':
 		{
@@ -806,14 +929,7 @@ void mouseEntry(int state)
 {
 	POINT mousePos;
 	GetCursorPos(&mousePos);
-	if (mousePos.x >= glSubWin2PosX)
-	{
-		curWinPosX = glSubWin2PosX;
-	}
-	else
-	{
-		curWinPosX = glSubWin1PosX;
-	}
+	curWinPosX = glSubWin1PosX;
 	curWinPosY = glWinPosY;
 	userCamera.setMouseState(false);
 // 	switch (state)
@@ -835,7 +951,6 @@ void renderScene(void)
 	glWinPosX = glutGet(GLUT_WINDOW_X);
 	glWinPosY = glutGet(GLUT_WINDOW_Y);
 	glSubWin1PosX = glWinPosX;
-	glSubWin2PosX = glSubWin1PosX + glWinWidth / 2;
 	glClear(GL_COLOR_BUFFER_BIT);
 	glutSwapBuffers();
 }
@@ -854,7 +969,14 @@ void renderSceneSub1(void)
 
 	glScaled(scaleFactor, scaleFactor, scaleFactor);
 
-	drawPointsSub1();
+	if (!afterSeg)
+	{
+		drawPointsSub1();
+	}
+	else
+	{
+		drawPointsSub2();
+	}
 
 	Vec3d vPos = userCamera.position();
 	Vec3d vView = userCamera.view();
@@ -895,7 +1017,7 @@ void renderSceneAll()
 {
 	renderScene();
 	renderSceneSub1();
-	renderSceneSub2();
+	//renderSceneSub2();
 }
 
 void setProjection(int w1, int h1)
@@ -929,15 +1051,8 @@ void reshape (int w, int h)
 	glutSetWindow(subWindow1);
 	// resize and reposition the sub window
 	glutPositionWindow(glWinPosX, glWinPosY);
-	glutReshapeWindow(glWinWidth / 2, glWinHeight);
-	setProjection(glWinWidth / 2, glWinHeight);
-
-	// set subwindow 2 as the active window
-	glutSetWindow(subWindow2);
-	// resize and reposition the sub window
-	glutPositionWindow(glWinPosX + glWinWidth / 2, glWinPosY);
-	glutReshapeWindow(glWinWidth / 2, glWinHeight);
-	setProjection(glWinWidth / 2, glWinHeight);
+	glutReshapeWindow(glWinWidth, glWinHeight);
+	setProjection(glWinWidth, glWinHeight);
 }
 
 // 初始化OpenNI
@@ -1028,13 +1143,8 @@ void initOpenGL(int argc, char** argv)
 	init();
 
 	subWindow1 = glutCreateSubWindow(mainWindow, glSubWin1PosX, 
-		glWinPosY, glWinWidth / 2, glWinHeight);
+		glWinPosY, glWinWidth, glWinHeight);
 	glutDisplayFunc(renderSceneSub1);
-	init();
-
-	subWindow2 = glutCreateSubWindow(mainWindow, glSubWin2PosX, 
-		glWinPosY, glWinWidth / 2, glWinHeight);
-	glutDisplayFunc(renderSceneSub2);
 	init();
 
 	glEnable(GL_DEPTH_TEST);
@@ -1098,10 +1208,14 @@ int main(int argc, char** argv)
 
 		rc = record.Record();  
 		checkOpenNIError(rc,"recording "); 
-		if (frameCnt == 71)
-		{
-			isStarted = true;
-		}
+// 		if (frameCnt == 71)
+// 		{
+// 			isStarted = true;
+// 		}
+// 		if (frameCnt > 150)
+// 		{
+// 			stopScan = true;
+// 		}
 
 		if (!isStarted)
 		{
@@ -1334,12 +1448,6 @@ int main(int argc, char** argv)
 // 				RUNANDTIME(global_timer, 
 // 					mesh.addVertices(pointCloud, pointColors), 
 // 					OUTPUT, "load data");
-
-// 	srand(time(0));
-// 	meshs.clear();
-// 	RUNANDTIME(global_timer, 
-// 		segment3DRBNN(SEG_K, global_mesh, meshs),
-// 		true, "segment 3D points");
 
 	cout << global_mesh.getVerticesSize() << endl;
 	glutMainLoop();

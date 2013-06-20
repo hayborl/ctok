@@ -15,7 +15,7 @@ extern Mat convertMat(const Mat &mat);
 
 void segment3DKmeans(Mesh mesh, vector<Mesh> &segs, int kNum)
 {
-	mesh.computeVerticesNormals();
+	//mesh.computeVerticesNormals();
 
 	int size = (int)mesh.getVerticesSize();
 	Mat pointCloud, normals;
@@ -29,11 +29,11 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs, int kNum)
 		normals.at<Vec3d>(i, 0) = v.m_normal;
 	}
 
-	Mat clusterData(pointCloud.rows, 6, CV_64FC1);
+	Mat clusterData(pointCloud.rows, 3, CV_64FC1);
 	Mat roi = clusterData(Rect(0, 0, 3, pointCloud.rows));
 	convertMat(pointCloud).copyTo(roi);
-	roi = clusterData(Rect(3, 0, 3, pointCloud.rows));
-	convertMat(normals).copyTo(roi);
+// 	roi = clusterData(Rect(3, 0, 3, pointCloud.rows));
+// 	convertMat(normals).copyTo(roi);
 	clusterData.convertTo(clusterData, CV_32FC1);
 
 	vector<int> labels;
@@ -50,7 +50,7 @@ void segment3DKmeans(Mesh mesh, vector<Mesh> &segs, int kNum)
 	for (int i = 0; i < size; i++)
 	{
 		Triangulation::Vertex v = mesh.getVertex(i);
-		v.m_color = colors[labels[i]];
+		/*v.m_color = colors[labels[i]];*/
 		tmpMeshs[labels[i]].addVertex(v);
 	}
 	for (int i = 0; i < kNum; i++)
@@ -132,21 +132,34 @@ int computeLabels( const int &k, Mesh &mesh,
 		os << LPD << endl;
 		int cnt = k;
 
-		if (LPD > 100000)
+// 		if (LPD > 100000)
+// 		{
+// 			cnt = int(k * 0.15);
+// 		}
+// 		else if (LPD > 10000)
+// 		{
+// 			cnt = int(k * 0.2);
+// 		}
+// 		else if (LPD > 1000)
+// 		{
+// 			cnt = int(k * 2 / log(LPD));
+// 		}
+// 		else
+// 		{
+// 			cnt = int(k * (0.75 - 0.00045 * LPD));
+// 		}
+		if (LPD > 10000)
 		{
-			cnt = int(k * 0.15);
-		}
-		else if (LPD > 10000)
-		{
-			cnt = int(k * 0.2);
+			cnt = k * 0.2;
 		}
 		else if (LPD > 1000)
 		{
-			cnt = int(k * 2 / log(LPD));
+			double dist = dists[k - 1] / exp(log(LPD));
+			cnt = search(dists, dist, k);
 		}
 		else
 		{
-			cnt = int(k * (0.75 - 0.00045 * LPD));
+			cnt = k * 0.75;
 		}
 
 //		Vec3d normal = mesh.getVertex(i).m_normal;
@@ -253,7 +266,7 @@ void segment3DRBNN(const int &k, Mesh &mesh, vector<Mesh> &segs)
 		for (int i = 0; i < size; i++)
 		{
 			Triangulation::Vertex v = mesh.getVertex(i);
-			v.m_color = colors[labelMap[labels[i]]];
+			/*v.m_color = colors[labelMap[labels[i]]];*/
 			tmpMeshs[labelMap[labels[i]]].addVertex(v);
 		}
 		for (int i = 0; i < labelCnt; i++)
